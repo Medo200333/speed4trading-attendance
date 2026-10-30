@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Door, Finger, Store } from "@/lib/speed-data";
 import { applyLive, todayKey } from "@/lib/speed-data";
-import { desktopOnly, speedApi } from "@/lib/speed-link";
+import { desktopOnly, speedApi, type CloudLoginResult } from "@/lib/speed-link";
 
 type Patch = (next: Store, message: string) => void;
 
@@ -157,22 +157,93 @@ const steps = [
 ];
 
 export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
-  const [team, setTeam] = useState(store.teamName);
-  const devices = store.devices.filter((d) => d.companyId === store.companyId);
+  const [account, setAccount] = useState("");
+  const [password, setPassword] = useState("");
+  const [imageCode, setImageCode] = useState("");
+  const [smsCode, setSmsCode] = useState("");
+  const [featureCode, setFeatureCode] = useState("");
+  const [captcha, setCaptcha] = useState("");
+  const [needSms, setNeedSms] = useState(false);
+  const [session, setSession] = useState<Extract<CloudLoginResult, { ok: true }> | null>(null);
+  const [busy, setBusy] = useState("");
+  const devices = store.devices.filter((d) => d.companyId === store.companyId && !d.removed);
+  const login = async () => {
+    const api = speedApi();
+    if (!api) { patch(store, desktopOnly); return; }
+    if (!account.trim() || !password) { patch(store, "اكتب حساب هيك-كونكت وكلمة السر. مش هيتسجلوا في البرنامج."); return; }
+    setBusy("login");
+    const result = await api.cloudLogin({ account, password, imageCode, featureCode, smsCode });
+    setBusy("");
+    if (!result.ok) {
+      setFeatureCode(result.featureCode || featureCode);
+      setCaptcha(result.captcha || "");
+      setNeedSms(Boolean(result.needSms));
+      patch(store, result.error);
+      return;
+    }
+    setSession(result);
+    setCaptcha("");
+    setPassword("");
+    patch({ ...store, teamName: result.teamName || store.teamName }, result.notice || `الفريق اتفتح: ${result.teamName}`);
+  };
+  const pullCloud = async () => {
+    const api = speedApi();
+    if (!api) { patch(store, desktopOnly); return; }
+    if (!session) { patch(store, "ادخل على هيك-كونكت الأول."); return; }
+    if (!devices.length) { patch(store, "مفيش فرع نركّب عليه الحضور."); return; }
+    setBusy("pull");
+    const result = await api.cloudPull({ apiBase: session.apiBase, sessionId: session.sessionId, featureCode: session.featureCode, day: todayKey() });
+    setBusy("");
+    if (!result.ok) { patch(store, result.error); return; }
+    const buckets = new Map<string, { punches: { employeeNo: string; name: string; at: string; method: string }[]; users: { employeeNo: string; name: string; fingers: number; faces: number; cards: number }[] }>();
+    const take = (deviceId: string) => {
+      const found = buckets.get(deviceId);
+      if (found) return found;
+      const empty = { punches: [], users: [] as { employeeNo: string; name: string; fingers: number; faces: number; cards: number }[] };
+      buckets.set(deviceId, empty);
+      return empty;
+    };
+    const known = store.people.filter((person) => person.companyId === store.companyId);
+    const deviceFor = (code: string, name: string) => known.find((person) => person.code === code || person.name === name)?.deviceId || devices[0].id;
+    for (const person of result.people) {
+      take(deviceFor(person.employeeNo, person.name)).users.push({ employeeNo: person.employeeNo, name: person.name, fingers: 0, faces: 0, cards: 0 });
+    }
+    for (const punch of result.punches) {
+      const code = punch.employeeNo || punch.name;
+      const bucket = take(deviceFor(code, punch.name));
+      if (!bucket.users.some((user) => user.employeeNo === code)) bucket.users.push({ employeeNo: code, name: punch.name, fingers: 1, faces: 0, cards: 0 });
+      else bucket.users = bucket.users.map((user) => user.employeeNo === code ? { ...user, fingers: 1 } : user);
+      bucket.punches.push({ employeeNo: code, name: punch.name, at: `${punch.date} ${punch.time.slice(0, 5)}`, method: punch.method || "بصمة" });
+    }
+    let next = store;
+    if (session.teamName) next = { ...next, teamName: session.teamName };
+    for (const [deviceId, live] of buckets) {
+      const device = devices.find((item) => item.id === deviceId);
+      if (device) next = applyLive(next, device, live, todayKey());
+    }
+    patch(next, result.notice || `هيك-كونكت: ${result.punches.length} حركة و${result.people.length} شخص.`);
+  };
   return (
     <section className="space-y-3">
       <article className="rounded-card border border-line bg-panel p-4">
         <h2 className="font-semibold">دخول Hik-Connect Team</h2>
-        <p className="mt-1 text-sm text-muted">الدخول يتم على صفحة Hikvision نفسها، مش من إيميل محفوظ جوه البرنامج.</p>
-        <a className="mt-3 inline-flex min-h-11 items-center rounded-card bg-clay px-4 text-panel" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح صفحة الدخول</a>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <input className="min-h-11 flex-1 rounded-card border border-line bg-paper px-3" placeholder="اسم الفريق بعد ما تسجّل دخولك" value={team} onChange={(e) => setTeam(e.target.value)} />
-          <button className="min-h-11 rounded-card bg-ink px-3 text-panel" onClick={() => patch({ ...store, teamName: team.trim() }, team.trim() ? `اتسجل فريق ${team.trim()}.` : "اتمسح اسم الفريق.")}>حفظ اسم الفريق</button>
+        <p className="mt-1 text-sm text-muted">اكتب حساب الفريق بنفسك. كلمة السر مش بتتحفظ، والسحب يجي من موقع هيك-كونكت مش من إيميل محفوظ.</p>
+        <div className="mt-3 grid gap-2">
+          <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="الإيميل أو الموبايل" value={account} onChange={(e) => setAccount(e.target.value)} />
+          <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" type="password" placeholder="كلمة سر هيك-كونكت" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {captcha ? <img src={captcha} alt="كود الصورة" className="h-16 w-40 rounded-card border border-line bg-paper object-contain" /> : null}
+          {captcha ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الصورة" value={imageCode} onChange={(e) => setImageCode(e.target.value)} /> : null}
+          {needSms ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الرسالة" value={smsCode} onChange={(e) => setSmsCode(e.target.value)} /> : null}
+          <div className="flex flex-wrap gap-2">
+            <button className="min-h-11 rounded-card bg-clay px-4 text-panel disabled:opacity-50" disabled={busy === "login"} onClick={() => void login()}>{busy === "login" ? "جارٍ الدخول" : "دخول الفريق"}</button>
+            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!session || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب" : "سحب حضور اليوم من هيك-كونكت"}</button>
+            <a className="inline-flex min-h-11 items-center rounded-card border border-line px-4 text-sm" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح الموقع</a>
+          </div>
         </div>
-        {store.teamName ? <p className="mt-2 text-sm">الفريق المحفوظ: {store.teamName}</p> : null}
+        {session ? <p className="mt-2 text-sm">الفريق المفتوح: {session.teamName || store.teamName || "من غير اسم"}</p> : null}
       </article>
       <ol className="grid gap-2">{steps.map(([title, body]) => <li key={title} className="rounded-card border border-line bg-panel px-4 py-3"><strong>{title}</strong><span className="mt-1 block text-sm text-muted">{body}</span></li>)}</ol>
-      <ul className="grid gap-2">{devices.map((d) => <li key={d.id} className="rounded-card border border-line bg-panel p-4"><div className="flex justify-between gap-2"><strong><bdi>{d.cloudName}</bdi></strong><span className="text-sm text-muted">{d.removed ? "اتشال من الأجهزة" : d.branch}</span></div><p className="text-xs text-muted"><bdi>{d.serial}</bdi></p></li>)}</ul>
+      <ul className="grid gap-2">{devices.map((d) => <li key={d.id} className="rounded-card border border-line bg-panel p-4"><div className="flex justify-between gap-2"><strong><bdi>{d.cloudName}</bdi></strong><span className="text-sm text-muted">{d.branch}</span></div><p className="text-xs text-muted"><bdi>{d.serial}</bdi></p></li>)}</ul>
     </section>
   );
 }

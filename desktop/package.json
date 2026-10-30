@@ -18,6 +18,7 @@
       "main.cjs",
       "preload.cjs",
       "isapi.cjs",
+      "hik-connect.cjs",
       "dist/**/*"
     ],
     "asar": true,
