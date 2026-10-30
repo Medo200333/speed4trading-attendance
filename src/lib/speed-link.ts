@@ -8,7 +8,7 @@ export type CloudLoginResult =
   | { ok: true; apiBase: string; sessionId: string; featureCode: string; teamName: string; notice: string }
   | { ok: false; error: string; captcha?: string; featureCode?: string; needSms?: boolean };
 export type CloudPunch = { employeeNo: string; name: string; date: string; time: string; method: string };
-export type CloudPerson = { employeeNo: string; name: string };
+export type CloudPerson = { employeeNo: string; name: string; photo?: string };
 export type CloudPullResult =
   | { ok: true; punches: CloudPunch[]; people: CloudPerson[]; notice?: string }
   | { ok: false; error: string };

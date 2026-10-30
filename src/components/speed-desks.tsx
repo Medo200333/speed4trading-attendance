@@ -206,7 +206,7 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
     const known = store.people.filter((person) => person.companyId === store.companyId);
     const deviceFor = (code: string, name: string) => known.find((person) => person.code === code || person.name === name)?.deviceId || devices[0].id;
     for (const person of result.people) {
-      take(deviceFor(person.employeeNo, person.name)).users.push({ employeeNo: person.employeeNo, name: person.name, fingers: 0, faces: 0, cards: 0 });
+      take(deviceFor(person.employeeNo, person.name)).users.push({ employeeNo: person.employeeNo, name: person.name, fingers: 0, faces: person.photo ? 1 : 0, cards: 0, photo: person.photo || "" });
     }
     for (const punch of result.punches) {
       const code = punch.employeeNo || punch.name;
@@ -236,7 +236,7 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
           {needSms ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الرسالة" value={smsCode} onChange={(e) => setSmsCode(e.target.value)} /> : null}
           <div className="flex flex-wrap gap-2">
             <button className="min-h-11 rounded-card bg-clay px-4 text-panel disabled:opacity-50" disabled={busy === "login"} onClick={() => void login()}>{busy === "login" ? "جارٍ الدخول" : "دخول الفريق"}</button>
-            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!session || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب" : "سحب حضور اليوم من هيك-كونكت"}</button>
+            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!session || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب" : "سحب الحضور والـ Transaction"}</button>
             <a className="inline-flex min-h-11 items-center rounded-card border border-line px-4 text-sm" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح الموقع</a>
           </div>
         </div>

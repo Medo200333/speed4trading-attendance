@@ -353,8 +353,8 @@ function Report({ date, setDate, rows, company }: { date: string; setDate: (v: s
       <p className="text-sm text-muted">حاضر {tally.present} · متأخر {tally.late} · غياب {tally.absent}. التأخير يتحسب بعد سماح الوردية.</p>
       <div className="overflow-x-auto rounded-card border border-line bg-panel">
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="text-muted"><tr className="border-b border-line">{["الموظف", "الفرع", "القسم", "دخول", "خروج", "الحالة", "تأخير"].map((h) => <th key={h} className="px-3 py-3 text-right font-medium">{h}</th>)}</tr></thead>
-          <tbody>{rows.map((r) => <tr key={r.personId} className="border-b border-line last:border-0"><td className="px-3 py-3">{r.name}<span className="block text-xs text-muted"><bdi>{r.code}</bdi> · {r.shift}</span></td><td className="px-3 py-3">{r.branch}</td><td className="px-3 py-3">{r.department}</td><td className="px-3 py-3"><bdi>{r.inn || "—"}</bdi></td><td className="px-3 py-3"><bdi>{r.out || "—"}</bdi></td><td className="px-3 py-3">{r.status}</td><td className="px-3 py-3">{r.late ? `${r.late} د` : "—"}</td></tr>)}</tbody>
+          <thead className="text-muted"><tr className="border-b border-line">{["الموظف", "أول بصمة", "آخر بصمة", "ساعات العمل", "الحالة"].map((h) => <th key={h} className="px-3 py-3 text-right font-medium">{h}</th>)}</tr></thead>
+          <tbody>{rows.map((r) => <tr key={r.personId} className="border-b border-line last:border-0"><td className="px-3 py-3"><span className="flex items-center gap-2">{r.photo ? <img src={r.photo} alt="" className="size-10 rounded-full object-cover" /> : <span className="size-10 rounded-full bg-paper" />}<span>{r.name}<span className="block text-xs text-muted"><bdi>{r.code}</bdi> · {r.branch}</span></span></span></td><td className="px-3 py-3"><bdi>{r.inn || "—"}</bdi></td><td className="px-3 py-3"><bdi>{r.out || "—"}</bdi></td><td className="px-3 py-3">{r.hours || "—"}</td><td className="px-3 py-3">{r.status}{r.late ? ` · ${r.late} د` : ""}</td></tr>)}</tbody>
         </table>
       </div>
     </>

@@ -30,6 +30,7 @@ export type Person = {
   face: boolean;
   card: boolean;
   cardNo: string;
+  photo?: string;
 };
 export type Punch = {
   id: string;
@@ -92,6 +93,8 @@ export type DayRow = {
   shift: string;
   inn: string;
   out: string;
+  hours: string;
+  photo: string;
   status: "حاضر" | "متأخر" | "غياب" | "لم ينصرف";
   late: number;
 };
@@ -201,7 +204,8 @@ export function loadStore(): Store {
 }
 
 export function saveStore(store: Store) {
-  localStorage.setItem(KEY, JSON.stringify(store));
+  const slim = { ...store, people: store.people.map((person) => ({ ...person, photo: "" })) };
+  localStorage.setItem(KEY, JSON.stringify(slim));
 }
 
 export function nowStamp() {
@@ -228,6 +232,14 @@ export function daySheet(store: Store, companyId: string, date: string): DayRow[
     const inn = mine.find((k) => k.kind === "دخول")?.at.slice(11, 16) ?? "";
     const outs = mine.filter((k) => k.kind === "خروج");
     const out = outs.length ? outs[outs.length - 1].at.slice(11, 16) : "";
+    let hours = "";
+    if (inn && out) {
+      let mins = toMin(out) - toMin(inn);
+      if (mins < 0) mins += 24 * 60;
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      hours = m ? `${h} س ${m} د` : `${h} س`;
+    }
     let status: DayRow["status"] = "غياب";
     let late = 0;
     if (inn) {
@@ -236,7 +248,7 @@ export function daySheet(store: Store, companyId: string, date: string): DayRow[
     }
     return {
       personId: p.id, name: p.name, code: p.code, branch: device?.removed ? "جهاز محذوف" : device?.branch ?? "",
-      department, shift: shift?.name ?? "", inn, out, status, late,
+      department, shift: shift?.name ?? "", inn, out, hours, photo: p.photo || "", status, late,
     };
   });
 }
@@ -251,13 +263,13 @@ export function counts(rows: DayRow[]) {
 }
 
 export function toCsv(rows: DayRow[]) {
-  const head = ["الرقم", "الاسم", "الفرع", "القسم", "الوردية", "دخول", "خروج", "الحالة", "تأخير بالدقيقة"];
-  const body = rows.map((r) => [r.code, r.name, r.branch, r.department, r.shift, r.inn, r.out, r.status, String(r.late)]);
+  const head = ["الرقم", "الاسم", "الفرع", "القسم", "الوردية", "أول بصمة", "آخر بصمة", "ساعات العمل", "الحالة", "تأخير بالدقيقة"];
+  const body = rows.map((r) => [r.code, r.name, r.branch, r.department, r.shift, r.inn, r.out, r.hours, r.status, String(r.late)]);
   return [head, ...body].map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
 }
 
 export type LivePunch = { employeeNo: string; name: string; at: string; method: string };
-export type LiveUser = { employeeNo: string; name: string; fingers: number; faces: number; cards: number };
+export type LiveUser = { employeeNo: string; name: string; fingers: number; faces: number; cards: number; photo?: string };
 
 export function applyLive(store: Store, device: Device, live: { punches: LivePunch[]; users: LiveUser[] }, day: string): Store {
   let people = store.people.slice();
@@ -280,11 +292,12 @@ export function applyLive(store: Store, device: Device, live: { punches: LivePun
         face: user.faces > 0,
         card: user.cards > 0,
         cardNo: "",
+        photo: user.photo || "",
       };
       people = [...people, person];
     } else if (person) {
       const current = person;
-      people = people.map((item) => item.id === current.id ? { ...item, finger: user.fingers > 0 || item.finger, face: user.faces > 0 || item.face, card: user.cards > 0 || item.card } : item);
+      people = people.map((item) => item.id === current.id ? { ...item, photo: user.photo || item.photo, finger: user.fingers > 0 || item.finger, face: user.faces > 0 || item.face || Boolean(user.photo), card: user.cards > 0 || item.card } : item);
     }
     if (person && user.fingers > 0) {
       const exists = fingers.some((item) => item.personId === person.id && item.deviceId === device.id);
