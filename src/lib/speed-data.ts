@@ -14,6 +14,8 @@ export type Device = {
   online: boolean;
   lastSync: string;
   removed: boolean;
+  user: string;
+  pass: string;
 };
 export type Person = {
   id: string;
@@ -168,7 +170,7 @@ export const seed = (): Store => ({
 });
 
 function device(id: string, companyId: string, branch: string, cloudName: string, ip: string, serial: string, firmware: string, online: boolean, lastSync: string): Device {
-  return { id, companyId, branch, cloudName, ip, port: 80, model: "DS-K1T342", firmware, serial, online, lastSync, removed: false };
+  return { id, companyId, branch, cloudName, ip, port: 80, model: "DS-K1T342", firmware, serial, online, lastSync, removed: false, user: "admin", pass: "" };
 }
 function person(id: string, companyId: string, deviceId: string, departmentId: string, shiftId: string, name: string, code: string, finger: boolean, face: boolean, card: boolean): Person {
   return { id, companyId, deviceId, departmentId, shiftId, name, code, active: true, finger, face, card, cardNo: card ? `${code}01` : "" };
@@ -183,14 +185,15 @@ function punch(id: string, companyId: string, deviceId: string, personId: string
   return { id, companyId, deviceId, personId, deviceName, branch, person: personName, at, kind, source: "جهاز" };
 }
 
-const KEY = "speed-training-console-v3";
+const KEY = "speed-training-console-v4";
 
 export function loadStore(): Store {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) || localStorage.getItem("speed-training-console-v3");
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Store;
     if (!parsed.companies?.length || !parsed.departments || !parsed.shifts || !parsed.people || !parsed.doors || !parsed.fingers || !parsed.levels) return seed();
+    parsed.devices = parsed.devices.map((device) => ({ user: "admin", pass: "", ...device }));
     return parsed;
   } catch {
     return seed();
@@ -251,4 +254,75 @@ export function toCsv(rows: DayRow[]) {
   const head = ["الرقم", "الاسم", "الفرع", "القسم", "الوردية", "دخول", "خروج", "الحالة", "تأخير بالدقيقة"];
   const body = rows.map((r) => [r.code, r.name, r.branch, r.department, r.shift, r.inn, r.out, r.status, String(r.late)]);
   return [head, ...body].map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+}
+
+export type LivePunch = { employeeNo: string; name: string; at: string; method: string };
+export type LiveUser = { employeeNo: string; name: string; fingers: number; faces: number; cards: number };
+
+export function applyLive(store: Store, device: Device, live: { punches: LivePunch[]; users: LiveUser[] }, day: string): Store {
+  let people = store.people.slice();
+  let fingers = store.fingers.slice();
+  const departmentId = store.departments.find((item) => item.companyId === device.companyId)?.id ?? "";
+  const shiftId = store.shifts.find((item) => item.companyId === device.companyId)?.id ?? "";
+  for (const user of live.users) {
+    let person = people.find((item) => item.companyId === device.companyId && item.code === user.employeeNo);
+    if (!person && departmentId && shiftId) {
+      person = {
+        id: `p-${device.id}-${user.employeeNo}`,
+        companyId: device.companyId,
+        deviceId: device.id,
+        departmentId,
+        shiftId,
+        name: user.name || user.employeeNo,
+        code: user.employeeNo,
+        active: true,
+        finger: user.fingers > 0,
+        face: user.faces > 0,
+        card: user.cards > 0,
+        cardNo: "",
+      };
+      people = [...people, person];
+    } else if (person) {
+      const current = person;
+      people = people.map((item) => item.id === current.id ? { ...item, finger: user.fingers > 0 || item.finger, face: user.faces > 0 || item.face, card: user.cards > 0 || item.card } : item);
+    }
+    if (person && user.fingers > 0) {
+      const exists = fingers.some((item) => item.personId === person.id && item.deviceId === device.id);
+      fingers = exists
+        ? fingers.map((item) => item.personId === person.id && item.deviceId === device.id ? { ...item, status: "على الجهاز" } : item)
+        : [...fingers, { id: `fg-${device.id}-${user.employeeNo}`, companyId: device.companyId, personId: person.id, deviceId: device.id, slot: 1, hand: "يمين", status: "على الجهاز" }];
+    }
+  }
+  const grouped = new Map<string, LivePunch[]>();
+  for (const punch of live.punches.filter((item) => item.at.startsWith(day))) {
+    grouped.set(punch.employeeNo, [...(grouped.get(punch.employeeNo) ?? []), punch]);
+  }
+  let punches = store.punches.filter((item) => !(item.deviceId === device.id && item.at.startsWith(day) && item.source === "جهاز"));
+  for (const [code, list] of grouped) {
+    const person = people.find((item) => item.companyId === device.companyId && item.code === code);
+    if (!person) continue;
+    const sorted = list.slice().sort((a, b) => a.at.localeCompare(b.at));
+    sorted.forEach((item, index) => {
+      const kind: Punch["kind"] = sorted.length > 1 && index === sorted.length - 1 ? "خروج" : "دخول";
+      punches = [...punches, {
+        id: `live-${device.id}-${code}-${item.at}`,
+        companyId: device.companyId,
+        deviceId: device.id,
+        personId: person.id,
+        deviceName: device.cloudName,
+        branch: device.branch,
+        person: person.name,
+        at: item.at.slice(0, 16),
+        kind,
+        source: "جهاز",
+      }];
+    });
+  }
+  return {
+    ...store,
+    people,
+    fingers,
+    punches,
+    devices: store.devices.map((item) => item.id === device.id ? { ...item, online: true, lastSync: nowStamp() } : item),
+  };
 }

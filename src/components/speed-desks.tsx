@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { Door, Finger, Store } from "@/lib/speed-data";
+import { applyLive, todayKey } from "@/lib/speed-data";
+import { desktopOnly, speedApi } from "@/lib/speed-link";
 
 type Patch = (next: Store, message: string) => void;
 
@@ -9,12 +11,23 @@ export function DoorDesk({ store, patch }: { store: Store; patch: Patch }) {
   const [name, setName] = useState("");
   const [deviceId, setDeviceId] = useState(devices[0]?.id ?? "");
   const [way, setWay] = useState<Door["way"]>("دخول");
-  const setState = (door: Door, state: Door["state"]) => {
-    patch({ ...store, doors: store.doors.map((d) => d.id === door.id ? { ...d, state } : d) }, `${door.name}: ${state}. الأمر يتنفّذ على الجهاز عند الاتصال.`);
+  const setState = async (door: Door, state: Door["state"]) => {
+    const device = store.devices.find((item) => item.id === door.deviceId);
+    const cmd = state === "مفتوحة" ? "open" : state === "مقفولة" ? "alwaysClose" : "close";
+    const api = speedApi();
+    if (!api) {
+      patch(store, desktopOnly);
+      return;
+    }
+    if (!device || device.removed) { patch(store, "الباب مش مربوط بجهاز."); return; }
+    if (!device.pass) { patch(store, `اكتب كلمة سر جهاز ${device.branch} قبل أمر الباب.`); return; }
+    const result = await api.door({ host: device.ip, port: device.port || 80, username: device.user || "admin", password: device.pass, cmd });
+    if (!result.ok) { patch(store, `${door.name}: ${result.error}`); return; }
+    patch({ ...store, doors: store.doors.map((item) => item.id === door.id ? { ...item, state } : item) }, `${door.name}: ${state}. الأمر اتنفّذ على الجهاز.`);
   };
   return (
     <section className="space-y-3">
-      <p className="text-sm text-muted">كل باب مربوط بجهاز فرع. الفتح والقفل أمر محفوظ هنا، ويتنفّذ على البصمة لما الجهاز يبقى واصل.</p>
+      <p className="text-sm text-muted">كل باب مربوط بجهاز فرع. الفتح والقفل بيتبعتوا للجهاز على الشبكة، ومش بيتحفظوا كشكل بس.</p>
       <div className="grid gap-2 rounded-card border border-line bg-panel p-4 sm:grid-cols-4">
         <input className="min-h-11 rounded-card border border-line bg-paper px-3" placeholder="اسم الباب" value={name} onChange={(e) => setName(e.target.value)} />
         <select className="min-h-11 rounded-card border border-line bg-paper px-3" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>{devices.map((d) => <option key={d.id} value={d.id}>{d.branch}</option>)}</select>
@@ -53,6 +66,22 @@ export function FingerDesk({ store, patch }: { store: Store; patch: Patch }) {
   const [slot, setSlot] = useState("1");
   const [cardPerson, setCardPerson] = useState(people[0]?.id ?? "");
   const [cardNo, setCardNo] = useState("");
+  const readDevices = async () => {
+    const api = speedApi();
+    if (!api) { patch(store, desktopOnly); return; }
+    const targets = devices.filter((device) => device.pass);
+    if (!targets.length) { patch(store, "اكتب كلمة سر الجهاز من تعديل الجهاز قبل قراءة البصمات."); return; }
+    let next = store;
+    const notes: string[] = [];
+    for (const device of targets) {
+      const result = await api.pull({ host: device.ip, port: device.port || 80, username: device.user || "admin", password: device.pass, day: todayKey() });
+      if (!result.ok) { notes.push(`${device.branch}: ${result.error}`); continue; }
+      const withFingers = result.users.filter((user) => user.fingers > 0).length;
+      next = applyLive(next, device, { punches: [], users: result.users }, todayKey());
+      notes.push(`${device.branch}: ${result.users.length} شخص، ${withFingers} عليهم بصمة`);
+    }
+    patch(next, notes.join(" · "));
+  };
   const add = () => {
     const n = Number(slot);
     if (!personId || !deviceId || n < 1 || n > 10) return;
@@ -61,7 +90,8 @@ export function FingerDesk({ store, patch }: { store: Store; patch: Patch }) {
   };
   return (
     <section className="space-y-3">
-      <p className="text-sm text-muted">البرنامج يحفظ الخانة واليد. قالب البصمة نفسه يتسجل على جهاز الفرع، ومش بيتخزن هنا.</p>
+      <p className="text-sm text-muted">القراءة من الجهاز بتجيب الأشخاص وعدد البصمات المسجلة عندهم. قالب الإصبع نفسه يفضل على الجهاز وما يتسحش هنا.</p>
+      <button className="min-h-11 rounded-card bg-ink px-4 text-panel" onClick={() => void readDevices()}>قراءة البصمات من الأجهزة</button>
       <div className="grid gap-2 rounded-card border border-line bg-panel p-4 sm:grid-cols-5">
         <select className="min-h-11 rounded-card border border-line bg-paper px-3" value={personId} onChange={(e) => setPersonId(e.target.value)}>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
         <select className="min-h-11 rounded-card border border-line bg-paper px-3" value={deviceId} onChange={(e) => setDeviceId(e.target.value)}>{devices.map((d) => <option key={d.id} value={d.id}>{d.branch}</option>)}</select>
@@ -137,7 +167,7 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
         <a className="mt-3 inline-flex min-h-11 items-center rounded-card bg-clay px-4 text-panel" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح صفحة الدخول</a>
         <div className="mt-4 flex flex-wrap gap-2">
           <input className="min-h-11 flex-1 rounded-card border border-line bg-paper px-3" placeholder="اسم الفريق بعد ما تسجّل دخولك" value={team} onChange={(e) => setTeam(e.target.value)} />
-          <button className="min-h-11 rounded-card bg-ink px-3 text-panel" onClick={() => patch({ ...store, teamName: team.trim() }, team.trim() ? `اتسجل فريق ${team.trim()}.` : "اتمسح اسم الفريق.")}> حفظ اسم الفريق</button>
+          <button className="min-h-11 rounded-card bg-ink px-3 text-panel" onClick={() => patch({ ...store, teamName: team.trim() }, team.trim() ? `اتسجل فريق ${team.trim()}.` : "اتمسح اسم الفريق.")}>حفظ اسم الفريق</button>
         </div>
         {store.teamName ? <p className="mt-2 text-sm">الفريق المحفوظ: {store.teamName}</p> : null}
       </article>

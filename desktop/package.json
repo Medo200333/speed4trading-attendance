@@ -1,22 +1,35 @@
 {
-  "name": "speed4trading",
   "productName": "Speed4Trading",
   "version": "1.0.0",
   "private": true,
-  "description": "Speed4Trading attendance",
+  "description": "MK attendance module",
   "author": "MK",
   "main": "main.cjs",
   "scripts": {
-    "pack": "electron-builder --win nsis --x64"
+    "pack": "electron-builder --win dir --x64"
   },
   "build": {
-    "appId": "com.speed4trading.attendance",
+    "appId": "mk.attendance",
     "productName": "Speed4Trading",
-    "directories": { "output": "release" },
-    "files": ["main.cjs", "dist/**/*"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "isapi.cjs",
+      "dist/**/*"
+    ],
     "asar": true,
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "signAndEditExecutable": false
     },
     "nsis": {

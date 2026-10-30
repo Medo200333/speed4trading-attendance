@@ -4,9 +4,10 @@ import {
 } from "lucide-react";
 import { AccessDesk, CloudDesk, DoorDesk, FingerDesk, GuideDesk } from "@/components/speed-desks";
 import {
-  counts, daySheet, loadStore, nowStamp, saveStore, seed, toCsv, todayKey,
+  counts, daySheet, loadStore, nowStamp, saveStore, seed, toCsv, todayKey, applyLive,
   type DayRow, type Device, type Person, type Punch, type Store,
 } from "@/lib/speed-data";
+import { desktopOnly, speedApi } from "@/lib/speed-link";
 
 type Tab = "home" | "devices" | "doors" | "people" | "fingers" | "access" | "shifts" | "attendance" | "report" | "cloud" | "guide" | "setup";
 
@@ -37,6 +38,7 @@ export function SpeedConsole() {
   const [showPerson, setShowPerson] = useState(false);
   const [showDevice, setShowDevice] = useState(false);
   const [clock, setClock] = useState(nowStamp);
+  const [busy, setBusy] = useState("");
 
   useEffect(() => { setStore(loadStore()); }, []);
   useEffect(() => { saveStore(store); }, [store]);
@@ -77,12 +79,56 @@ export function SpeedConsole() {
     setTyped("");
   };
 
+  const checkDevice = async (device: Device) => {
+    const api = speedApi();
+    if (!api) { setNote(desktopOnly); return; }
+    if (!device.pass) { setNote(`اكتب كلمة سر جهاز ${device.branch} من تعديل الجهاز.`); return; }
+    setBusy(device.id);
+    const result = await api.probe({ host: device.ip, port: device.port || 80, username: device.user || "admin", password: device.pass });
+    setBusy("");
+    if (!result.ok) {
+      patch({ ...store, devices: store.devices.map((row) => row.id === device.id ? { ...row, online: false, lastSync: nowStamp() } : row) }, `${device.branch}: ${result.error}`);
+      return;
+    }
+    patch({
+      ...store,
+      devices: store.devices.map((row) => row.id === device.id ? { ...row, online: true, lastSync: nowStamp(), model: result.model || row.model, firmware: result.firmware || row.firmware, serial: result.serial || row.serial } : row),
+    }, `${device.branch} متصل. ${result.model}${result.serial ? ` · ${result.serial}` : ""}`);
+  };
+
+  const pullDay = async (day: string) => {
+    const api = speedApi();
+    if (!api) { setNote(desktopOnly); return; }
+    const targets = store.devices.filter((device) => device.companyId === store.companyId && !device.removed);
+    if (!targets.some((device) => device.pass)) { setNote("اكتب كلمة سر كل جهاز من تعديل الجهاز قبل السحب."); return; }
+    setBusy("pull");
+    let next = store;
+    const notes: string[] = [];
+    for (const device of targets) {
+      if (!device.pass) { notes.push(`${device.branch}: من غير كلمة سر`); continue; }
+      const result = await api.pull({ host: device.ip, port: device.port || 80, username: device.user || "admin", password: device.pass, day });
+      if (!result.ok) {
+        notes.push(`${device.branch}: ${result.error}`);
+        next = { ...next, devices: next.devices.map((row) => row.id === device.id ? { ...row, online: false, lastSync: nowStamp() } : row) };
+        continue;
+      }
+      const current = next.devices.find((row) => row.id === device.id) ?? device;
+      next = applyLive(next, current, result, day);
+      if (result.device.model || result.device.serial) {
+        next = { ...next, devices: next.devices.map((row) => row.id === device.id ? { ...row, model: result.device.model || row.model, firmware: result.device.firmware || row.firmware, serial: result.device.serial || row.serial } : row) };
+      }
+      notes.push(`${device.branch}: ${result.punches.length} حركة، ${result.users.length} شخص`);
+    }
+    setBusy("");
+    patch(next, notes.join(" · "));
+  };
+
   return (
     <div className="min-h-screen bg-paper text-ink">
       <header className="bg-side text-panel">
         <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-5">
           <div className="flex items-center gap-3">
-            <img src="/speed-logo.svg" alt="سبيد فور تريدنج" className="h-10 w-auto" />
+            <img src={`${import.meta.env.BASE_URL}speed-logo.svg`} alt="سبيد فور تريدنج" className="h-10 w-auto" />
             <div>
               <p className="text-xs text-clay">سبيد فور تريدنج</p>
               <p className="text-lg font-semibold">الحضور والانصراف</p>
@@ -113,7 +159,7 @@ export function SpeedConsole() {
           <h1 className="text-3xl font-semibold">{tabs.find((item) => item.id === tab)?.name}</h1>
           {tab === "home" ? <Home tally={tally} devices={devices} rows={todayRows} punches={punches.slice(0, 6)} company={company.name} /> : null}
           {tab === "devices" ? (
-            <Devices devices={devices} onAdd={() => setShowDevice(true)} onCheck={(d) => patch({ ...store, devices: store.devices.map((row) => row.id === d.id ? { ...row, lastSync: nowStamp() } : row) }, `اتسجل فحص ${d.branch}.`)} onEdit={(d) => setEditing({ ...d })} onDelete={(d) => { setRemoving(d); setTyped(""); }} />
+            <Devices devices={devices} busy={busy} onAdd={() => setShowDevice(true)} onCheck={(d) => void checkDevice(d)} onEdit={(d) => setEditing({ ...d })} onDelete={(d) => { setRemoving(d); setTyped(""); }} />
           ) : null}
           {tab === "doors" ? <DoorDesk store={store} patch={patch} /> : null}
           {tab === "people" ? (
@@ -122,7 +168,7 @@ export function SpeedConsole() {
           {tab === "fingers" ? <FingerDesk store={store} patch={patch} /> : null}
           {tab === "access" ? <AccessDesk store={store} /> : null}
           {tab === "shifts" ? <Shifts store={store} /> : null}
-          {tab === "attendance" ? <Moves punches={punches} date={date} setDate={setDate} people={people.filter((p) => p.active)} devices={devices} onAdd={(entry) => patch({ ...store, punches: [...store.punches, entry] }, `اتسجلت حركة ${entry.person} كتصحيح.`)} /> : null}
+          {tab === "attendance" ? <Moves punches={punches} date={date} setDate={setDate} people={people.filter((p) => p.active)} devices={devices} busy={busy === "pull"} onPull={() => void pullDay(date)} onAdd={(entry) => patch({ ...store, punches: [...store.punches, entry] }, `اتسجلت حركة ${entry.person} كتصحيح.`)} /> : null}
           {tab === "report" ? <Report date={date} setDate={setDate} rows={rows} company={company.name} /> : null}
           {tab === "cloud" ? <CloudDesk store={store} patch={patch} /> : null}
           {tab === "guide" ? <GuideDesk /> : null}
@@ -134,6 +180,9 @@ export function SpeedConsole() {
           <Field label="الفرع" value={editing.branch} onChange={(branch) => setEditing({ ...editing, branch })} />
           <Field label="الاسم" value={editing.cloudName} onChange={(cloudName) => setEditing({ ...editing, cloudName })} />
           <Field label="عنوان البصمة" value={editing.ip} onChange={(ip) => setEditing({ ...editing, ip })} ltr />
+          <Field label="حساب الجهاز" value={editing.user || "admin"} onChange={(user) => setEditing({ ...editing, user })} ltr />
+          <Field label="كلمة سر الجهاز" value={editing.pass} onChange={(pass) => setEditing({ ...editing, pass })} ltr secret />
+          <p className="text-xs text-muted">حساب البصمة نفسها على الشبكة، مش إيميل هيك-كونكت.</p>
           <button className="min-h-11 rounded-card bg-clay px-4 text-panel" onClick={saveEdit}>حفظ</button>
         </Dialog>
       ) : null}
@@ -195,7 +244,7 @@ function Home({ tally, devices, rows, punches, company }: { tally: ReturnType<ty
   );
 }
 
-function Devices({ devices, onAdd, onCheck, onEdit, onDelete }: { devices: Device[]; onAdd: () => void; onCheck: (d: Device) => void; onEdit: (d: Device) => void; onDelete: (d: Device) => void }) {
+function Devices({ devices, busy, onAdd, onCheck, onEdit, onDelete }: { devices: Device[]; busy: string; onAdd: () => void; onCheck: (d: Device) => void; onEdit: (d: Device) => void; onDelete: (d: Device) => void }) {
   return (
     <>
       <div className="flex justify-end"><button className="min-h-11 rounded-card bg-clay px-4 text-panel" onClick={onAdd}>إضافة جهاز</button></div>
@@ -213,7 +262,7 @@ function Devices({ devices, onAdd, onCheck, onEdit, onDelete }: { devices: Devic
                   <td className="px-3 py-3">{d.lastSync}</td>
                   <td className="px-3 py-3"><Status online={d.online} /></td>
                   <td className="px-3 py-3"><div className="flex flex-wrap gap-1">
-                    <Mini label="فحص" onClick={() => onCheck(d)}><RefreshCw className="size-4" /></Mini>
+                    <Mini label={busy === d.id ? "جارٍ الفحص" : "فحص"} onClick={() => onCheck(d)}><RefreshCw className="size-4" /></Mini>
                     <Mini label="تعديل" onClick={() => onEdit(d)}><Pencil className="size-4" /></Mini>
                     <Mini label="حذف" onClick={() => onDelete(d)}><Trash2 className="size-4" /></Mini>
                   </div></td>
@@ -268,7 +317,7 @@ function Shifts({ store }: { store: Store }) {
   );
 }
 
-function Moves({ punches, date, setDate, people, devices, onAdd }: { punches: Store["punches"]; date: string; setDate: (v: string) => void; people: Person[]; devices: Device[]; onAdd: (p: Punch) => void }) {
+function Moves({ punches, date, setDate, people, devices, busy, onPull, onAdd }: { punches: Store["punches"]; date: string; setDate: (v: string) => void; people: Person[]; devices: Device[]; busy: boolean; onPull: () => void; onAdd: (p: Punch) => void }) {
   const [personId, setPersonId] = useState(people[0]?.id ?? "");
   const [kind, setKind] = useState<Punch["kind"]>("دخول");
   const [time, setTime] = useState("09:00");
@@ -286,6 +335,7 @@ function Moves({ punches, date, setDate, people, devices, onAdd }: { punches: St
           if (!person || !time) return;
           onAdd({ id: `man-${Date.now()}`, companyId: person.companyId, deviceId: person.deviceId, personId: person.id, deviceName: device?.cloudName ?? "", branch: device?.branch ?? "", person: person.name, at: `${date} ${time}`, kind, source: "تصحيح" });
         }}>تسجيل تصحيح</button>
+        <button className="min-h-11 rounded-card bg-clay px-4 text-panel disabled:opacity-50 sm:col-span-4" disabled={busy} onClick={onPull}>{busy ? "جارٍ السحب من الأجهزة" : "سحب حركات اليوم من الأجهزة"}</button>
       </div>
       <ul className="grid gap-2">{shown.map((p) => <li key={p.id} className="grid gap-1 rounded-card border border-line bg-panel px-4 py-3 text-sm sm:grid-cols-[1fr_auto_auto]"><span><strong>{p.person}</strong><span className="block text-muted">{p.branch} · {p.source}</span></span><span>{p.kind}</span><bdi>{p.at}</bdi></li>)}{!shown.length ? <Empty text="لا حركات في اليوم ده." /> : null}</ul>
     </>
@@ -350,7 +400,7 @@ function AddDevice({ store, onClose, onSave }: { store: Store; onClose: () => vo
       <Field label="العنوان" value={ip} onChange={setIp} ltr />
       <button className="min-h-11 rounded-card bg-clay px-4 text-panel" onClick={() => {
         if (branch.trim().length < 2 || cloudName.trim().length < 2 || !/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) return;
-        onSave({ id: `dev-${Date.now()}`, companyId: store.companyId, branch: branch.trim(), cloudName: cloudName.trim(), ip, port: 80, model: "DS-K1T342", firmware: "غير مقروء", serial: "يُقرأ من الجهاز", online: false, lastSync: "لم يُفحص", removed: false });
+        onSave({ id: `dev-${Date.now()}`, companyId: store.companyId, branch: branch.trim(), cloudName: cloudName.trim(), ip, port: 80, model: "DS-K1T342", firmware: "غير مقروء", serial: "يُقرأ من الجهاز", online: false, lastSync: "لم يُفحص", removed: false, user: "admin", pass: "" });
       }}>حفظ الجهاز</button>
     </Dialog>
   );
@@ -410,8 +460,8 @@ function Empty({ text }: { text: string }) {
 function Mini({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return <button className="inline-flex min-h-11 items-center gap-1 rounded-card border border-line px-2 text-xs" onClick={onClick}>{children}{label}</button>;
 }
-function Field({ label, value, onChange, ltr }: { label: string; value: string; onChange: (v: string) => void; ltr?: boolean }) {
-  return <label className="grid gap-1 text-sm">{label}<input className="min-h-11 rounded-card border border-line bg-paper px-3" dir={ltr ? "ltr" : undefined} value={value} onChange={(e) => onChange(e.target.value)} /></label>;
+function Field({ label, value, onChange, ltr, secret }: { label: string; value: string; onChange: (v: string) => void; ltr?: boolean; secret?: boolean }) {
+  return <label className="grid gap-1 text-sm">{label}<input className="min-h-11 rounded-card border border-line bg-paper px-3" type={secret ? "password" : "text"} dir={ltr ? "ltr" : undefined} value={value} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
