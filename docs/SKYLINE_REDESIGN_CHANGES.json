@@ -1,0 +1,31 @@
+{
+  "baseline": ".codex-backups/redesign-guide-20261022",
+  "modified": [
+    "src/components/access-center.css",
+    "src/components/access-center.tsx",
+    "src/components/access-forms.tsx",
+    "src/components/access-panels.tsx",
+    "src/components/access-ui.tsx",
+    "src/components/access-workflows.tsx",
+    "src/lib/access/contracts.ts",
+    "src/lib/access/domain.ts",
+    "src/lib/access/isapi.server.ts",
+    "src/lib/access/service.server.ts",
+    "src/routes/index.tsx",
+    "src/routeTree.gen.ts",
+    "scripts/access-center-e2e.mjs",
+    "scripts/access-center.test.mjs",
+    "scripts/access-test-device.mjs"
+  ],
+  "added": [
+    "src/components/access-device-info.tsx",
+    "src/components/access-guide.tsx",
+    "src/components/access-pages.tsx",
+    "src/components/access-setup.tsx",
+    "src/lib/access/capability-view.ts",
+    "src/lib/access/guide.ts",
+    "src/routes/legacy.tsx",
+    "scripts/redesign-change-manifest.mjs"
+  ],
+  "unchangedCount": 118
+}

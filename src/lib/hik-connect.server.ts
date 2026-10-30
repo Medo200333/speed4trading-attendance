@@ -1,0 +1,1230 @@
+import { createHash, publicEncrypt, constants, randomBytes } from "node:crypto";
+import { punchesFromPortal } from "./hikvision-parse";
+import type { Punch } from "./attendance";
+
+const PORTAL = "https://www.hik-connect.com";
+const TEAM_API = "https://ieu-team.hikcentralconnect.com/hcc";
+const PAGE_SIZE = 100;
+const PAGES_PER_CALL = 2;
+
+export type PortalTeam = { id: string; name: string };
+
+export type CloudLogin =
+  | {
+      ok: true;
+      apiBase: string;
+      sessionId: string;
+      featureCode: string;
+      teams: PortalTeam[];
+      teamName: string;
+      notice: string;
+    }
+  | { ok: false; error: string; captcha?: string; featureCode?: string; needSms?: boolean };
+
+export type CloudChunkRequest = {
+  apiBase: string;
+  sessionId: string;
+  featureCode: string;
+  startDate: string;
+  endDate: string;
+  timeZone: string;
+  pageIndex: number;
+  elementIds?: string;
+  kind?: "transaction";
+};
+
+export type CloudPerson = { employeeNo: string; name: string; photo: string; gender: string };
+
+export type CloudChunkResult =
+  | { ok: true; punches: Punch[]; pageIndex: number; done: boolean; people?: CloudPerson[]; notice?: string }
+  | { ok: false; error: string };
+
+function md5(value: string): string {
+  return createHash("md5").update(value).digest("hex");
+}
+
+function featureCode(value: string): string {
+  const clean = value.replace(/[^A-Za-z0-9]/g, "").slice(0, 64);
+  if (clean.length >= 8) return clean;
+  return randomBytes(16).toString("hex");
+}
+
+export function normalizeAccount(account: string): string {
+  const trimmed = account.trim().replace(/\s+/g, "");
+  if (!trimmed) return "";
+  if (trimmed.includes("@") || /[A-Za-z]/.test(trimmed)) return trimmed;
+  const digits = trimmed.replace(/^\+/, "").replace(/\D/g, "");
+  // الموقع بيبعت مفتاح الدولة + الرقم زي ما اتكتب، والصفر فضل موجود: 20 + 0100... = 200100...
+  if (/^01\d{9}$/.test(digits)) return `20${digits}`;
+  if (/^201\d{9}$/.test(digits)) return `200${digits.slice(2)}`;
+  return digits || trimmed;
+}
+
+function assertPortal(value: string): string {
+  const raw = value.trim();
+  let url: URL;
+  try {
+    url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+  } catch {
+    throw new Error("عنوان موقع هيك-كونكت مش مفهوم.");
+  }
+  if (url.protocol !== "https:") throw new Error("عنوان موقع هيك-كونكت مش مفهوم.");
+  const host = url.hostname.toLowerCase();
+  const allowed =
+    host === "hik-connect.com" ||
+    host.endsWith(".hik-connect.com") ||
+    host.endsWith(".hik-connectru.com") ||
+    host.endsWith(".hikcentralconnect.com") ||
+    host.endsWith(".ltspartnerconnect.com");
+  if (!allowed) throw new Error("نطاق هيك-كونكت مش معروف.");
+  if (host.endsWith(".hikcentralconnect.com")) {
+    const path = url.pathname.replace(/\/$/, "");
+    return `https://${host}${path}`;
+  }
+  return `https://${host}`;
+}
+
+function portalMessage(code: number): string {
+  if (code === 1013 || code === 1014 || code === 1226) {
+    return "الحساب أو كلمة السر مش زي اللي على موقع hik-connect.com. لو داخل بالموبايل سيبه 0100xxxxxxxx والبرنامج يضيف 20.";
+  }
+  if (code === 1003 || code === 1005 || code === 1011 || code === 1012 || code === 1015 || code === 1101) {
+    return "الموقع طالب كود الصورة. اكتبه تحت واضغط ادخل تاني.";
+  }
+  if (code === 1043) return "كود الصورة خلّص. اكتب الكود الجديد.";
+  if (code === 1402) return "الموقع رفض تشفير كلمة السر. جرّب تاني.";
+  if (code === 1406) return "الحساب ده واقف مؤقتاً. افتح الموقع وجرب تدخل منه.";
+  if (code === 6002) {
+    return "الموقع بعت كود على الموبايل. اكتبه في خانة كود الرسالة واضغط ادخل تاني.";
+  }
+  return `موقع هيك-كونكت رفض الدخول (${code}).`;
+}
+
+function needsCaptcha(code: number): boolean {
+  return code === 1003 || code === 1005 || code === 1011 || code === 1012 || code === 1015 || code === 1043 || code === 1101;
+}
+
+function headers(feature: string, sessionId?: string): Record<string, string> {
+  const result: Record<string, string> = {
+    clientType: "48",
+    clientSource: "0",
+    customno: "1000002",
+    featureCode: feature,
+    appId: "Hik-Connect-Portal",
+    lang: "en-US",
+    Accept: "application/json",
+  };
+  if (sessionId) {
+    result.sessionId = sessionId;
+    result.Cookie = `HC_sessionId=${sessionId}`;
+  }
+  return result;
+}
+
+async function readBody(url: string, init: RequestInit): Promise<{ status: number; json: Record<string, unknown> | null; bytes: Uint8Array; type: string }> {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(25_000) });
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const type = response.headers.get("content-type") ?? "";
+  const text = new TextDecoder().decode(bytes.slice(0, 1_500_000));
+  if (type.includes("json") || text.trim().startsWith("{") || text.trim().startsWith("[")) {
+    try {
+      return { status: response.status, json: JSON.parse(text) as Record<string, unknown>, bytes, type };
+    } catch {
+      return { status: response.status, json: null, bytes, type };
+    }
+  }
+  return { status: response.status, json: null, bytes, type };
+}
+
+function metaCode(json: Record<string, unknown> | null): number | null {
+  const meta = json?.meta;
+  if (!meta || typeof meta !== "object") return null;
+  const code = (meta as { code?: unknown }).code;
+  return typeof code === "number" ? code : null;
+}
+
+function pem(key: string): string {
+  const body = key.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g)?.join("\n") ?? body;
+  return `-----BEGIN PUBLIC KEY-----\n${lines}\n-----END PUBLIC KEY-----\n`;
+}
+
+async function publicKey(base: string, feature: string): Promise<string> {
+  const result = await readBody(`${base}/v3/users/publickey`, { method: "GET", headers: headers(feature) });
+  const key = typeof result.json?.publicKey === "string" ? result.json.publicKey : "";
+  if (!key) throw new Error("موقع هيك-كونكت ما رجّعش مفتاح الدخول.");
+  return key;
+}
+
+function encryptPassword(key: string, password: string): string {
+  const stamp = Math.floor(Date.now() / 1000).toString();
+  const plain = `${md5(password)},${stamp}`;
+  return publicEncrypt({ key: pem(key), padding: constants.RSA_PKCS1_PADDING }, Buffer.from(plain)).toString("base64");
+}
+
+async function captchaImage(base: string, account: string, feature: string): Promise<string> {
+  const random = Math.floor(Math.random() * 10000);
+  const result = await readBody(
+    `${base}/v3/captcha?account=${encodeURIComponent(account)}&featureCode=${feature}&useGetMethod=1&random=${random}`,
+    { method: "GET", headers: headers(feature) },
+  );
+  if (!result.bytes.length || result.json) return "";
+  const kind = result.type.includes("png") ? "image/png" : "image/jpeg";
+  return `data:${kind};base64,${Buffer.from(result.bytes).toString("base64")}`;
+}
+
+type LoginHit =
+  | { ok: true; base: string; sessionId: string }
+  | { redirect: string; account: string; password: string; index: string }
+  | { ok: false; error: string; code: number };
+
+async function loginAt(
+  base: string,
+  account: string,
+  password: string,
+  feature: string,
+  imageCode: string,
+  preset?: { password: string; index: string },
+  smsCode = "",
+): Promise<LoginHit> {
+  const secret = preset?.password || encryptPassword(await publicKey(base, feature), password);
+  const form = new URLSearchParams({
+    account,
+    password: secret,
+    checkSign: "true",
+    cuName: "Chrome",
+    featureCode: feature,
+  });
+  if (imageCode) form.set("imageCode", imageCode);
+  if (preset?.index) form.set("enSecretIndex", preset.index);
+  if (smsCode) {
+    form.set("smsCode", smsCode);
+    form.set("bizType", "TERMINAL_BIND");
+    form.set("msgType", "1");
+  }
+  const result = await readBody(`${base}/v3/users/login/v6`, {
+    method: "POST",
+    headers: { ...headers(feature), "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
+  const code = metaCode(result.json);
+  const area = result.json?.loginArea;
+  const domain =
+    area && typeof area === "object"
+      ? String((area as { webDomain?: unknown }).webDomain || (area as { apiDomain?: unknown }).apiDomain || "")
+      : "";
+  const packed = result.json?.encryptLoginInfo;
+  if (code === 1100 && domain) {
+    const info = packed && typeof packed === "object" ? (packed as { account?: unknown; password?: unknown; enSecretIndex?: unknown }) : {};
+    return {
+      redirect: assertPortal(domain),
+      account: String(info.account || account),
+      password: String(info.password || ""),
+      index: String(info.enSecretIndex || ""),
+    };
+  }
+  if (code === 1402) return { ok: false, error: portalMessage(1402), code };
+  if (code !== 200) return { ok: false, error: portalMessage(code ?? result.status), code: code ?? result.status };
+  const session = result.json?.loginSession;
+  const sessionId =
+    session && typeof session === "object" ? String((session as { sessionId?: unknown }).sessionId ?? "") : "";
+  if (!sessionId) return { ok: false, error: "الدخول تم بس الجلسة ما رجعتش. جرّب تاني.", code: 0 };
+  return { ok: true, base, sessionId };
+}
+
+function teamsFrom(json: Record<string, unknown> | null): { sessionId: string; teams: PortalTeam[] } {
+  const data = json?.data && typeof json.data === "object" ? (json.data as Record<string, unknown>) : (json ?? {});
+  const sessionId = String(data.sessionId ?? "");
+  const list = Array.isArray(data.hcbInfoList) ? data.hcbInfoList : [];
+  const teams: PortalTeam[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { systemId?: unknown; systemName?: unknown; verified?: unknown };
+    const id = String(row.systemId ?? "");
+    if (!id) continue;
+    teams.push({ id, name: String(row.systemName || "فريق") });
+  }
+  const verified = list.find((item) => item && typeof item === "object" && (item as { verified?: unknown }).verified);
+  if (verified && typeof verified === "object") {
+    const id = String((verified as { systemId?: unknown }).systemId ?? "");
+    const index = teams.findIndex((team) => team.id === id);
+    if (index > 0) {
+      const [team] = teams.splice(index, 1);
+      teams.unshift(team);
+    }
+  }
+  return { sessionId, teams };
+}
+
+async function openTeam(base: string, sessionId: string, feature: string): Promise<{ sessionId: string; teams: PortalTeam[]; notice: string }> {
+  const result = await readBody(`${base}/customer/proxy/ccfauth/public/user/v1/account/hcb`, {
+    method: "POST",
+    headers: { ...headers(feature, sessionId), "Content-Type": "application/json" },
+    body: "{}",
+  });
+  const code = metaCode(result.json);
+  const errorCode = result.json?.errorCode;
+  if (result.status === 401 || code === 401) return { sessionId, teams: [], notice: "الجلسة ما كملتش لحد الفريق." };
+  if (typeof errorCode === "string" && errorCode !== "0") {
+    return { sessionId, teams: [], notice: "الحساب دخل، بس صفحة الفريق ما فتحش." };
+  }
+  const parsed = teamsFrom(result.json);
+  const session = parsed.sessionId || sessionId;
+  if (!parsed.teams.length) {
+    return {
+      sessionId: session,
+      teams: [],
+      notice: "الحساب دخل على الموقع، بس مفيش فريق متفعّل. البصمات بتتحفظ جوه فريق على hik-connect.com.",
+    };
+  }
+  return {
+    sessionId: session,
+    teams: parsed.teams,
+    notice: `الموقع فتح. الفريق: ${parsed.teams[0].name}. اضغط اسحب الحضور.`,
+  };
+}
+
+export async function hikLogin(account: string, password: string, imageCode = "", featureInput = "", smsCode = ""): Promise<CloudLogin> {
+  const feature = featureCode(featureInput);
+  const name = normalizeAccount(account);
+  const codeFromPhone = smsCode.trim();
+  try {
+    let base = PORTAL;
+    let preset: { password: string; index: string } | undefined;
+    let accountOnHost = name;
+    let hit: LoginHit = { ok: false, error: "الدخول فشل.", code: 0 };
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      hit = await loginAt(base, accountOnHost, password, feature, imageCode.trim(), preset, codeFromPhone);
+      if ("redirect" in hit) {
+        base = hit.redirect;
+        accountOnHost = hit.account || name;
+        preset = hit.password ? { password: hit.password, index: hit.index } : undefined;
+        continue;
+      }
+      if (!hit.ok && hit.code === 1402 && attempt === 0) {
+        preset = undefined;
+        continue;
+      }
+      break;
+    }
+    if ("redirect" in hit) return { ok: false, error: "هيك-كونكت حوّل المنطقة أكتر من مرة.", featureCode: feature };
+    if (!hit.ok) {
+      const image = needsCaptcha(hit.code) ? await captchaImage(base, name, feature).catch(() => "") : "";
+      return {
+        ok: false,
+        error: hit.error,
+        featureCode: feature,
+        captcha: image || undefined,
+        needSms: hit.code === 6002 || undefined,
+      };
+    }
+    const gate = await enterAttendance(hit.base, hit.sessionId, name, feature, codeFromPhone);
+    if (!gate.ok) return { ok: false, error: gate.error, featureCode: feature, needSms: gate.needSms };
+    return {
+      ok: true,
+      apiBase: gate.apiBase,
+      sessionId: gate.sessionId,
+      featureCode: feature,
+      teams: gate.teams,
+      teamName: gate.teams[0]?.name ?? "",
+      notice: gate.notice,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/timeout|abort/i.test(message)) return { ok: false, error: "موقع هيك-كونكت ما ردش في الوقت. جرّب تاني.", featureCode: feature };
+    return { ok: false, error: message || "مش قادر أوصل لموقع هيك-كونكت.", featureCode: feature };
+  }
+}
+
+async function enterAttendance(
+  base: string,
+  sessionId: string,
+  account: string,
+  feature: string,
+  smsCode: string,
+): Promise<
+  | { ok: true; apiBase: string; sessionId: string; teams: PortalTeam[]; notice: string }
+  | { ok: false; error: string; needSms?: boolean }
+> {
+  if (smsCode) {
+    await readBody(`${base}/v3/terminals`, {
+      method: "POST",
+      headers: { ...headers(feature, sessionId), "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        msgType: "1",
+        cname: "Chrome",
+        featureCode: feature,
+        checkcode: smsCode,
+        bizType: "TERMINAL_BIND",
+      }),
+    });
+  }
+  const ticketResponse = await fetch(`${TEAM_API}/auth/security/v1/ticket/login`, {
+    method: "POST",
+    headers: {
+      clientSource: "0",
+      clientType: "48",
+      lang: "en-US",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      sessionId,
+    },
+    body: JSON.stringify({
+      loginType: 2,
+      sessionId,
+      account,
+      chooseTenantId: "",
+      twoFactorToken: smsCode,
+      deviceName: "Chrome",
+      terminalCode: feature,
+    }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  const ticketJson = (await ticketResponse.json()) as Record<string, unknown>;
+  const errorCode = String(ticketJson.errorCode ?? "");
+  if (errorCode === "VMS002039") {
+    if (!smsCode) {
+      await readBody(`${base}/v3/users/checkcode/mt`, {
+        method: "POST",
+        headers: { ...headers(feature, sessionId), "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ from: account, bizType: "TERMINAL_BIND" }),
+      });
+    }
+    return {
+      ok: false,
+      error: smsCode
+        ? "الكود اترفض. اطلب كود جديد من الموقع وابعت اللي يوصل."
+        : "بوابة الاتندنس طلبت كود الرسالة. اكتبه في خانة كود الرسالة واضغط ادخل تاني.",
+      needSms: true,
+    };
+  }
+  if (errorCode && errorCode !== "0") {
+    return { ok: false, error: `بوابة الاتندنس رفضت الدخول (${errorCode}).` };
+  }
+  const data =
+    ticketJson.data && typeof ticketJson.data === "object" ? (ticketJson.data as Record<string, unknown>) : {};
+  const cookie = ticketResponse.headers.getSetCookie?.().find((item) => item.startsWith("JSESSIONID="));
+  const nextSession = cookie?.split(";")[0]?.slice("JSESSIONID=".length) || String(data.sessionId ?? "");
+  if (!nextSession) return { ok: false, error: "البوابة فتحت بس الجلسة ما رجعتش." };
+  const teamName = String(data.systemName ?? "الفريق");
+  const points = await readBody(`${TEAM_API}/hccattendance/checkPoint/v1/list`, {
+    method: "POST",
+    headers: {
+      clientSource: "0",
+      clientType: "48",
+      lang: "en-US",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Cookie: `JSESSIONID=${nextSession}`,
+    },
+    body: JSON.stringify({ page: 1, pageSize: 50, name: "" }),
+  });
+  const pointData = points.json?.data && typeof points.json.data === "object" ? (points.json.data as Record<string, unknown>) : {};
+  const raw = pointData.checkPoints;
+  const teams: PortalTeam[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as { id?: unknown; elementId?: unknown; name?: unknown };
+      const id = String(row.elementId ?? row.id ?? "");
+      const label = String(row.name ?? "جهاز");
+      if (id) teams.push({ id, name: label });
+    }
+  }
+  const notice = teams.length
+    ? `اتفتح فريق ${teamName}. أجهزة الحضور: ${teams.map((team) => team.name).join("، ")}.`
+    : `اتفتح فريق ${teamName}.`;
+  return { ok: true, apiBase: TEAM_API, sessionId: nextSession, teams, notice };
+}
+
+function zoneOffset(timeZone: string, day: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "longOffset",
+    }).formatToParts(new Date(`${day}T12:00:00Z`));
+    const name = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
+    const match = /GMT([+-])(\d{1,2})(?::?(\d{2}))?/.exec(name);
+    if (!match) return "+03:00";
+    return `${match[1]}${match[2].padStart(2, "0")}:${(match[3] ?? "00").padStart(2, "0")}`;
+  } catch {
+    return "+03:00";
+  }
+}
+
+function portalError(json: Record<string, unknown> | null, status: number): string {
+  const code = metaCode(json);
+  const errorCode = json?.errorCode;
+  if (status === 401 || code === 401 || errorCode === "VMS002004") return "جلسة الموقع خلصت. اضغط ادخل على الموقع تاني.";
+  if (typeof errorCode === "string" && errorCode !== "0") return `الموقع رفض طلب الحضور (${errorCode}).`;
+  if (code != null && code !== 200 && code !== 0) return portalMessage(code);
+  return "";
+}
+
+function teamHeaders(sessionId: string): Record<string, string> {
+  return {
+    clientSource: "0",
+    clientType: "48",
+    lang: "en-US",
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Cookie: `JSESSIONID=${sessionId}`,
+  };
+}
+
+type MenuNode = {
+  translatedName?: string;
+  name?: string;
+  componentName?: string;
+  reportTypeId?: number;
+  children?: MenuNode[];
+};
+
+function menuNodes(value: unknown, into: MenuNode[] = []): MenuNode[] {
+  if (!value || typeof value !== "object") return into;
+  if (Array.isArray(value)) {
+    for (const item of value) menuNodes(item, into);
+    return into;
+  }
+  const node = value as MenuNode;
+  if (node.translatedName || node.name || node.reportTypeId != null) into.push(node);
+  if (Array.isArray(node.children)) menuNodes(node.children, into);
+  return into;
+}
+
+function reportKind(node: MenuNode): "transaction" | "firstlast" | "" {
+  const text = `${node.translatedName ?? ""} ${node.name ?? ""} ${node.componentName ?? ""}`.toLowerCase();
+  if (text.includes("mobile")) return "";
+  if (/\btransaction\b/.test(text) || text.includes("original") || /\brecord\b/.test(text)) return "transaction";
+  if (/first[\s_-]*in/.test(text) && /last/.test(text) && /out/.test(text)) return "firstlast";
+  return "";
+}
+
+function plainCell(value: unknown): string {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    if ("value" in record) return plainCell(record.value);
+    if ("text" in record) return plainCell(record.text);
+  }
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+function genderOf(info: Record<string, unknown>): string {
+  const raw = plainCell(info.gender ?? info.sex ?? info.personGender).toLowerCase();
+  if (raw === "1" || raw === "male" || raw === "m" || raw.includes("ذكر")) return "male";
+  if (raw === "2" || raw === "female" || raw === "f" || raw.includes("انث") || raw.includes("أنث")) return "female";
+  return "";
+}
+
+function pictureUrl(info: Record<string, unknown>): string {
+  const direct = plainCell(info.headPicUrl || info.photoUrl || info.faceUrl || info.smallPicUrl);
+  if (direct) return direct;
+  const stack: unknown[] = [info];
+  while (stack.length) {
+    const current = stack.pop();
+    if (typeof current === "string" && (/^https?:\/\//.test(current) || current.startsWith("/")) && /pic|photo|face|head|image/i.test(current)) {
+      return current;
+    }
+    if (current && typeof current === "object") {
+      for (const value of Object.values(current as Record<string, unknown>)) stack.push(value);
+    }
+  }
+  return "";
+}
+
+function allClocks(value: string): string[] {
+  const clocks: string[] = [];
+  const pattern = /(?:^|[^\d])(\d{2}:\d{2})(?::(\d{2}))?/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(value))) {
+    const hour = Number(match[1].slice(0, 2));
+    const minute = Number(match[1].slice(3));
+    if (hour > 23 || minute > 59) continue;
+    clocks.push(`${match[1]}:${match[2] ?? "00"}`);
+  }
+  return clocks;
+}
+
+function shiftBound(clock: string): boolean {
+  return clock.startsWith("00:00") || clock.startsWith("23:59");
+}
+
+function cellText(value: unknown): string {
+  const plain = plainCell(value);
+  if (plain) return plain;
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).map((item) => plainCell(item)).filter(Boolean).join(" ");
+  }
+  return "";
+}
+
+function punchesFromReport(rows: unknown[], columns: Record<string, unknown>[]): Punch[] {
+  const punches: Punch[] = [];
+  for (const item of rows) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const cells: { label: string; value: string }[] = [];
+    if (columns.length) {
+      for (const column of columns) {
+        const name = plainCell(column.name);
+        const id = plainCell(column.id);
+        const label = `${plainCell(column.translatedName)} ${name} ${id}`.toLowerCase();
+        const value = cellText(row[name] ?? (id ? row[id] : undefined));
+        if (value) cells.push({ label, value });
+      }
+    }
+    if (!cells.length) {
+      for (const [key, value] of Object.entries(row)) {
+        const text = cellText(value);
+        if (text) cells.push({ label: key.toLowerCase(), value: text });
+      }
+    }
+    let firstName = "";
+    let lastName = "";
+    let fullName = "";
+    let employee = "";
+    let date = "";
+    const times: string[] = [];
+    for (const cell of cells) {
+      if (/first\s*name/.test(cell.label)) firstName = cell.value;
+      else if (/last\s*name|family/.test(cell.label)) lastName = cell.value;
+      else if (/(^| )name$|full\s*name|person\s*name/.test(cell.label) && !/device|depart/.test(cell.label)) fullName = cell.value;
+      else if (/(^|\s)id$|person\s*code|employee|person\s*id/.test(cell.label)) employee = cell.value;
+      const dateMatch = /(\d{4}-\d{2}-\d{2})/.exec(cell.value);
+      if (!date && dateMatch && /date|day/.test(cell.label)) date = dateMatch[1];
+      const skipLabel = /duration|hour|weekday|shift|valid|schedule|timetable|range|plan|period/.test(cell.label);
+      if (skipLabel) continue;
+      for (const clock of allClocks(cell.value)) {
+        if (!shiftBound(clock)) times.push(clock);
+      }
+    }
+    if (!date) {
+      for (const cell of cells) {
+        const dateMatch = /(\d{4}-\d{2}-\d{2})/.exec(cell.value);
+        if (dateMatch) {
+          date = dateMatch[1];
+          break;
+        }
+      }
+    }
+    const name = fullName || [firstName, lastName].filter(Boolean).join(" ");
+    if (!name || !date || !times.length) continue;
+    for (const time of times) {
+      punches.push({ employeeNo: employee || name, name, date, time, method: "بصمة" });
+    }
+  }
+  return punches;
+}
+
+async function photoData(base: string, sessionId: string, url: string): Promise<string> {
+  const origin = new URL(base).origin;
+  const target = url.startsWith("//") ? `https:${url}` : url.startsWith("/") ? `${origin}${url}` : url;
+  if (!target.startsWith("https://")) return "";
+  try {
+    const response = await fetch(target, {
+      headers: { ...teamHeaders(sessionId), Referer: `${origin}/` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return "";
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length < 30 || bytes.length > 500_000) return "";
+    let type = (response.headers.get("content-type") ?? "").split(";")[0];
+    if (!type.startsWith("image/")) {
+      if (bytes[0] === 0xff && bytes[1] === 0xd8) type = "image/jpeg";
+      else if (bytes[0] === 0x89 && bytes[1] === 0x50) type = "image/png";
+      else return "";
+    }
+    return `data:${type};base64,${bytes.toString("base64")}`;
+  } catch {
+    return "";
+  }
+}
+
+function readPersonList(json: Record<string, unknown> | null): Record<string, unknown>[] {
+  if (!json) return [];
+  const body = (json.data && typeof json.data === "object" ? json.data : json) as Record<string, unknown>;
+  const response = (body.personResponse && typeof body.personResponse === "object" ? body.personResponse : body) as Record<string, unknown>;
+  const list = response.personList ?? response.list ?? body.personList;
+  return Array.isArray(list) ? (list as Record<string, unknown>[]) : [];
+}
+
+async function personPhotoUrl(base: string, sessionId: string, id: string): Promise<string> {
+  if (!id) return "";
+  const result = await readBody(`${base}/ccfperson/v2/persons/${encodeURIComponent(id)}/search`, {
+    method: "POST",
+    headers: teamHeaders(sessionId),
+    body: JSON.stringify({ personRequest: { field: "fullPath,HeadPic", additionalInfoField: "1,53,57" } }),
+  });
+  if (portalError(result.json, result.status) || !result.json) return "";
+  const body = (result.json.data && typeof result.json.data === "object" ? result.json.data : result.json) as Record<string, unknown>;
+  const info = (body.personInfo && typeof body.personInfo === "object" ? body.personInfo : body) as Record<string, unknown>;
+  return pictureUrl(info) || plainCell(info.headPicUrl) || plainCell(info.faceUrl);
+}
+
+async function fetchPeople(base: string, sessionId: string): Promise<CloudPerson[]> {
+  const found: { id: string; employeeNo: string; name: string; url: string; gender: string }[] = [];
+  const seen = new Set<string>();
+  const criteriaList: Record<string, unknown>[] = [
+    { personName: { fullName: "" }, personCode: "", logicalOperation: 1 },
+    { personGroup: { groupId: "1" }, personName: { fullName: "" }, personCode: "", logicalOperation: 1 },
+  ];
+  const groups = await readBody(`${base}/ccfperson/v1/groups/search`, {
+    method: "POST",
+    headers: teamHeaders(sessionId),
+    body: JSON.stringify({ personGroupSearchRequest: { depthTraversal: true } }),
+  });
+  const groupBody = (groups.json?.data && typeof groups.json.data === "object" ? groups.json.data : groups.json ?? {}) as Record<string, unknown>;
+  const groupList = Array.isArray(groupBody.personGroupList) ? groupBody.personGroupList : [];
+  for (const group of groupList.slice(0, 6)) {
+    if (!group || typeof group !== "object") continue;
+    const id = plainCell((group as Record<string, unknown>).id ?? (group as Record<string, unknown>).groupId);
+    if (id) criteriaList.push({ personGroup: { groupId: id }, logicalOperation: 1 });
+  }
+  for (const searchCriteria of criteriaList) {
+    if (found.length) break;
+    for (let page = 1; page <= 4 && found.length < 80; page += 1) {
+      const result = await readBody(`${base}/ccfperson/v1/persons/search`, {
+        method: "POST",
+        headers: teamHeaders(sessionId),
+        body: JSON.stringify({
+          pageSize: 100,
+          pageIndex: page,
+          responseMode: 0,
+          productId: "3",
+          field: "FullPath",
+          searchCriteria,
+        }),
+      });
+      const list = readPersonList(result.json);
+      if (portalError(result.json, result.status) || !list.length) break;
+      for (const item of list) {
+        const info = (item.personInfo && typeof item.personInfo === "object" ? item.personInfo : item) as Record<string, unknown>;
+        const name = plainCell(info.fullName) || [plainCell(info.firstName), plainCell(info.lastName)].filter(Boolean).join(" ");
+        const employeeNo = plainCell(info.personCode ?? info.employeeNo ?? item.personCode);
+        const id = plainCell(info.id ?? item.id);
+        const key = employeeNo || id || name;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        const url = pictureUrl(info) || plainCell(info.faceUrl) || plainCell(item.faceUrl) || plainCell(info.headPicUrl);
+        found.push({ id, employeeNo: employeeNo || name, name: name || employeeNo, url, gender: genderOf(info) });
+      }
+      if (list.length < 100) break;
+    }
+  }
+  const missing = found.filter((person) => person.id && !person.url).slice(0, 40);
+  let cursor = 0;
+  async function fillUrl() {
+    while (cursor < missing.length) {
+      const person = missing[cursor];
+      cursor += 1;
+      person.url = await personPhotoUrl(base, sessionId, person.id);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(6, missing.length) }, () => fillUrl()));
+  const withPhoto = found.filter((person) => person.url).slice(0, 40);
+  const photos = new Map<string, string>();
+  cursor = 0;
+  async function download() {
+    while (cursor < withPhoto.length) {
+      const person = withPhoto[cursor];
+      cursor += 1;
+      const photo = await photoData(base, sessionId, person.url);
+      if (photo) photos.set(person.employeeNo, photo);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(6, withPhoto.length) }, () => download()));
+  return found.map((person) => ({
+    employeeNo: person.employeeNo,
+    name: person.name,
+    photo: photos.get(person.employeeNo) ?? "",
+    gender: person.gender,
+  }));
+}
+
+async function openReport(base: string, headersForRead: Record<string, string>, reportTypeId: number) {
+  const head = await readBody(`${base}/hccattendance/ability/v1/report/${reportTypeId}/get`, {
+    method: "POST",
+    headers: headersForRead,
+    body: JSON.stringify({ language: "en" }),
+  });
+  if (portalError(head.json, head.status) || !head.json) return null;
+  const headBody = (head.json.data && typeof head.json.data === "object" ? head.json.data : head.json) as Record<string, unknown>;
+  return {
+    columns: Array.isArray(headBody.columnList) ? (headBody.columnList as Record<string, unknown>[]) : [],
+    filters: Array.isArray(headBody.filterList) ? (headBody.filterList as Record<string, unknown>[]) : [],
+  };
+}
+
+async function readReportPage(
+  base: string,
+  headersForRead: Record<string, string>,
+  reportTypeId: number,
+  page: number,
+  filters: Record<string, unknown>[],
+  range: string,
+): Promise<{ rows: unknown[]; error: string; noMore: boolean }> {
+  const filterList = filters.flatMap((filter) => {
+    const columnName = plainCell(filter.target ?? filter.columnName);
+    const operation = plainCell(filter.operation) || "BETWEEN";
+    const inputType = Number(filter.inputType);
+    const dateFilter = inputType === 3 || inputType === 5 || /date|time|period/.test(columnName);
+    if (!dateFilter || !columnName) return [];
+    return [{ columnName, operation: operation === "IN" ? "BETWEEN" : operation, value: range }];
+  });
+  const result = await readBody(`${base}/hccattendance/report/v1/list`, {
+    method: "POST",
+    headers: headersForRead,
+    body: JSON.stringify({
+      page,
+      pageSize: PAGE_SIZE,
+      language: "en",
+      reportTypeId,
+      columnIdList: [],
+      filterList,
+    }),
+  });
+  const reason = portalError(result.json, result.status);
+  if (reason) return { rows: [], error: reason, noMore: true };
+  const body = (result.json?.data && typeof result.json.data === "object" ? result.json.data : result.json ?? {}) as Record<string, unknown>;
+  const rows = Array.isArray(body.reportDataList) ? body.reportDataList : [];
+  return { rows, error: "", noMore: body.nextPageExists === false };
+}
+
+async function pullFirstLastReport(base: string, input: CloudChunkRequest, offset: string): Promise<CloudChunkResult | null> {
+  const headersForTeam = teamHeaders(input.sessionId);
+  const menu = await readBody(`${base}/hccattendance/ability/v1/menu/list`, {
+    method: "POST",
+    headers: headersForTeam,
+    body: JSON.stringify({ language: "en" }),
+  });
+  if (portalError(menu.json, menu.status) || !menu.json) return null;
+  const payload = (menu.json.data && typeof menu.json.data === "object" ? menu.json.data : menu.json) as Record<string, unknown>;
+  const nodes = menuNodes(payload.menuList ?? payload);
+  const textOf = (node: MenuNode) => `${node.translatedName ?? ""} ${node.name ?? ""} ${node.componentName ?? ""}`.toLowerCase();
+  const candidates = nodes
+    .filter((node) => {
+      if (node.reportTypeId == null || node.reportTypeId < 0) return false;
+      const text = textOf(node);
+      if (text.includes("mobile")) return false;
+      if (input.kind === "transaction") return /\btransaction\b/.test(text);
+      return reportKind(node) !== "";
+    })
+    .sort((a, b) => Number(/\btransaction\b/.test(textOf(b))) - Number(/\btransaction\b/.test(textOf(a))));
+  if (!candidates.length) {
+    const titles = nodes.map((node) => node.translatedName || node.name).filter(Boolean).slice(0, 8).join("، ");
+    return { ok: false, error: input.kind === "transaction"
+      ? `مفيش تقرير Transaction. اللي ظاهر: ${titles || "ولا حاجة"}`
+      : titles ? `مفيش تقرير الحضور. اللي ظاهر: ${titles}` : "مفيش تقرير الحضور في القائمة." };
+  }
+  const headersForRead = headersForTeam;
+  const ranges = [
+    `${input.startDate}T00:00:00${offset},${input.endDate}T23:59:59${offset}`,
+    `${input.startDate} 00:00:00,${input.endDate} 23:59:59`,
+  ];
+  let report = candidates[0];
+  let columns: Record<string, unknown>[] = [];
+  let filters: Record<string, unknown>[] = [];
+  let range = ranges[0];
+  for (const candidate of candidates) {
+    const opened = await openReport(base, headersForRead, candidate.reportTypeId as number);
+    if (!opened) continue;
+    let sample = await readReportPage(base, headersForRead, candidate.reportTypeId as number, 1, opened.filters, ranges[0]);
+    let parsed = punchesFromReport(sample.rows, opened.columns);
+    if (!parsed.length) {
+      sample = await readReportPage(base, headersForRead, candidate.reportTypeId as number, 1, opened.filters, ranges[1]);
+      parsed = punchesFromReport(sample.rows, opened.columns);
+      if (parsed.length) range = ranges[1];
+    }
+    report = candidate;
+    columns = opened.columns;
+    filters = opened.filters;
+    if (parsed.length) break;
+  }
+  const title = report.translatedName || report.name || "الحضور";
+  let page = Math.max(1, input.pageIndex || 1);
+  const punches: Punch[] = [];
+  let done = false;
+  for (let step = 0; step < PAGES_PER_CALL && !done; step += 1) {
+    const loaded = await readReportPage(base, headersForRead, report.reportTypeId as number, page, filters, range);
+    if (loaded.error) return { ok: false, error: loaded.error };
+    const parsed = punchesFromReport(loaded.rows, columns);
+    if (!parsed.length && !punches.length && step === 0 && range === ranges[0]) {
+      range = ranges[1];
+      step -= 1;
+      continue;
+    }
+    punches.push(...parsed);
+    done = !loaded.rows.length || loaded.noMore || loaded.rows.length < PAGE_SIZE;
+    page += 1;
+  }
+  const notice = punches.length
+    ? `التقرير: ${title}. الأوقات 00:00 و 23:59 اتسابت لأنها الشيفت.`
+    : `تقرير ${title} رجّع مواعيد الشيفت بس (00:00–23:59) ومفيش وقت بصمة.`;
+  return { ok: true, punches, pageIndex: page, done, notice };
+}
+
+export async function hikPullChunk(input: CloudChunkRequest): Promise<CloudChunkResult> {
+  try {
+    const days = (Date.parse(`${input.endDate}T00:00:00Z`) - Date.parse(`${input.startDate}T00:00:00Z`)) / 86_400_000;
+    if (days < 0) return { ok: false, error: "تاريخ النهاية قبل البداية." };
+    if (days > 40) return { ok: false, error: "اقسم الفترة. كل سحبة لحد ٤٠ يوم." };
+    const base = assertPortal(input.apiBase);
+    const feature = featureCode(input.featureCode);
+    const team = base.includes("hikcentralconnect.com");
+    const offset = zoneOffset(input.timeZone || "Africa/Cairo", input.startDate);
+    if (team) {
+      const people = input.pageIndex <= 1 ? await fetchPeople(base, input.sessionId) : [];
+      const report = await pullFirstLastReport(base, input, offset);
+      if (report?.ok) return { ...report, people };
+      if (report) return report;
+    }
+    let page = Math.max(1, input.pageIndex || 1);
+    const punches: Punch[] = [];
+    let done = false;
+    const path = team
+      ? "/hccacs/v1/event/certificateRecords/search"
+      : "/customer/proxy/hccacs/v1/event/certificateRecords/search";
+    const callHeaders: Record<string, string> = team
+      ? {
+          clientSource: "0",
+          clientType: "48",
+          lang: "en-US",
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Cookie: `JSESSIONID=${input.sessionId}`,
+        }
+      : { ...headers(feature, input.sessionId), "Content-Type": "application/json" };
+    for (let step = 0; step < PAGES_PER_CALL && !done; step += 1) {
+      const body = {
+        pageIndex: page,
+        pageSize: PAGE_SIZE,
+        searchCriteria: {
+          beginTime: `${input.startDate}T00:00:00${offset}`,
+          endTime: `${input.endDate}T23:59:59${offset}`,
+          type: 0,
+          eventTypes: "",
+          elementIDs: input.elementIds?.trim() || "",
+          searchType: 0,
+          cardNumber: "",
+          personCondition: {},
+        },
+      };
+      const result = await readBody(`${base}${path}`, {
+        method: "POST",
+        headers: callHeaders,
+        body: JSON.stringify(body),
+      });
+      const reason = portalError(result.json, result.status);
+      if (reason) return { ok: false, error: reason };
+      if (!result.json) return { ok: false, error: "رد الموقع مش مفهوم." };
+      const parsed = punchesFromPortal(result.json);
+      punches.push(...parsed.punches);
+      const seen = page * PAGE_SIZE;
+      done = parsed.punches.length === 0 || (parsed.total != null && seen >= parsed.total) || parsed.punches.length < PAGE_SIZE;
+      page += 1;
+    }
+    return { ok: true, punches, pageIndex: page, done };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/timeout|abort/i.test(message)) return { ok: false, error: "الموقع ما ردش في الوقت. جرّب فترة أقصر." };
+    return { ok: false, error: message || "السحب من موقع هيك-كونكت فشل." };
+  }
+}
+
+
+// Opt-in metadata-only diagnostic. It never returns person field values.
+export async function hikInspectPeopleSchema(apiBase: string, sessionId: string) {
+  let http = 0;
+  try {
+    const base = assertPortal(apiBase);
+    if (sessionId.length < 8 || sessionId.length > 4096) {
+      return { ok: false, http, state: "INVALID_SESSION", structures: [] };
+    }
+    const response = await fetch(base + "/ccfperson/v1/persons/search", {
+      method: "POST",
+      headers: teamHeaders(sessionId),
+      body: JSON.stringify({
+        pageSize: 5,
+        pageIndex: 1,
+        responseMode: 0,
+        productId: "3",
+        field: "FullPath",
+        searchCriteria: { personName: { fullName: "" }, logicalOperation: 1 },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    http = response.status;
+    if (http === 401 || http === 403) return { ok: false, http, state: "ACCESS_DENIED", structures: [] };
+    if (!response.ok) return { ok: false, http, state: "HTTP_ERROR", structures: [] };
+    const reader = response.body?.getReader();
+    if (!reader) return { ok: false, http, state: "NO_BODY", structures: [] };
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > 262144) {
+        await reader.cancel();
+        return { ok: false, http, state: "RESPONSE_TOO_LARGE", structures: [] };
+      }
+      chunks.push(part.value);
+    }
+    let payload: unknown;
+    try { payload = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+    catch { return { ok: false, http, state: "INVALID_JSON", structures: [] }; }
+    const obj = (x: unknown): Record<string, unknown> | null =>
+      x && typeof x === "object" && !Array.isArray(x) ? x as Record<string, unknown> : null;
+    const root = obj(payload);
+    if (!root) return { ok: false, http, state: "INVALID_SCHEMA", structures: [] };
+    if (typeof root.errorCode === "string" && root.errorCode !== "0") {
+      return { ok: false, http, state: "APPLICATION_REJECTED", structures: [] };
+    }
+    const data = obj(root.data);
+    const envelope = obj(data?.personResponse ?? root.personResponse);
+    const list = envelope?.personList ?? envelope?.list ?? data?.personList ?? root.personList;
+    const structures: { path: string; kind: string; length: number | null; fields: string[] }[] = [];
+    const inspect = (path: string, x: unknown) => {
+      const record = obj(Array.isArray(x) ? x[0] : x);
+      if (!record) return;
+      const fields = Object.entries(record).slice(0, 40)
+        .filter(([key]) => /^[A-Za-z][A-Za-z0-9_]{0,49}$/.test(key) &&
+          !/password|cookie|token|secret|session|credential|email|phone|mobile|image|photo|picture|url/i.test(key))
+        .slice(0, 24)
+        .map(([key, value]) => key + ":" + (Array.isArray(value) ? "array" : value === null ? "null" : typeof value));
+      structures.push({ path, kind: Array.isArray(x) ? "array" : "object", length: Array.isArray(x) ? x.length : null, fields });
+    };
+    inspect("root", root);
+    inspect("data", data);
+    inspect("personResponse", envelope);
+    inspect("personList", list);
+    if (Array.isArray(list)) inspect("personInfo", obj(list[0])?.personInfo);
+    return { ok: Array.isArray(list), http,
+      state: Array.isArray(list) ? (list.length ? "LIST_FOUND" : "EMPTY_LIST") : "SCHEMA_UNVERIFIED",
+      structures };
+  } catch {
+    return { ok: false, http, state: "NETWORK_OR_TIMEOUT", structures: [] };
+  }
+}
+
+export type TeamButton = {
+  key: string;
+  ar: string;
+  en: string;
+  meaning: string;
+  found: boolean;
+  path: string;
+  count: number;
+  names: string[];
+  diagnostics?: {
+    path: string;
+    http: number;
+    recognized: boolean;
+    nameCount: number;
+  }[];
+};
+
+export type TeamMapResult =
+  | { ok: true; stamp: string; fingerprint: string; buttons: TeamButton[] }
+  | { ok: false; error: string };
+
+const TEAM_BUTTONS: {
+  key: string;
+  ar: string;
+  en: string;
+  meaning: string;
+  keys: string[];
+  probes: { path: string; body: Record<string, unknown> }[];
+}[] = [
+  {
+    key: "area",
+    ar: "المنطقة",
+    en: "Area",
+    meaning: "بتجمع الأجهزة والناس. منطقة واحدة يعني الكل يبصم من أي جهاز فيها. كل فرع منطقة يعني الموظف ينزل على أجهزة فرعه بس.",
+    keys: ["areaName", "parentAreaName", "name"],
+    probes: [
+      { path: "/ccfres/v1/areas/search", body: { areaSearchRequest: { pageIndex: 1, pageSize: 200 } } },
+      { path: "/ccfres/v1/logicalresource/area/list", body: { pageIndex: 1, pageSize: 200 } },
+      { path: "/hccattendance/checkPoint/v1/list", body: { page: 1, pageSize: 100, name: "" } },
+    ],
+  },
+  {
+    key: "department",
+    ar: "القسم",
+    en: "Department",
+    meaning: "تجميع الموظفين. القسم يتربط بمنطقة عشان المدير يشوف ناس القسم بتاعه.",
+    keys: ["groupName", "name"],
+    probes: [{ path: "/ccfperson/v1/groups/search", body: { personGroupSearchRequest: { depthTraversal: true } } }],
+  },
+  {
+    key: "person",
+    ar: "الأشخاص",
+    en: "Person",
+    meaning: "الموظف. رقم الشخص على التيم لازم يفضل نفس الرقم على الجهاز، وإلا البصمات ما تتجمعش.",
+    keys: ["fullName", "firstName", "lastName", "personName"],
+    probes: [
+      {
+        path: "/ccfperson/v1/persons/search",
+        body: {
+          pageSize: 100,
+          pageIndex: 1,
+          responseMode: 0,
+          productId: "3",
+          field: "FullPath",
+          searchCriteria: { personName: { fullName: "" }, logicalOperation: 1 },
+        },
+      },
+    ],
+  },
+  {
+    key: "device",
+    ar: "الأجهزة",
+    en: "Device",
+    meaning: "البصمة أو كنترول الباب. بيتضاف بالسيريال وكود التحقق جوه المنطقة.",
+    keys: ["name", "deviceName"],
+    probes: [
+      { path: "/hccattendance/checkPoint/v1/list", body: { page: 1, pageSize: 100, name: "" } },
+      { path: "/ccfres/v1/devices/search", body: { pageIndex: 1, pageSize: 100 } },
+    ],
+  },
+  {
+    key: "access",
+    ar: "مستوى الوصول",
+    en: "Access level",
+    meaning: "بيقول الشخص يدخل أنهي باب وفي أي وقت. من غيره الجهاز أونلاين والشخص مش ظاهر عليه.",
+    keys: ["accessLevelName", "name"],
+    probes: [
+      { path: "/acspm/v1/accesslevel/list", body: { accessLevelSearchRequest: { pageIndex: 1, pageSize: 100 } } },
+      { path: "/acspm/v1/accesslevel/search", body: { pageIndex: 1, pageSize: 100 } },
+      { path: "/hccacs/v1/accesslevel/search", body: { accessLevelSearchRequest: { pageIndex: 1, pageSize: 100 } } },
+    ],
+  },
+  {
+    key: "report",
+    ar: "تقارير الحضور",
+    en: "Attendance",
+    meaning: "Transaction هو كل البصمات الخام. First in و Last out أول وآخر وقت. لو مدى الوردية ضيق التقرير يطلع فاضي.",
+    keys: ["translatedName", "name"],
+    probes: [{ path: "/hccattendance/ability/v1/menu/list", body: {} }],
+  },
+];
+
+function namedValues(value: unknown, keys: string[], into: string[] = [], depth = 0): string[] {
+  if (!value || depth > 7 || into.length > 60) return into;
+  if (Array.isArray(value)) {
+    for (const item of value) namedValues(item, keys, into, depth + 1);
+    return into;
+  }
+  if (typeof value !== "object") return into;
+  const row = value as Record<string, unknown>;
+  for (const key of keys) {
+    const cell = row[key];
+    if (typeof cell === "string" && cell.trim().length > 1) into.push(cell.trim());
+  }
+  for (const cell of Object.values(row)) {
+    if (cell && typeof cell === "object") namedValues(cell, keys, into, depth + 1);
+  }
+  return into;
+}
+
+function payloadOpened(json: Record<string, unknown> | null, status: number): boolean {
+  if (!json || portalError(json, status)) return false;
+  const code = metaCode(json);
+  return json.errorCode === "0" || code === 200 || code === 0 || json.data != null;
+}
+
+export async function hikReadMap(apiBase: string, sessionId: string): Promise<TeamMapResult> {
+  try {
+    const base = assertPortal(apiBase);
+    const buttons: TeamButton[] = [];
+    for (const spec of TEAM_BUTTONS) {
+      let foundPath = "";
+      let names: string[] = [];
+      const diagnostics: NonNullable<TeamButton["diagnostics"]> = [];
+      for (const probe of spec.probes) {
+        try {
+          const result = await readBody(`${base}${probe.path}`, {
+            method: "POST",
+            headers: teamHeaders(sessionId),
+            body: JSON.stringify(probe.body),
+          });
+          const recognized = payloadOpened(result.json, result.status);
+          const got = recognized
+            ? [...new Set(namedValues(result.json, spec.keys))].slice(0, 24)
+            : [];
+          diagnostics.push({
+            path: probe.path,
+            http: result.status,
+            recognized,
+            nameCount: got.length,
+          });
+          if (!recognized) continue;
+          if (!foundPath || got.length > names.length) {
+            foundPath = probe.path;
+            names = got;
+          }
+          if (names.length) break;
+        } catch {
+          diagnostics.push({
+            path: probe.path,
+            http: 0,
+            recognized: false,
+            nameCount: 0,
+          });
+        }
+      }
+      buttons.push({
+        key: spec.key,
+        ar: spec.ar,
+        en: spec.en,
+        meaning: spec.meaning,
+        found: Boolean(foundPath),
+        path: foundPath,
+        count: names.length,
+        names,
+        diagnostics,
+      });
+    }
+    const people = buttons.find((button) => button.key === "person");
+    if (people && people.count === 0) {
+      const groups = await readBody(`${base}/ccfperson/v1/groups/search`, {
+        method: "POST",
+        headers: teamHeaders(sessionId),
+        body: JSON.stringify({ personGroupSearchRequest: { depthTraversal: true } }),
+      });
+      const groupIds = [...new Set(namedValues(groups.json, ["groupId", "id"]))].slice(0, 8);
+      for (const groupId of ["1", ...groupIds]) {
+        const result = await readBody(`${base}/ccfperson/v1/persons/search`, {
+          method: "POST",
+          headers: teamHeaders(sessionId),
+          body: JSON.stringify({
+            pageSize: 100,
+            pageIndex: 1,
+            responseMode: 0,
+            productId: "3",
+            field: "FullPath",
+            searchCriteria: { personGroup: { groupId }, logicalOperation: 1 },
+          }),
+        });
+        const got = [...new Set(namedValues(result.json, ["fullName", "firstName", "lastName"]))].slice(0, 24);
+        if (!got.length) continue;
+        people.found = true;
+        people.path = "/ccfperson/v1/persons/search";
+        people.names = got;
+        people.count = got.length;
+        break;
+      }
+    }
+    const fingerprint = buttons.map((button) => `${button.key}:${button.path}:${button.count}:${button.names.join("|")}`).join(";");
+    return { ok: true, stamp: new Date().toISOString(), fingerprint, buttons };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/timeout|abort/i.test(message)) return { ok: false, error: "الموقع ما ردش. ادخل تاني وبعدين اقرأ التيم." };
+    return { ok: false, error: message || "قراءة التيم فشلت." };
+  }
+}

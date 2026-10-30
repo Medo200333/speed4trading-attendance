@@ -1,0 +1,2 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const p='desktop/maintenance.html';let s=readFileSync(p,'utf8').replace('إنشاء نسخة احتياطية مشفرة</button>','إنشاء نسخة مشفرة وإعادة تشغيل خادم زبيد</button>').replace('تُحفظ نسخة مشفرة من البيانات الحالية أولاً.','يُحتفظ بمجلد البيانات الحالي كاملاً بجوار المجلد المستعاد للرجوع إليه.');s=s.replace('<form id="maintenance">','<p>إنشاء النسخة يوقف خادم التطبيق مؤقتاً ثم يعيد تشغيله لضمان اتساق الملفات. أكمل العمليات المفتوحة قبل التأكيد.</p><form id="maintenance">');writeFileSync(p,s);

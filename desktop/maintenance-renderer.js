@@ -1,0 +1,6 @@
+const form=document.getElementById('maintenance'),status=document.getElementById('status');let token='';
+const input=()=>Object.fromEntries(new FormData(form));
+async function action(run){for(const button of form.querySelectorAll('button'))button.disabled=true;try{const result=await run();status.textContent=result.cancelled?'أُلغي اختيار الملف.':result.notice||'اكتملت العملية.';return result;}catch{status.textContent='تعذرت العملية. راجع حساب المسؤول وكلمات المرور وسلامة ملف النسخة ثم أعد المحاولة.';}finally{for(const button of form.querySelectorAll('button'))button.disabled=false;}}
+form.onsubmit=event=>{event.preventDefault();action(()=>window.zubaydDesktop.backup(input()));};
+document.getElementById('inspect').onclick=async()=>{if(!form.reportValidity())return;const result=await action(()=>window.zubaydDesktop.restore({...input(),phase:'inspect'}));if(result?.token){token=result.token;document.getElementById('confirm').hidden=false;status.textContent=`النسخة تحتوي ${result.preview.companies} شركة و${result.preview.files} ملفاً. راجع التأكيد أدناه.`;}};
+document.getElementById('restore').onclick=()=>action(()=>window.zubaydDesktop.restore({...input(),phase:'commit',token,phrase:document.getElementById('phrase').value}));

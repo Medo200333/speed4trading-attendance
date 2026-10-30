@@ -1,0 +1,251 @@
+{
+  "at": "2026-10-23T11:34:09.910Z",
+  "backup": ".codex-backups/speed-rebrand-20261023",
+  "changed": [
+    {
+      "file": "src/components/access-brand.tsx",
+      "before": null,
+      "after": "23120332da9fae527d5141e519668f3a80042b008f9201374fc78068dd712cbb"
+    },
+    {
+      "file": "src/components/access-center.tsx",
+      "before": "607ea829f0b7e2f48df79db6de3897cea9cbdd8dfec004a7c60469f340ba903a",
+      "after": "7a9602b44a29b8a30c6228fe9171846e0ca5c28fa6af980d2b951f32518a656c"
+    },
+    {
+      "file": "src/components/access-forms.tsx",
+      "before": "8d95121b47c5c1d8ddff6792273285c0f9e1eaea2b32cd989b8e0fde252fd1bb",
+      "after": "7f593ba152eb4cf7f05dee08408c349170dc9cdde792275b5e9756c3159b68d3"
+    },
+    {
+      "file": "src/components/access-guide.tsx",
+      "before": "c8defd3e3bd022f19e98c94c8e68415dc83b920a4c702a727a77550c203a1e62",
+      "after": "a956a359988b7ad18370ffb66b8e262cfe2c3b14b9e09cba034fef364a0cfb5a"
+    },
+    {
+      "file": "src/components/access-navigation.tsx",
+      "before": null,
+      "after": "ca5911e8a644a9216ee8c0e1d3096aee3d9b372cba5eeca11025d80e17790c9e"
+    },
+    {
+      "file": "src/components/access-pages.tsx",
+      "before": "4b2b1bcb60bafccaa4d128f8ab727fcb47583260db4f5cc55faf86d0ea3d6431",
+      "after": "d27203e1aeefdb39f0ce8f720075f4abe96f7f770c76fc7bbaa07630323b9922"
+    },
+    {
+      "file": "src/components/access-ui.tsx",
+      "before": "d3e11f67ab94caafc6603e4c3564c580671a8a0af418f9602aa0eb02a624d251",
+      "after": "6c7ea134cf01e4496f1c387dca983a532fd9e35d13bb649e0cfb32291a7b7d5f"
+    },
+    {
+      "file": "src/components/access-workflows.tsx",
+      "before": "de59436a7b80108797a1e13b113f69ea3b990db29272a552a0970cd072b970a5",
+      "after": "fe52807b0d189d3756a55670295079c455ea72433efa78d2242e6a4dd3fd931c"
+    },
+    {
+      "file": "src/components/attendance-board.tsx",
+      "before": "ebc04acb929f0f325bc72fe78ab4e22ccf21dae03c60fda6d2c880c83bdf8cb6",
+      "after": "9523a4f88031b82deb8fa7590b0357bccacded5b704b4ad1a88fa4c22cacee8f"
+    },
+    {
+      "file": "src/components/configuration-live.tsx",
+      "before": "d476d11b338269e0c7eb1831b76f97e212174cda7f071fd5a338e144509e408a",
+      "after": "0c7c7b65d04f94f014ee94d7a1e0ff56c1540613eab3266f8e1bdb7acb528544"
+    },
+    {
+      "file": "src/components/configuration-studio.tsx",
+      "before": "fe301da573af0c391dcb08c2c354e18d92a5ca617fe6543c0ad7458d101875ab",
+      "after": "3d429ac398641460f31499d9a6bd32c0aef971bb8a6105cf43f4fdc739323e8e"
+    },
+    {
+      "file": "src/components/employee-biometrics.tsx",
+      "before": "5a9c6df53617a00574f1dbcbe91f10bafa0a9f629d1f146b967b6664fd0eafe9",
+      "after": "1769a6aefd6d7ea10ad77b75db8ac209e6938a8cef5536fb90269a09f8834ef2"
+    },
+    {
+      "file": "src/components/face-photo-editor.tsx",
+      "before": "a93e41969c4b4be1b839dcfb32e7f6199bb35bdaf3117019bfccadbee79d2ab1",
+      "after": "0618b6e6d1260d53bded0bda3199d00a42893ec1d6df3bd123cda005e8d7add1"
+    },
+    {
+      "file": "src/components/hik-guide.tsx",
+      "before": "0192cb345f46bd3e40849c450f5221614dc2c2f3d5e90e6330465d4053febf37",
+      "after": "dc077999651aeba428950b41321abb7b7547817d220a6ab14f8bf08de3f74f87"
+    },
+    {
+      "file": "src/components/speed-design.css",
+      "before": null,
+      "after": "027fd884e95318414ef27c4ca5f5c592a05cdf477a6f0ed27e6f3c7ad35144eb"
+    },
+    {
+      "file": "src/components/team-configuration.tsx",
+      "before": "2f7dc7c876b63bd80f074638679f53288e8b8d9fbae13a959241b5a3fe0eaf9e",
+      "after": "70a294c5b8e511e3022a5483648c9836b045f71f98afc1df35925fbdbc297e83"
+    },
+    {
+      "file": "src/lib/access/auth.server.ts",
+      "before": "0d74edb00564c6377d92a2b081741ea625e72fbf4c28948f9c71dbe2d7298e75",
+      "after": "188617bd982bdaa71e8cb16e51def84b0c4bd113c757fdf547f072d5fa810c92"
+    },
+    {
+      "file": "src/lib/access/guide.ts",
+      "before": "868526d67c6ab0b8ff501830b128dd6ba4885697140fbff0cf1f95141f253ab4",
+      "after": "f237d87dbf9221b8c2ffe82589a5c61e9a529b796f08fdd63f381498856a48f8"
+    },
+    {
+      "file": "src/lib/access/service.server.ts",
+      "before": "cd2c002731d84c1088484161e8076c30cb0ccfc6983dd49275157716054b3c60",
+      "after": "0251088b273226e69c43e77bfbfe49249f664225d8dc45b48a0bc0481f4c2b93"
+    },
+    {
+      "file": "src/lib/brand.ts",
+      "before": null,
+      "after": "7e989179d28ba1f4007c666a3487393d9ecba68250d8d6dd4ffac65f44d1daa6"
+    },
+    {
+      "file": "src/lib/error-component.tsx",
+      "before": "42a0335b75055b9d62455033d0cd70eb9592c52d115d2f72929558ef2e41ecb0",
+      "after": "e577b3138e24149f0fdd3d06fb860efb4b90d8742b9ab05bf6e458e23777deea"
+    },
+    {
+      "file": "src/lib/hik-connect.server.ts",
+      "before": "6c904d96d7e6454ff0ce50df080c773b71d2e940aacc9991a9965f9fabc1f8c4",
+      "after": "17391dae918c305358ee4b38740adff40b863cd79abcf5e6acec03986e6e99d7"
+    },
+    {
+      "file": "src/lib/sheet-pdf.ts",
+      "before": "625756414784ea4eb6c05f38362d75e019d17621650366bfd952cc2109ec59ce",
+      "after": "0dfdcca6112591e39a8bedfc8eb90e901d36607d0f47f8661996c015c3edaf54"
+    },
+    {
+      "file": "src/routes/__root.tsx",
+      "before": "e25b6c102a25b6fd8c6b78c5bf2379d6478bc5c0aa4d0372e4ddc0b4e028bd64",
+      "after": "290a5d05b78618e05f603a410b35ebd574e62ccff8bd714ef4cb0c87f467b368"
+    },
+    {
+      "file": "scripts/access-center-e2e.mjs",
+      "before": "72fa0967e7adb45de4270663f456648a5f28d681afcd96c361f21a0baed75257",
+      "after": "b06604f244e888fd347f3cc538f95b79ca02d6eaba89671a1b817f796cdd9826"
+    },
+    {
+      "file": "scripts/access-live-smoke.mjs",
+      "before": "0f72a60ff16bd06777e1dcf113e27984347c2b2b7fb5a54dba61b72570e8f577",
+      "after": "5c1bd504469398967fa47958d5ac0a9da09c23ca7318524eaf62fee5d7485301"
+    },
+    {
+      "file": "scripts/attendance-pull-browser.mjs",
+      "before": "15a2f82360c4b3243095b3025e1c858950f7ffd63cae9d51013bdc1ed1c9e09c",
+      "after": "f932f82843a0635414dcec0d575a5ffd8d214080bcaa60772f9fc2f3227f8a2b"
+    },
+    {
+      "file": "scripts/biometrics-browser.mjs",
+      "before": "1765f894badf91c4cf4250c4da78a49b5f544acc7aa23ff2eafe3b98d5a1f023",
+      "after": "8dfe46a633a59caeda68c4e66ae13ab20cd414c3c08d2a4af0664f255b39997b"
+    },
+    {
+      "file": "scripts/speed-brand-assets.mjs",
+      "before": null,
+      "after": "318de590cdddd0a370165ce73fe6c175afeb7003e7e5225bfafe9988c3056b7f"
+    },
+    {
+      "file": "scripts/speed-brand-review.mjs",
+      "before": null,
+      "after": "b1033291c86c521ec564d28c82d482711d9bdfd7cf64d372ee1959459059f1ad"
+    },
+    {
+      "file": "scripts/speed-brand-update.mjs",
+      "before": null,
+      "after": "33b9229ae7e7bc46dfee11ac5e376c709fcc2eef236e76b9f0bbaeff47a99e93"
+    },
+    {
+      "file": "scripts/speed-browser-update.mjs",
+      "before": null,
+      "after": "86248434034176820bd40a44dbf723eafe40088b5c6e94fafa5b4e86b241d352"
+    },
+    {
+      "file": "scripts/speed-face-layout.mjs",
+      "before": null,
+      "after": "4b85093d362bc310694e1792807a7145027817eb0de256834b8ce0c969504242"
+    },
+    {
+      "file": "public/app-icon-512.png",
+      "before": null,
+      "after": "e08a5b96d4943387109ed401de770e2e3908b15bfdbf0db0247fc7f5db979c25"
+    },
+    {
+      "file": "public/app-icon.png",
+      "before": null,
+      "after": "f4f3a16b24d1e102b12c549ea874c7569b4263e50406bb26d9d65e5dbae987fb"
+    },
+    {
+      "file": "public/favicon.svg",
+      "before": "932ea37a0d7a75f0fd198e2d234ba2046d8caa4fc27f67fb76a865cc7722870b",
+      "after": "04691d769f975efd1d8f5b3b5535c8e8d7aef1deae4054984050ea3b2587df02"
+    },
+    {
+      "file": "public/manifest.webmanifest",
+      "before": null,
+      "after": "76095caf960be072d846c821ee31479ff75ed2780a6c811f34827b9e3dae750b"
+    }
+  ],
+  "preserved": [
+    {
+      "file": "src/lib/hikvision.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision.functions.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision-parse.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/isapi.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/pull.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/search-page.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/biometrics.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/biometric.functions.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/store.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/contracts.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/device-desk.tsx",
+      "unchanged": true
+    }
+  ],
+  "displayOnly": [
+    {
+      "file": "src/lib/access/auth.server.ts",
+      "onlyBrandTextChanged": true
+    },
+    {
+      "file": "src/lib/access/service.server.ts",
+      "onlyBrandTextChanged": true
+    },
+    {
+      "file": "src/lib/hik-connect.server.ts",
+      "onlyBrandTextChanged": true
+    }
+  ]
+}

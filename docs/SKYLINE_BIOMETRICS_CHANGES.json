@@ -1,0 +1,146 @@
+{
+  "at": "2026-10-22T21:42:39.372Z",
+  "backup": ".codex-backups/biometrics-20261022",
+  "changed": [
+    {
+      "file": "src/components/access-center.css",
+      "before": "f50897df884e24da1730554c3c4ece93f1cfc3e042d03512c5338e7977714b58",
+      "after": "b61c4de8dc572470530f918cb665164ef05a77bea17a81991d2d44805d5a14be"
+    },
+    {
+      "file": "src/components/access-center.tsx",
+      "before": "4dffe7733398a4101cd8bd1e429c1edcc82517169db3c9fa004b10a896caddb8",
+      "after": "607ea829f0b7e2f48df79db6de3897cea9cbdd8dfec004a7c60469f340ba903a"
+    },
+    {
+      "file": "src/components/access-pages.tsx",
+      "before": "7ce259e78813b9390a9a15834b7da9c7fa1ee10373d5d82ca3a7ff0a260c069a",
+      "after": "4b2b1bcb60bafccaa4d128f8ab727fcb47583260db4f5cc55faf86d0ea3d6431"
+    },
+    {
+      "file": "src/components/access-ui.tsx",
+      "before": "1893507dffebc7d26f108a5bd00a3b93c37003225998e2bc37ad1ca0f19bc265",
+      "after": "d3e11f67ab94caafc6603e4c3564c580671a8a0af418f9602aa0eb02a624d251"
+    },
+    {
+      "file": "src/components/access-workflows.tsx",
+      "before": "f83e1f0033e10c7dcd7c9c6b8db8d98f3a45588b341752cf9c2e843b8e1d027b",
+      "after": "de59436a7b80108797a1e13b113f69ea3b990db29272a552a0970cd072b970a5"
+    },
+    {
+      "file": "src/components/employee-biometrics.tsx",
+      "before": null,
+      "after": "5a9c6df53617a00574f1dbcbe91f10bafa0a9f629d1f146b967b6664fd0eafe9"
+    },
+    {
+      "file": "src/components/face-photo-editor.tsx",
+      "before": null,
+      "after": "a93e41969c4b4be1b839dcfb32e7f6199bb35bdaf3117019bfccadbee79d2ab1"
+    },
+    {
+      "file": "src/lib/access/biometric-status.ts",
+      "before": null,
+      "after": "765661aa438eee0f73236ca261fb7b920d855c188e08af4c5ce6815cece3c8db"
+    },
+    {
+      "file": "src/lib/access/biometrics.server.ts",
+      "before": null,
+      "after": "5ac8f7cea282dfef52942b6c4b4d2106f3dafdab484ac6ac373bdb1e60476266"
+    },
+    {
+      "file": "src/lib/access/face-image.ts",
+      "before": null,
+      "after": "8695774bce6b71ed8a30465fb2246ad56ea7847b248f1f757fe1d0baa8b42857"
+    },
+    {
+      "file": "src/lib/access/guide.ts",
+      "before": "a09f32ee9e7fe647a39b61560f80ea94b4d5d2db37eb18ddc49c05dcfd831f00",
+      "after": "868526d67c6ab0b8ff501830b128dd6ba4885697140fbff0cf1f95141f253ab4"
+    },
+    {
+      "file": "src/lib/access/isapi.server.ts",
+      "before": "1879630d702ab2c88e60a592c74c9284c5576fe4de769fc9c043df89105ba98f",
+      "after": "2473ead190b42cf27d87972d562b02f76cbb643cffa5a32898bff5b4edbb173a"
+    },
+    {
+      "file": "src/lib/access/service.server.ts",
+      "before": "54f885806c05866894e6330238f89505b90e5160953fa096765465922c98e8f2",
+      "after": "cd2c002731d84c1088484161e8076c30cb0ccfc6983dd49275157716054b3c60"
+    },
+    {
+      "file": "src/lib/biometric.functions.ts",
+      "before": null,
+      "after": "cbd911dc0913f261509a62b64965b9594fc52f62a7e932341636ef834faf89e5"
+    },
+    {
+      "file": "src/lib/hikvision.server.ts",
+      "before": "078c150965b022947e8560313ab640ada8726acf1d9a983d10c9dc7841ac56d5",
+      "after": "88b9983a700176dc70b52af9ff13a17501579b5f9aec8c6f23506bf62c6e542c"
+    },
+    {
+      "file": "scripts/biometric-capability-probe.mjs",
+      "before": null,
+      "after": "b1d1ee0a5e9cea4993267867e24b859e3e2feb31d9f196c4f773658ad6477b36"
+    },
+    {
+      "file": "scripts/biometric-test-device.mjs",
+      "before": null,
+      "after": "4c660728c31dabeb5552e8d3a0cfe7517fc3e4872bf44a5f39b08f077376d69e"
+    },
+    {
+      "file": "scripts/biometrics-browser.mjs",
+      "before": null,
+      "after": "1765f894badf91c4cf4250c4da78a49b5f544acc7aa23ff2eafe3b98d5a1f023"
+    },
+    {
+      "file": "scripts/biometrics-review.mjs",
+      "before": null,
+      "after": "2ede4b648fcdee0fa44636f68199f260a71f55d77ff9f21112ad475f097c9554"
+    },
+    {
+      "file": "scripts/biometrics.test.mjs",
+      "before": null,
+      "after": "418ed6b8fb840b4e12a42f65202b4e8d148634d13087cc505bd5ce1134a671b9"
+    },
+    {
+      "file": "scripts/hikvision-test-device.mjs",
+      "before": "d1d9ecb035d778ab96c59c0c53e8d6a9c9c56955e9f8861e86759ff685de1d17",
+      "after": "a5440dcdee871d2f403c261b28fb8ed1343db80fac1f0760235310976a0ae221"
+    },
+    {
+      "file": "package.json",
+      "before": "aa6c0e6c567f129f0e0e40e8dff2bb9988637572b2bfa41f355b838e430101bb",
+      "after": "2ced43243b3dc9789708f5dca4eb981bce9d59d6c501106f9199eb833dff471a"
+    }
+  ],
+  "preserved": [
+    {
+      "file": "src/lib/hik-connect.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision.functions.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision-parse.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/pull.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/access/search-page.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/attendance-board.tsx",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/device-desk.tsx",
+      "unchanged": true
+    }
+  ]
+}

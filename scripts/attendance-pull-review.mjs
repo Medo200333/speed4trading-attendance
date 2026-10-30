@@ -1,0 +1,12 @@
+import { readFileSync,existsSync,readdirSync,writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+const backup='.codex-backups/attendance-pull-20261022';
+const walk=(dir)=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(dir,e.name)):[join(dir,e.name)]);
+const files=[...walk('src'),...walk('scripts'),'package.json'];
+const hash=file=>existsSync(file)?createHash('sha256').update(readFileSync(file)).digest('hex'):null;
+const changed=files.map(file=>({file:file.replaceAll('\\','/'),before:hash(join(backup,file)),after:hash(file)})).filter(x=>x.before!==x.after);
+const preserved=['src/lib/hikvision.server.ts','src/lib/hikvision.functions.ts','src/lib/hikvision-parse.ts','src/lib/hik-connect.server.ts','src/components/attendance-board.tsx','src/components/device-desk.tsx','vite.config.ts'].map(file=>({file,unchanged:existsSync(join(backup,file))?hash(file)===hash(join(backup,file)):null}));
+const result={at:new Date().toISOString(),backup,changed,preserved};
+writeFileSync('docs/HIKVISION_ATTENDANCE_PULL_CHANGES.json',JSON.stringify(result,null,2));
+console.log(JSON.stringify({changed:changed.map(x=>x.file),preserved}));

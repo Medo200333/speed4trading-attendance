@@ -1,0 +1,48 @@
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync,existsSync} from 'node:fs';
+import {join,resolve,relative,dirname} from 'node:path';
+import {createHash} from 'node:crypto';
+const root=process.cwd(),area=resolve('.codex-backups/speed-source-identity-20261023'),review=join(area,'review'),before=join(area,'before');
+const targets=['src','public','server','desktop','android/app/src','android/build.gradle','android/settings.gradle','android/app/build.gradle','scripts','brand.config.json','package.json','package-lock.json','tsconfig.json','vite.config.ts','vite.access-staging.config.ts','vite.zubayd-desktop.config.ts'];
+function copy(from,to){if(!existsSync(from))return;for(const name of readdirSync(from,{withFileTypes:true})){if(name.isSymbolicLink()||['node_modules','build','.gradle'].includes(name.name)||/\.bak|^\.env/.test(name.name))continue;const a=join(from,name.name),b=join(to,name.name);if(name.isDirectory())copy(a,b);else{mkdirSync(dirname(b),{recursive:true});copyFileSync(a,b);}}}
+for(const name of targets){const source=join(root,name);if(!existsSync(source))continue;if(!existsSync(join(before,name))){if(!name.includes('.')||['src','public','server','desktop','scripts','android/app/src'].includes(name))copy(source,join(before,name));else{mkdirSync(dirname(join(before,name)),{recursive:true});copyFileSync(source,join(before,name));}}if(['src','public','server','desktop','scripts','android/app/src'].includes(name))copy(source,join(review,name));else{mkdirSync(dirname(join(review,name)),{recursive:true});copyFileSync(source,join(review,name));}}
+const evidence=JSON.parse(readFileSync(join(area,'identity-evidence.json'))),t=evidence.tokens,configuration=JSON.parse(readFileSync('brand.config.json'));
+Object.assign(configuration,{name:'Speed Maintenance',englishName:'Speed Maintenance',ownerName:'Speed for Training',publisher:'Speed for Training',logoSrc:'/brand/speed/source-logo.png',fontFamily:t['font-sans'],identityStatus:'REVIEW ONLY: source logo literally says SPEED TRADING; owner and product approval pending.',sourceProject:evidence.sourceProject});
+configuration.palette={primary:t['color-primary'],navy:t['color-primary'],accent:t['color-accent'],background:t['color-bg'],surface:t['color-surface'],text:t['color-fg'],muted:t['color-muted'],border:t['color-border'],success:t['color-ok'],danger:t['color-danger'],warning:t['color-warn']};
+writeFileSync(join(review,'brand.config.json'),JSON.stringify(configuration,null,2));
+mkdirSync(join(review,'public/brand/speed'),{recursive:true});copyFileSync(join(area,'source-reference/public/speed-trading-logo.png'),join(review,'public/brand/speed/source-logo.png'));
+function rewrite(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const file=join(dir,e.name);if(e.isDirectory())rewrite(file);else if(/\.(tsx?|css|html|java|js|cjs)$/.test(file)){let text=readFileSync(file,'utf8');text=text.replaceAll('زبيد','Speed Maintenance').replaceAll('Speed for Trading','Speed for Training');writeFileSync(file,text);}}}
+for(const name of ['src','desktop','android/app/src'])rewrite(join(review,name));
+// Export names are presentation; storage keys, application IDs and backup formats remain compatible.
+for(const name of ['src/lib/brand.ts','src/components/access-workflows.tsx','src/components/access-pages.tsx','src/components/attendance-board.tsx','src/lib/sheet-pdf.ts']){const file=join(review,name);let s=readFileSync(file,'utf8').replaceAll('Zubayd','Speed-Maintenance');writeFileSync(file,s);}
+const brandComponent=join(review,'src/components/access-brand.tsx');let component=readFileSync(brandComponent,'utf8').replace('alt={`شعار ${BRAND.name}`}','alt="شعار مشروع Speed Maintenance المصدر — نص الصورة SPEED TRADING"').replace('<strong className="ac-brand" dir="ltr">','<span className="ac-owner" dir="ltr">{BRAND.ownerName}</span>\n      <strong className="ac-brand" dir="ltr">');writeFileSync(brandComponent,component);
+const center=join(review,'src/components/access-center.tsx');let c=readFileSync(center,'utf8');c=c.replace('import "./speed-design.css";','import "./speed-design.css";\nimport "./speed-source-theme.css";');c=c.replace('<a className="ac-skip"','<p className="speed-review-notice" role="status">معاينة للمراجعة: شعار المصدر مكتوب عليه SPEED TRADING. اسم المالك المحدد Speed for Training واعتماد الاسم والشعار النهائي معلق.</p>\n        <a className="ac-skip"');writeFileSync(center,c);
+const css=`/* Extracted from Speed Maintenance Room v2: src/styles.css and src/lib/brand.ts. Review, not an official identity certification. */
+.access-center{--ac-soft:${t['color-info-bg']};--speed-accent:${t['color-accent']};--ac-shadow:0 0 0 1px rgba(28,25,23,.06),0 1px 2px -1px rgba(28,25,23,.06),0 8px 24px -12px rgba(28,25,23,.12);--ac-radius:${t['radius-lg']}}
+.access-center .ac-button.primary{background:var(--ac-navy);border-color:var(--ac-navy);color:${t['color-primary-fg']};box-shadow:0 1px 3px #00000012}
+.access-center .ac-button.primary:hover:not(:disabled){background:var(--speed-accent)}
+.access-center :is(button,input,select,textarea,a,summary):focus-visible{outline-color:${t['color-ring']}}
+.access-center .ac-sidebar{background:linear-gradient(135deg,${t['color-primary']},${t['color-accent']})}
+.access-center .ac-sidebar nav button[aria-current=page]{background:${t['color-primary-fg']};color:var(--ac-navy);box-shadow:none;border:1px solid #ffffff47}
+.access-center .ac-brand,.access-center .ac-login .ac-brand{color:inherit;letter-spacing:0;overflow-wrap:anywhere;max-width:100%}
+.ac-owner{font-size:.8125rem;color:inherit;opacity:.9;overflow-wrap:anywhere}
+.access-center .ac-official-logo{background:white;padding:8px;border:1px solid ${t['color-border']};border-radius:${t['radius-md']};height:auto;max-height:92px;width:210px;max-width:100%;object-fit:contain}
+.access-center .ac-identity{max-width:100%}
+.access-center .ac-welcome{background:linear-gradient(115deg,${t['color-info-bg']},${t['color-surface']})}
+.access-center .ac-bottom button[aria-current=page],.access-center .ac-button[aria-pressed=true]{background:var(--ac-soft);color:var(--ac-navy);border-color:var(--speed-accent)}
+.access-center .ac-login,.access-center.ac-login{background:radial-gradient(circle at 20% 0%,rgba(188,196,200,.30),transparent 28rem),linear-gradient(145deg,#07182f 0%,#0b2242 55%,#2f425d 100%)}
+.access-center.ac-login .ac-card{background:white;color:var(--ac-navy);border:1px solid #ffffff40;border-radius:${t['radius-xl']};box-shadow:0 32px 90px -36px #000000bf}
+.access-center .ac-message.success{background:${t['color-ok-bg']};color:${t['color-ok']}}
+.access-center .ac-message.error{background:${t['color-danger-bg']};color:${t['color-danger']}}
+.access-center .ac-message.warning{background:${t['color-warn-bg']};color:${t['color-warn']}}
+.access-center .ac-photo-input,.access-center .ac-enrollment-context{background:var(--ac-soft);color:var(--ac-navy);border-color:var(--speed-accent)}
+.speed-review-notice{margin:0;padding:12px 16px;background:${t['color-warn-bg']};color:${t['color-warn']};font-size:.875rem;border-bottom:1px solid ${t['color-border']}}
+@media print{.speed-review-notice{display:none}}
+`;
+writeFileSync(join(review,'src/components/speed-source-theme.css'),css);
+// Native display metadata is a review candidate. Stable IDs and backup format strings are untouched.
+const pkg=JSON.parse(readFileSync(join(review,'desktop/package.json')));pkg.author=configuration.ownerName;pkg.description='إدارة أجهزة Hikvision والموظفين والحضور';Object.assign(pkg.build,{productName:configuration.name,copyright:configuration.ownerName});pkg.build.win.publisherName=configuration.ownerName;pkg.build.win.artifactName='Speed-Maintenance-Review-Setup-${version}.${ext}';pkg.build.nsis.shortcutName=configuration.name;writeFileSync(join(review,'desktop/package.json'),JSON.stringify(pkg,null,2));
+const builder=join(review,'scripts/zubayd-build-server.mjs');writeFileSync(builder,readFileSync(builder,'utf8').replace("'node_modules/vite/bin/vite.js'",JSON.stringify(resolve('node_modules/vite/bin/vite.js'))));
+const oldKey=resolve('.codex-backups/zubayd-platform-20261023/android-signing/debug.keystore'),stageKey=join(review,'.codex-backups/zubayd-platform-20261023/android-signing/debug.keystore');if(existsSync(oldKey)){mkdirSync(dirname(stageKey),{recursive:true});copyFileSync(oldKey,stageKey);}
+const about=join(review,'src/components/brand-about.tsx');let a=readFileSync(about,'utf8');a=a.replace('الشعار الرسمي لم يُرفق بعد. الأيقونة الحالية مؤقتة، والألوان قابلة للتغيير من إعداد الهوية المركزي. لا تمثل شعاراً رسمياً.','الهوية من مشروع Speed Maintenance المصدر. نص الصورة SPEED TRADING؛ اعتمادها لشركة Speed for Training واسم المنتج النهائي معلقان للمراجعة.');writeFileSync(about,a);
+const manifest=[];function compare(dir){for(const e of readdirSync(dir,{withFileTypes:true})){const file=join(dir,e.name);if(e.isDirectory()){if(!['node_modules','build','.codex-backups'].includes(e.name))compare(file);}else{const p=relative(review,file).replaceAll('\\','/'),current=join(root,p),body=readFileSync(file),sha=createHash('sha256').update(body).digest('hex');if(!existsSync(current)||createHash('sha256').update(readFileSync(current)).digest('hex')!==sha)manifest.push({path:p,sha256:sha,appliedToLive:false});}}}compare(review);
+writeFileSync(join(area,'review-files.json'),JSON.stringify({review,sourceProject:evidence.sourceProject,sourceUnchanged:true,approvalRequired:['source logo SPEED TRADING vs requested owner Speed for Training','final Hikvision product name'],files:manifest},null,2));console.log(JSON.stringify({review,changedFiles:manifest.length,liveBrandChanged:false,sourceProjectChanged:false}));

@@ -1,0 +1,10 @@
+--- vite.config.ts (current)
++++ vite.config.ts (proposed, requires approval because Vite restarts)
+@@
++import { privateFilesDeny, privatePathGuard } from "./scripts/access-security-config.mjs";
+@@ server
+     allowedHosts: true,
++    fs: { deny: privateFilesDeny },
+@@ plugins
+   plugins: [
++    privatePathGuard(),

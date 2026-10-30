@@ -1,0 +1,14 @@
+import {readFileSync,readdirSync,existsSync,writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+const backup='.codex-backups/speed-rebrand-20261023';
+const walk=directory=>readdirSync(directory,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(directory,e.name)):[join(directory,e.name)]);
+const hash=file=>existsSync(file)?createHash('sha256').update(readFileSync(file)).digest('hex'):null;
+const files=[...walk('src'),...walk('scripts'),...walk('public'),...walk('server')];
+const changed=files.map(file=>({file:file.replaceAll('\\','/'),before:hash(join(backup,file)),after:hash(file)})).filter(row=>row.before!==row.after);
+const critical=['src/lib/hikvision.server.ts','src/lib/hikvision.functions.ts','src/lib/hikvision-parse.ts','src/lib/access/isapi.server.ts','src/lib/access/pull.server.ts','src/lib/access/search-page.ts','src/lib/access/biometrics.server.ts','src/lib/biometric.functions.ts','src/lib/access/store.server.ts','src/lib/access/contracts.ts','src/components/device-desk.tsx'];
+const preserved=critical.map(file=>({file,unchanged:hash(file)===hash(join(backup,file))}));
+const displayOnly=['src/lib/access/auth.server.ts','src/lib/access/service.server.ts','src/lib/hik-connect.server.ts'].map(file=>({file,onlyBrandTextChanged:readFileSync(join(backup,file),'utf8').replaceAll('SKY LINE','Speed for Trading').replaceAll('Sky Line','Speed for Trading')===readFileSync(file,'utf8')}));
+if(preserved.some(x=>!x.unchanged)||displayOnly.some(x=>!x.onlyBrandTextChanged))throw new Error('Unexpected device/auth implementation change');
+writeFileSync('docs/SPEED_FOR_TRADING_CHANGES.json',JSON.stringify({at:new Date().toISOString(),backup,changed,preserved,displayOnly},null,2));
+console.log(JSON.stringify({changed:changed.map(x=>x.file),preserved,displayOnly}));

@@ -1,0 +1,12 @@
+import {spawnSync} from 'node:child_process';
+import {readFileSync,writeFileSync,existsSync,readdirSync,mkdirSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {join,resolve} from 'node:path';
+const sdk=process.env.ANDROID_HOME||join(process.env.LOCALAPPDATA,'Android','Sdk'),jdk=process.env.JAVA_HOME||'C:/Program Files/Android/Android Studio/jbr';
+const artifact=resolve('releases/android/Zubayd-debug.apk'),tools=join(sdk,'build-tools','36.1.0');
+const run=(file,args)=>{const r=spawnSync(file,args,{encoding:'utf8',windowsHide:true,timeout:30000});if(r.status!==0)throw Error(r.stderr||String(r.error));return r.stdout.trim();};
+const signature=run(join(jdk,'bin','java.exe'),['-jar',join(tools,'lib','apksigner.jar'),'verify','--verbose','--print-certs',artifact]);
+const badging=run(join(tools,'aapt2.exe'),['dump','badging',artifact]);
+const adb=run(join(sdk,'platform-tools','adb.exe'),['devices','-l']);
+const result={artifact:'releases/android/Zubayd-debug.apk',bytes:readFileSync(artifact).length,sha256:createHash('sha256').update(readFileSync(artifact)).digest('hex'),signature,badging,adbDevices:adb,installedOnHardware:false,productionSigned:false,windowsInstallerExists:existsSync('releases/windows')&&readdirSync('releases/windows').some(n=>n.endsWith('.exe')),standaloneServerExists:existsSync('dist-server/server/index.mjs')};
+mkdirSync('.codex-backups/zubayd-platform-20261023/qa',{recursive:true});writeFileSync('.codex-backups/zubayd-platform-20261023/qa/distribution.json',JSON.stringify(result,null,2));writeFileSync('releases/android/SHA256SUMS.txt',`${result.sha256}  Zubayd-debug.apk\n`);console.log(JSON.stringify(result));

@@ -1,28 +1,45 @@
 {
-  "name": "speed4trading",
-  "productName": "Speed4Trading",
-  "version": "1.0.0",
+  "name": "zubayd-desktop",
+  "version": "1.2.0",
+  "description": "ط²ط¨ظٹط¯ ظ„ط¥ط¯ط§ط±ط© ط§ظ„ط´ط±ظƒط§طھ ظˆط£ط¬ظ‡ط²ط© Hikvision",
+  "author": "Speed for Training",
   "private": true,
-  "description": "MK attendance module",
-  "author": "MK",
   "main": "main.cjs",
   "scripts": {
-    "pack": "electron-builder --win dir --x64"
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis -c.electronDist=node_modules/electron/dist"
   },
   "build": {
-    "appId": "mk.attendance",
-    "productName": "Speed4Trading",
+    "appId": "com.zubayd.accesscontrol",
+    "productName": "Speed for Training",
+    "copyright": "ط²ط¨ظٹط¯",
     "directories": {
-      "output": "release"
+      "output": "../releases/windows",
+      "buildResources": "resources"
     },
     "files": [
-      "main.cjs",
-      "preload.cjs",
-      "isapi.cjs",
-      "hik-connect.cjs",
-      "dist/**/*"
+      "*.cjs",
+      "*.js",
+      "*.html",
+      "package.json",
+      "!node_modules/**",
+      "resources/brand.json",
+      "resources/app.ico"
     ],
-    "asar": true,
+    "extraResources": [
+      {
+        "from": "../dist-server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!.env*",
+          "!**/*.bak",
+          "!**/state*.json",
+          "!**/credential-*.json"
+        ]
+      }
+    ],
     "win": {
       "target": [
         {
@@ -32,16 +49,30 @@
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "artifactName": "SpeedForTraining-Setup-${version}.${ext}",
+      "icon": "resources/app.ico",
+      "signtoolOptions": {
+        "publisherName": "MK",
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      }
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "artifactName": "Speed4Trading-Setup.exe"
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Speed for Training",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": false,
+      "artifactName": "SpeedForTraining-Setup-${version}.${ext}"
     }
   },
   "devDependencies": {
-    "electron": "^33.4.11",
-    "electron-builder": "^25.1.8"
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3"
   }
 }

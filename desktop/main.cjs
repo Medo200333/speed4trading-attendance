@@ -1,156 +1,407 @@
-const { app, BrowserWindow, ipcMain, session } = require("electron");
-const path = require("path");
-const zlib = require("zlib");
-const isapi = require("./isapi.cjs");
-const hik = require("./hik-connect.cjs");
-
-function pack(value) {
-  return { gzip: zlib.gzipSync(JSON.stringify(value)).toString("base64") };
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  safeStorage,
+  Menu,
+  shell,
+} = require("electron");
+/** Only mail composer (never sends) and web links leave the app, and they open in the system apps. */
+function openOutside(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "mailto:" || u.protocol === "https:" || u.protocol === "http:") { void shell.openExternal(u.toString()); return true; }
+  } catch {}
+  return false;
 }
-
-function create() {
-  const win = new BrowserWindow({
-    width: 1360,
-    height: 860,
-    minWidth: 960,
-    minHeight: 640,
-    title: "سبيد فور تريدنج",
-    autoHideMenuBar: true,
-    backgroundColor: "#f6f5f8",
+const { spawn } = require("node:child_process");
+const { join, resolve } = require("node:path");
+const {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+} = require("node:fs");
+const { randomBytes } = require("node:crypto");
+const {
+  safeDataDirectory,
+  createInstallation,
+  checkAdministrator,
+  validateConnection,
+  validateCertificate,
+  atomic,
+  pickDataDirectory,
+  findFreePort,
+} = require("./desktop-config.cjs");
+const brand = require("./resources/brand.json");
+let window,
+  maintenance,
+  server,
+  configuration,
+  origin = "",
+  shuttingDown = false,
+  maintaining = false,
+  restorePending;
+app.setName(brand.name);
+app.setAppUserModelId(brand.appId);
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on("second-instance", () => {
+  window?.show();
+  window?.focus();
+});
+const settings = () => join(app.getPath("userData"), "installation.json");
+const eventLog = (code) => {
+  try {
+    const root = join(app.getPath("userData"), "logs");
+    mkdirSync(root, { recursive: true });
+    require("node:fs").appendFileSync(
+      join(root, "runtime.log"),
+      new Date().toISOString() +
+        " " +
+        String(code)
+          .replace(/[^a-zA-Z0-9_-]/g, "")
+          .slice(0, 80) +
+        "\n",
+    );
+  } catch {}
+};
+function trusted(event) {
+  const u = event.senderFrame?.url || "";
+  // Compare real file: URLs. Install paths contain spaces ("Speed for Training"), which Chromium %20-encodes.
+  const page = (name) => require("node:url").pathToFileURL(join(__dirname, name)).href.toLowerCase();
+  const local = ["setup.html", "maintenance.html", "connection.html"].some((name) => u.toLowerCase() === page(name));
+  let fromServer = false;
+  try { fromServer = Boolean(origin && new URL(u).origin === origin); } catch {}
+  return event.senderFrame === event.sender.mainFrame && (local || fromServer);
+}
+function checkSender(event) {
+  if (!trusted(event)) throw new Error("IPC_ORIGIN");
+}
+function createWindow() {
+  const w = new BrowserWindow({
+    width: 1280,
+    height: 900,
+    minWidth: 360,
+    minHeight: 540,
+    title: brand.name,
+    icon: join(__dirname, "resources", "app.ico"),
     webPreferences: {
-      contextIsolation: true,
+      preload: join(__dirname, "preload.cjs"),
       nodeIntegration: false,
-      preload: path.join(__dirname, "preload.cjs"),
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
   });
-  win.loadFile(path.join(__dirname, "dist", "index.html"));
-}
-
-ipcMain.handle("speed:probe", (_event, link) => isapi.probe(link));
-ipcMain.handle("speed:pull", (_event, link) => isapi.pull(link));
-ipcMain.handle("speed:door", (_event, link) => isapi.door(link));
-
-let siteWin = null;
-ipcMain.handle("speed:openSite", () => {
-  if (siteWin && !siteWin.isDestroyed()) {
-    siteWin.show();
-    siteWin.focus();
-    return { ok: true };
-  }
-  siteWin = new BrowserWindow({
-    width: 1200,
-    height: 860,
-    title: "Hik-Connect",
-    autoHideMenuBar: true,
-    webPreferences: { partition: "persist:hik-connect", contextIsolation: true, nodeIntegration: false },
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    openOutside(url);
+    return { action: "deny" };
   });
-  siteWin.loadURL("https://www.hik-connect.com/");
-  siteWin.on("closed", () => { siteWin = null; });
+  w.webContents.on("will-navigate", (event, url) => {
+    if (url.startsWith("file:")) {
+      if (!url.endsWith("/setup.html") && !url.endsWith("/maintenance.html") && !url.endsWith("/connection.html"))
+        event.preventDefault();
+    } else if (!origin || new URL(url).origin !== origin) {
+      event.preventDefault();
+      openOutside(url);
+    }
+  });
+  w.webContents.session.setPermissionRequestHandler(
+    (_wc, permission, callback) =>
+      callback(permission === "media" && _wc.getURL().startsWith(origin + "/")),
+  );
+  return w;
+}
+async function startServer() {
+  const config = configuration.connection,
+    root = configuration.dataDirectory;
+  if (!safeStorage.isEncryptionAvailable())
+    throw new Error("OS_ENCRYPTION_UNAVAILABLE");
+  const vault = safeStorage.decryptString(
+    readFileSync(join(root, "vault-key.bin")),
+  );
+  const instance = randomBytes(24).toString("hex");
+  const env = {};
+  for (const key of [
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "PATH",
+    "LOCALAPPDATA",
+    "APPDATA",
+    "USERPROFILE",
+    "ProgramFiles",
+    "COMSPEC",
+  ])
+    if (process.env[key]) env[key] = process.env[key];
+  Object.assign(env, {
+    ELECTRON_RUN_AS_NODE: "1",
+    NODE_ENV: "production",
+    VITE_AUTH_ENABLED: "false",
+    VITE_GROK_EXTENSIONS: "0",
+    SKYLINE_ACCESS_DATA_DIR: root,
+    SKYLINE_EMPTY_INSTALL: "1",
+    SKYLINE_LICENSE_ENFORCE: "1",
+    SKYLINE_VAULT_KEY: vault,
+    NITRO_HOST: config.host,
+    NITRO_PORT: String(config.port),
+  });
+  env.ZUBAYD_INSTANCE_ID = instance;
+  if (config.tlsCert && config.tlsKey) {
+    env.NITRO_SSL_CERT = readFileSync(config.tlsCert, "utf8");
+    env.NITRO_SSL_KEY = readFileSync(config.tlsKey, "utf8");
+  }
+  origin =
+    (config.tlsCert ? "https://" + config.serverName : "http://127.0.0.1") +
+    ":" +
+    config.port;
+  const entry = app.isPackaged
+    ? join(process.resourcesPath, "server", "server", "index.mjs")
+    : join(__dirname, "..", "dist-server", "server", "index.mjs");
+  if (!existsSync(entry)) throw new Error("SERVER_BUNDLE_MISSING");
+  server = spawn(process.execPath, [entry], {
+    env,
+    cwd: root,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  server.stdout.on("data", () => {});
+  server.stderr.on("data", () => eventLog("SERVER_STDERR"));
+  server.on("error", () => eventLog("SERVER_START_FAILED"));
+  server.on("exit", (code) => {
+    server = undefined;
+    eventLog("SERVER_EXIT_" + code);
+    if (!shuttingDown && !maintaining)
+      dialog.showErrorBox(
+        brand.name,
+        "توقف خادم التطبيق. راجع سجل الأحداث ثم أعد فتح البرنامج.",
+      );
+  });
+  for (let i = 0; i < 100; i++) {
+    try {
+      const r = await fetch(origin + "/__zubayd/instance");
+      if (r.ok && (await r.json()).instance === instance) {
+        window.loadURL(origin + "/");
+        eventLog("SERVER_READY");
+        return;
+      }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  throw new Error("SERVER_NOT_READY");
+}
+async function stopOwnedServer() {
+  const child = server;
+  if (!child) return;
+  await new Promise((done, fail) => {
+    const timeout = setTimeout(() => fail(new Error("SERVER_STOP_TIMEOUT")), 10000);
+    child.once("exit", () => { clearTimeout(timeout); done(); });
+    child.kill();
+  });
+}
+ipcMain.handle("zubayd:info", (event) => {
+  checkSender(event);
+  return {
+    name: brand.name,
+    version: brand.version,
+    dataDirectory:
+      configuration?.dataDirectory || join(app.getPath("userData"), "data"),
+    connection: configuration?.connection,
+    installed: Boolean(configuration),
+  };
+});
+ipcMain.handle("zubayd:folder", async (event) => {
+  checkSender(event);
+  if (configuration) throw new Error("ALREADY_CONFIGURED");
+  const result = await dialog.showOpenDialog(window, {
+    properties: ["openDirectory", "createDirectory"],
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+ipcMain.handle("zubayd:setup", async (event, input) => {
+  checkSender(event);
+  if (configuration) throw new Error("ALREADY_CONFIGURED");
+  if (!safeStorage.isEncryptionAvailable())
+    throw new Error("OS_ENCRYPTION_UNAVAILABLE");
+  try {
+    const wanted = { ...(input.connection || {}) };
+    if (!Number(wanted.port)) wanted.port = await findFreePort(8787);
+    const connection = validateConnection(wanted);
+    validateCertificate(connection);
+    // Data folder: real Documents known folder (follows OneDrive/redirect) \ <English company name>.
+    const picked = pickDataDirectory(app.getPath("documents"), input.companyNameEn);
+    const directory = safeDataDirectory(picked.dir, require("node:path").dirname(process.execPath));
+    let root = directory;
+    if (picked.reuse) {
+      safeStorage.decryptString(readFileSync(join(directory, "vault-key.bin")));
+      eventLog("SETUP_REUSED_DATA");
+    } else {
+      root = createInstallation(directory, input).root;
+      writeFileSync(
+        join(root, "vault-key.bin"),
+        safeStorage.encryptString(randomBytes(32).toString("base64")),
+        { mode: 0o600, flag: "wx" },
+      );
+    }
+    configuration = { dataDirectory: root, connection };
+    atomic(settings(), configuration);
+    await startServer();
+    return { ok: true, dataDirectory: root, port: connection.port };
+  } catch (error) {
+    eventLog("SETUP_FAILED_" + String(error && error.message || error));
+    if (!server) configuration = undefined;
+    throw error;
+  }
+});
+ipcMain.handle("zubayd:maintenance", (event) => {
+  checkSender(event);
+  if (!configuration) return;
+  maintenance = createWindow();
+  maintenance.loadFile(join(__dirname, "maintenance.html"));
+});
+const attempts = new Map();
+function administrator(input) {
+  if (!configuration || maintaining) throw new Error("MAINTENANCE_BUSY");
+  const name=String(input.username||"").slice(0,80),old=attempts.get(name),bucket=old&&Date.now()-old.since<60000?old:{count:0,since:Date.now()};
+  if(bucket.count>=5)throw new Error("RATE_LIMIT");
+  if(!checkAdministrator(configuration.dataDirectory,name,input.password)){bucket.count++;attempts.set(name,bucket);throw new Error("ADMIN_REQUIRED");}
+  attempts.delete(name);
+}
+ipcMain.handle("zubayd:connection",async(event,input)=>{
+ checkSender(event);administrator(input);
+ if(input.phrase!=="تغيير اتصال Speed for Training")throw new Error("CONFIRMATION_REQUIRED");
+ const connection=validateConnection(input.connection);validateCertificate(connection);
+ const previous=configuration;maintaining=true;
+ try{
+  await stopOwnedServer();configuration={...previous,connection};atomic(settings(),configuration);
+  await startServer();eventLog("CONNECTION_CHANGED");
+  return {ok:true,notice:"تم تشغيل خادم Speed for Training بإعداد الاتصال الجديد. لم تتغير قواعد Firewall أو Tailscale."};
+ }catch(error){
+  await stopOwnedServer();configuration=previous;atomic(settings(),previous);await startServer();throw error;
+ }finally{maintaining=false;}
+});
+ipcMain.handle("zubayd:backup", async (event, input) => {
+  checkSender(event);
+  administrator(input);
+  const result = await dialog.showSaveDialog(maintenance || window, {
+    defaultPath: "SpeedForTraining-backup.zubayd",
+    filters: [{ name: "Zubayd encrypted backup", extensions: ["zubayd"] }],
+  });
+  if (result.canceled) return { cancelled: true };
+  const backupRoot=resolve(configuration.dataDirectory),backupTarget=resolve(result.filePath);
+  if(maintaining || backupTarget===backupRoot || backupTarget.startsWith(backupRoot+require("node:path").sep) || !backupTarget.toLowerCase().endsWith(".zubayd")) throw new Error("BACKUP_TARGET");
+  const { exportBackup } = require("./maintenance.cjs");
+  maintaining = true;
+  try {
+  await stopOwnedServer();
+  await exportBackup(
+    configuration.dataDirectory,
+    result.filePath,
+    input.backupPassword,
+    safeStorage,
+  );
+  } finally { try { await startServer(); } finally { maintaining = false; } }
+  eventLog("BACKUP_EXPORTED");
   return { ok: true };
 });
-ipcMain.handle("speed:takeSite", async () => {
-  const cookies = await session.fromPartition("persist:hik-connect").cookies.get({});
-  const team = cookies.find((cookie) => cookie.name === "JSESSIONID" && /hikcentralconnect/i.test(cookie.domain || ""));
-  const portal = cookies.find((cookie) => cookie.name === "HC_sessionId");
-  const anyTeam = cookies.find((cookie) => cookie.name === "JSESSIONID");
-  if (team || (anyTeam && /hikcentral/i.test(anyTeam.domain || ""))) {
-    const chosen = team || anyTeam;
-    return { ok: true, apiBase: "https://ieu-team.hikcentralconnect.com/hcc", sessionId: chosen.value, featureCode: "site", teamName: "الفريق", notice: "جلسة الموقع اتاخدت." };
+ipcMain.handle("zubayd:restore", async (event, input) => {
+  checkSender(event);
+  administrator(input);
+  const { decodeBackup, restoreBackup, summary } = require("./maintenance.cjs");
+  if (input.phase === "commit") {
+    const pending = restorePending;
+    if (!pending || pending.sender !== event.sender.id || pending.username !== input.username || pending.until < Date.now() || input.token !== pending.token || input.phrase !== "استعادة بيانات Speed for Training") throw new Error("CONFIRMATION_REQUIRED");
+    restorePending = undefined;
+    maintaining = true;
+    try {
+      await stopOwnedServer();
+      await restoreBackup(configuration.dataDirectory, pending.data, safeStorage);
+      await window.webContents.session.clearStorageData({storages:["cookies","localstorage","indexdb","cachestorage"]});
+      eventLog("BACKUP_RESTORED");
+    } finally { pending.data.vaultKey = ""; try { await startServer(); } finally { maintaining = false; } }
+    return {ok:true,notice:"استُعيدت النسخة وأعيد تشغيل خادم Speed for Training. بقي مجلد البيانات السابق بجواره للرجوع إليه. سجّل الدخول بحساب النسخة المستعادة."};
   }
-  if (portal) {
-    return { ok: true, apiBase: "https://www.hik-connect.com", sessionId: portal.value, featureCode: "site", teamName: "الموقع", notice: "جلسة الموقع اتاخدت." };
-  }
-  if (anyTeam) {
-    return { ok: true, apiBase: "https://www.hik-connect.com", sessionId: anyTeam.value, featureCode: "site", teamName: "الموقع", notice: "جلسة الموقع اتاخدت." };
-  }
-  return { ok: false, error: "لسه مفيش دخول. افتح الموقع وسجّل الدخول من النافذة دي، وبعدين اسحب." };
-});
-
-ipcMain.handle("speed:cloudLogin", async (_event, input) => {
-  try {
-    return await hik.hikLogin(
-      String(input?.account || ""),
-      String(input?.password || ""),
-      String(input?.imageCode || ""),
-      String(input?.featureCode || ""),
-      String(input?.smsCode || ""),
-    );
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "دخول الفريق وقف." };
-  }
-});
-ipcMain.handle("speed:cloudPull", async (_event, input) => {
-  const day = String(input?.day || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "تاريخ السحب مش مظبوط." };
-  const base = {
-    apiBase: String(input?.apiBase || ""),
-    sessionId: String(input?.sessionId || ""),
-    featureCode: String(input?.featureCode || ""),
-    startDate: day,
-    endDate: day,
-    timeZone: "Africa/Cairo",
+  if (input.phase !== "inspect") throw new Error("RESTORE_PHASE");
+  const result = await dialog.showOpenDialog(maintenance || window, {
+    properties: ["openFile"],
+    filters: [{ name: "Zubayd encrypted backup", extensions: ["zubayd"] }],
+  });
+  if (result.canceled) return { cancelled: true };
+  const data = await decodeBackup(
+    result.filePaths[0],
+    input.backupPassword,
+  );
+  if (restorePending) restorePending.data.vaultKey = "";
+  const token = randomBytes(24).toString("hex");
+  restorePending = {token,data,sender:event.sender.id,username:input.username,until:Date.now()+120000};
+  setTimeout(() => { if(restorePending?.token === token) {restorePending.data.vaultKey="";restorePending=undefined;} },120000).unref();
+  return {
+    token,
+    preview: summary(data),
+    requiresServerStop: true,
+    notice:
+      "فُحصت النسخة فقط. التأكيد التالي يوقف خادم Speed for Training الخاص بالتطبيق مؤقتاً ثم يستعيد النسخة، مع الاحتفاظ بمجلد البيانات الحالي كاملاً.",
   };
-  const drain = async (kind) => {
-    const punches = [];
-    const people = [];
-    let page = 1;
-    let done = false;
-    let notice = "";
-    for (let step = 0; step < 8 && !done; step += 1) {
-      const chunk = await hik.hikPullChunk({ ...base, pageIndex: page, ...(kind ? { kind } : {}) });
-      if (!chunk.ok) return { ok: false, error: chunk.error, punches, people, notice };
-      punches.push(...(chunk.punches || []));
-      for (const person of chunk.people || []) {
-        if (!person?.employeeNo && !person?.name) continue;
-        people.push({ employeeNo: person.employeeNo || person.name, name: person.name || person.employeeNo, photo: person.photo || "" });
+});
+app.whenReady().then(async () => {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: brand.name,
+        submenu: [
+          {
+            label: "حول Speed for Training",
+            click: () =>
+              dialog.showMessageBox({
+                title: brand.name,
+                message: brand.name + " " + brand.version,
+                detail:
+                  "المالك: " +
+                  brand.ownerName +
+                  "\nتدار شركات العملاء بصورة مستقلة.",
+              }),
+          },
+          {
+            label: "اتصال الهاتف وHTTPS",
+            click: () => { if(configuration){const connectionWindow=createWindow();connectionWindow.loadFile(join(__dirname,"connection.html"));} },
+          },
+          {
+            label: "النسخ الاحتياطي والصيانة",
+            click: () => {
+              if (configuration) {
+                maintenance = createWindow();
+                maintenance.loadFile(join(__dirname, "maintenance.html"));
+              }
+            },
+          },
+          { role: "quit", label: "خروج" },
+        ],
+      },
+    ]),
+  );
+  window = createWindow();
+  if (existsSync(settings())) {
+    configuration = JSON.parse(readFileSync(settings(), "utf8"));
+    try {
+      if (configuration.connection?.host === "127.0.0.1") {
+        const free = await findFreePort(Number(configuration.connection.port) || 8787);
+        if (free !== configuration.connection.port) { configuration.connection.port = free; atomic(settings(), configuration); eventLog("PORT_MOVED_" + free); }
       }
-      notice = chunk.notice || notice;
-      done = Boolean(chunk.done);
-      page = chunk.pageIndex || page + 1;
+      await startServer();
+    } catch (error) {
+      eventLog(error.message);
+      dialog.showErrorBox(
+        brand.name,
+        "تعذر بدء الخادم المحلي. تحقق من المنفذ ومجلد البيانات والشهادة.",
+      );
     }
-    return { ok: true, punches, people, notice };
-  };
-  const attendance = await drain();
-  const transactions = await drain("transaction");
-  if (!attendance.ok && !transactions.ok) return { ok: false, error: attendance.error || transactions.error };
-  const seen = new Set();
-  const punches = [];
-  for (const punch of [...attendance.punches, ...transactions.punches]) {
-    const key = `${punch.employeeNo}|${punch.date}|${String(punch.time || "").slice(0, 5)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    punches.push(punch);
-  }
-  const people = [];
-  const byCode = new Map();
-  for (const person of [...attendance.people, ...transactions.people]) {
-    const current = byCode.get(person.employeeNo);
-    if (!current) {
-      byCode.set(person.employeeNo, person);
-      people.push(person);
-    } else if (!current.photo && person.photo) {
-      current.photo = person.photo;
-    }
-  }
-  const photos = people.filter((person) => person.photo).length;
-  const notice = `من الموقع: حضور ${attendance.punches.length}، Transaction ${transactions.punches.length}، صور ${photos}.`;
-  return pack({ ok: true, punches, people, notice });
+  } else window.loadFile(join(__dirname, "setup.html"));
 });
-ipcMain.handle("speed:cloudMap", async (_event, input) => {
-  const map = await hik.hikReadMap(String(input?.apiBase || ""), String(input?.sessionId || ""));
-  if (!map.ok) return map;
-  const buttons = (map.buttons || []).map((button) => ({
-    key: button.key,
-    ar: button.ar,
-    en: button.en,
-    meaning: button.meaning,
-    found: Boolean(button.found),
-    path: button.path || "",
-    count: button.count || 0,
-    names: button.names || [],
-  }));
-  return pack({ ok: true, buttons });
+app.on("before-quit", () => {
+  shuttingDown = true;
+  if (server) server.kill();
 });
-
-app.whenReady().then(create);
 app.on("window-all-closed", () => app.quit());

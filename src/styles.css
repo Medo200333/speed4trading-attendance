@@ -1,36 +1,202 @@
 @import "tailwindcss";
-@source "./components";
-@source "./lib";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-600.css";
+@import "@fontsource/ibm-plex-sans-arabic/arabic-700.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-400.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-500.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-600.css";
+@import "@fontsource/ibm-plex-sans-arabic/latin-700.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
 
 @theme {
-  --color-paper: #f6f5f8;
-  --color-ink: #242424;
-  --color-muted: #5f5f5f;
-  --color-line: #dce5f3;
-  --color-panel: #ffffff;
-  --color-side: #0f2346;
-  --color-nav: #102147;
-  --color-clay: #e14a5c;
-  --color-ok: #1f7a45;
-  --font-sans: "IBM Plex Sans Arabic", "Segoe UI", sans-serif;
-  --radius-card: 0.25rem;
+  --font-sans: "IBM Plex Sans Arabic", "Segoe UI", tahoma, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-canvas: #f4f6f8;
+  --color-panel: #f4f6f8;
+  --color-panel-2: #dde3e8;
+  --color-ink: #0b2242;
+  --color-muted: #64748b;
+  --color-faint: #7d8b96;
+  --color-line: #dbe1e6;
+  --color-brass: #0b2242;
+  --color-brass-ink: #ffffff;
+  --color-clay: #c0392b;
+  --color-desk: #f7f8fa;
+  --color-desk-head: #dbe1e6;
 }
 
 @layer base {
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
+  html {
+    color-scheme: light;
   }
-  html, body, #root { min-height: 100%; }
+
   body {
-    margin: 0;
-    background: var(--color-paper);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     line-height: 1.5;
   }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.desk-status {
+  display: grid;
+  width: 12.5rem;
+  flex: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  text-align: center;
+}
+
+.desk-actions {
+  width: 7rem;
+  flex: none;
+}
+
+.royal-sheet {
+  background: #ffffff;
+  color: #0b2242;
+  font-size: 13px;
+}
+
+.royal-sheet th {
+  background: #0b2242;
+  color: #f4f6f8;
+  border: 1px solid #07182f;
+  padding: 10px 8px;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.royal-sheet td {
+  border: 1px solid #8ea3b5;
+  padding: 8px;
+  vertical-align: middle;
+  background: #ffffff;
+}
+
+.royal-sheet tbody tr:nth-child(even) td {
+  background: #f4f6f8;
+}
+
+.royal-date {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.royal-band {
+  background: #dbe1e6 !important;
+  color: #0b2242;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.royal-photo {
+  width: 64px;
+  text-align: center;
+}
+
+.royal-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.royal-cell {
+  text-align: center;
+  min-width: 76px;
+}
+
+.royal-in,
+.royal-out,
+.royal-hours,
+.royal-status {
+  font-family: var(--font-mono);
+  line-height: 1.35;
+}
+
+.royal-in {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0b2242;
+}
+
+.royal-out {
+  font-size: 13px;
+}
+
+.royal-hours,
+.royal-status {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: #4d6273;
+}
+
+.royal-empty {
+  color: #8ea3b5;
+}
+
+.royal-foot {
+  background: #dbe1e6 !important;
+  color: #0b2242;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: flex;
+  }
+
+  .print-head {
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #0b2242;
+    color: white;
+    padding: 16px 20px;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+  }
+
+  .print-head strong {
+    font-size: 22px;
+    letter-spacing: 0.18em;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  @page {
+    margin: 10mm;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  .spin {
+    animation: none;
+  }
 }

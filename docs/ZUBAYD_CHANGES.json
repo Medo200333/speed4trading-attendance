@@ -1,0 +1,517 @@
+{
+  "at": "2026-10-23T13:48:54.026Z",
+  "baseline": ".codex-backups/zubayd-platform-20261023",
+  "files": [
+    {
+      "path": "src/components/access-center.tsx",
+      "sha256": "2acd781cd580ca12cf7793f0d9d0a94c266901d4330f4f17bc8dfcccd202cff8",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-forms.tsx",
+      "sha256": "2458e6d61183b9a5ffec07345c7af26a0a34ae8cc2b85870c727e2d6e2dc04b7",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-guide.tsx",
+      "sha256": "1cfc68d605893287852b3fd2d7ab28a4d4c66cfae44de49d6e5765ffd9cc1baf",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-pages.tsx",
+      "sha256": "edba16b52e3849d9348b2e8f97ad5a62c506bf16f323c93dd5e2090d33ce9757",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-panels.tsx",
+      "sha256": "82c0347b655f3fed614a4fd3f6b6c7096d3fa37d19793c340adb803f86527d4b",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-setup.tsx",
+      "sha256": "fa785d80500c8a5f6b362f2f1542186066991c5d3b1245f37e4d279fa9fbdbd5",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-ui.tsx",
+      "sha256": "4be38b901c09ce7cd89348041d9c2bb00358e5ed398809616a7f2ec0eb10760e",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/access-workflows.tsx",
+      "sha256": "7c8a328096d5874b5c31cd8fbf78ae4cedc2314fb70a9a24b279f0b3e18712b1",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/attendance-board.tsx",
+      "sha256": "b6e9716ebd66ff080e249d740eb9ab941190721b58604f03acc67d60668f9208",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/attendance-pull.tsx",
+      "sha256": "65dc1fa6773ac5ccca6e16a3857d444110c56804c14f0dde3d5c5b16f90d4f79",
+      "status": "new"
+    },
+    {
+      "path": "src/components/brand-about.tsx",
+      "sha256": "1f513bbcf3c7fafaae5be9fb9b6dbbe8ca27e95239f83f97605ca53bd6adbbcf",
+      "status": "new"
+    },
+    {
+      "path": "src/components/company-workspace.tsx",
+      "sha256": "1f442549f1068f297667be18f8fc5be636808cabd99fa0f3e25c1f632fb2872c",
+      "status": "new"
+    },
+    {
+      "path": "src/components/configuration-live.tsx",
+      "sha256": "ac951e786909f590ab8081171d6d30202d4c270b20aca4053a06ee8ce641eb30",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/configuration-studio.tsx",
+      "sha256": "b804b24e461d590d88a695eb6e29f63f9d8df80bd32480ce741488e21361dedb",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/employee-biometrics.tsx",
+      "sha256": "a0da7ed6b5886de12fc1aa1bd2fd9f27637537b3055388351f8d161db816383c",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/employee-workspace.tsx",
+      "sha256": "60b4e395509b60751ef9f7f3bc6ee3c091329c1cfa0365fbb1cebd41078c75b4",
+      "status": "new"
+    },
+    {
+      "path": "src/components/hik-guide.tsx",
+      "sha256": "1ecb50f6f8f0a82aea16dd9d7620c8ac06373e8e2d9a0e3184ef715218a47da9",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/inline-device-connection.tsx",
+      "sha256": "18bb1d78c77287291636e0cafb033706ad277afb47a384855caa3e34d2a4a8fe",
+      "status": "new"
+    },
+    {
+      "path": "src/components/inline-operation.tsx",
+      "sha256": "fd10bed3d0439ba2baa838ac83eee78633a95d44adbbe0a14df9068c5fe80b26",
+      "status": "new"
+    },
+    {
+      "path": "src/components/speed-design.css",
+      "sha256": "4578f7225221c0b9b6ac051d8a74e590034c1b778459b6db69ebb7b1f430da08",
+      "status": "modified"
+    },
+    {
+      "path": "src/components/team-configuration.tsx",
+      "sha256": "8b3de28210cabc92d16c558a835167aa4b67dfc0104107fc5395f534f9af38c4",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/auth.server.ts",
+      "sha256": "6a47bf065a8a3fb1b5b927a1801322daee72c2397ea7dfc7fbe6e14c564f6318",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/companies.server.ts",
+      "sha256": "5aae2f97679404bb2390908d45a17289e2faec8d00ec0bb236db175ac9ca27ac",
+      "status": "new"
+    },
+    {
+      "path": "src/lib/access/company-dispatch.server.ts",
+      "sha256": "fef3a7536cdf91cb184558d879fc541d06f8d541dd52fc1dd08275d2ef14df75",
+      "status": "new"
+    },
+    {
+      "path": "src/lib/access/company-domain.ts",
+      "sha256": "955405d6195e4c21f444a55b8300742ecee6a654ac9ca7465f3328b41f9f5bfe",
+      "status": "new"
+    },
+    {
+      "path": "src/lib/access/contracts.ts",
+      "sha256": "8a5453e173ce31b880cec168b2fcb43ee9cc72f59675b28f4e480eebc0c05039",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/domain.ts",
+      "sha256": "2e015a58d49c26224863d5d29f1c3b47890f28d66b52cb0d3ebc7890bb256246",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/guide.ts",
+      "sha256": "48de27f6770183f6f236b4460b9e7309503ba9f223ca1477542d359909427e74",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/service.server.ts",
+      "sha256": "1d4149e136027fa87463b684d1bbd06282ca7d996a7f3931255acbe25ae9aca3",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/store.server.ts",
+      "sha256": "2d7dc1015aee0a3c8b6ce894b40e7369092dea75f786984aa3f91321424bc189",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/access/tenant-context.server.ts",
+      "sha256": "c7b0657dda2e660c31b3b64748ecef1231863bdcf0c85badb13b57cfdfafa9c5",
+      "status": "new"
+    },
+    {
+      "path": "src/lib/access.functions.ts",
+      "sha256": "8753cb527e71680c0d2a28d5af3518c48f87b329bd61d62800ae46570ccb08e3",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/biometric.functions.ts",
+      "sha256": "fcd540280bc3586cae2105c31183e1b6e4a87198b2ca74e2e16c43370125700b",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/brand.ts",
+      "sha256": "2db84d2b35d84a354170ce0c66a7894a5ef8df623e5384e9af06f4452d535160",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/company.functions.ts",
+      "sha256": "fe45f5b7c005331472b9c21d4ba0d6a252ef7b8a572ae6aac99c4f4f7de5d667",
+      "status": "new"
+    },
+    {
+      "path": "src/lib/configuration-live.functions.ts",
+      "sha256": "170d1a90b8c14561755321d54aabd1ecc27626fe841cee502e242f088eb0ad30",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/hik-connect.server.ts",
+      "sha256": "0b2937ac3425037ea60469d1519da018369bc8d8621ae11fcdae215943f1e6db",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/hikvision.functions.ts",
+      "sha256": "4a42bdcbbbdc31f4423332c467448bbfc03b1226b202627a53c94bcde94c7441",
+      "status": "modified"
+    },
+    {
+      "path": "src/lib/sheet-pdf.ts",
+      "sha256": "279c9cc7fbacabed37411ac29b01c25b775c759d4e71f549e2f4db91d09819e6",
+      "status": "modified"
+    },
+    {
+      "path": "src/routes/__root.tsx",
+      "sha256": "565c803ec8d55225b3630ce473eaca29cb8ecf041fc4d119d571c9f020e32d0e",
+      "status": "modified"
+    },
+    {
+      "path": "public/app-icon-512.png",
+      "sha256": "8f97a3a0b814d3798e6fd34b70fc6565963eb4d37e9baed09098d4b240fbecc8",
+      "status": "modified"
+    },
+    {
+      "path": "public/app-icon.png",
+      "sha256": "27c48ec888d4a00e390bf865335a690ea4897ef75f1b1b416bb0c85464ae3b73",
+      "status": "modified"
+    },
+    {
+      "path": "public/favicon.svg",
+      "sha256": "bdc2229fa865edc58bc741dad7558539b35c3732c7722fb98eabdda809d54c14",
+      "status": "modified"
+    },
+    {
+      "path": "public/manifest.webmanifest",
+      "sha256": "db083af7c8287b4a2d668b061be692e65fcdabc32c44f16d640cab333cc13544",
+      "status": "modified"
+    },
+    {
+      "path": "public/zubayd-server.json",
+      "sha256": "c8d3a1babb864bcc7a29563fbbd4e7464eda36157318f177077a2bf7ce101d4c",
+      "status": "new"
+    },
+    {
+      "path": "scripts/access-center-e2e.mjs",
+      "sha256": "058f66f220b75c1ab7f361a694a2f5cfffeba5293a530ca182e3d1fd9a1bd4e9",
+      "status": "modified"
+    },
+    {
+      "path": "scripts/access-live-smoke.mjs",
+      "sha256": "60a4e6e3612955acef8c61ec888a714394e8e7e2f64d216e1d61d672971b7134",
+      "status": "modified"
+    },
+    {
+      "path": "scripts/attendance-pull-browser.mjs",
+      "sha256": "a6550cb3a7e9f4b8ab096b10da8a4faf21206e231755aed335887a4639fcfbe1",
+      "status": "modified"
+    },
+    {
+      "path": "scripts/biometrics-browser.mjs",
+      "sha256": "454e83c896aa12cede31fe67bffba22a9a81f09634cb893974477d605ef2044c",
+      "status": "modified"
+    },
+    {
+      "path": "scripts/DownloadNodeToolchain.java",
+      "sha256": "ef10cec95f6ab9ccaa679d3bc817811602b0e9243778e4e225898ccfdfa6963f",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-android-export.test.mjs",
+      "sha256": "1641e46b093e404f7a3bbde48e2e732ca14bac5e5d4300f6882f40a15a8b2726",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-assets.mjs",
+      "sha256": "fda032c7bdce36f47b19d1aaea749020d9eb3ed28f302c31475819ecf21aa93c",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-brand-update.mjs",
+      "sha256": "8bf2d14684011baeb748935b9ee10127b83b593d05ce2bb3c1cf094c5441f78c",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-build-android.mjs",
+      "sha256": "91d039d37e2102b2c002cd4e56662f6e1573231c909a8eb7ae2b85308dc96883",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-build-server.mjs",
+      "sha256": "ab95b1292c094a9419e189eec632fea7e7f7af1485b69af474614c79ff2ecbeb",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-centralize-legacy-brand.mjs",
+      "sha256": "3a0109fabbb3101197084bfd0172296d264d493f978415878f5b4950bf28291a",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-companies.test.mjs",
+      "sha256": "de469815966b79f0811bedc42d45e19e108df06de330256060dfc54198052975",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-delivery-manifest.mjs",
+      "sha256": "693260486ca52e49b09ae0ec5c9134f273a9e7c8b853a960643c0711a6566bfe",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-desktop-copy.mjs",
+      "sha256": "0dad5886ae3d69bdc00bb1305e6800e71facebf9730363573d05ea038e53dadc",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-desktop.test.mjs",
+      "sha256": "ba02b926cc4c7fca92028fdfe19c31f77838304efd8168469b305449f0442314",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-distribution-verify.mjs",
+      "sha256": "395068b4e296c4b424397f5d07d9aa043db4728b56936d15d03665466f3b9d19",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-extract-pull.mjs",
+      "sha256": "f1442e008fa9859ac234e8dc96db7a15b68cc6086d61bdb5fde34a7502e51f72",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-final-build-check.mjs",
+      "sha256": "c4f9a7c85c44fbe036045226478e308f270734ada46cea368aebc85ae9868d2a",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-guide-complete.mjs",
+      "sha256": "38c992912ce22160ea360031c200f39eb05a6ab3756aff5d3bfabc2c006c2f1f",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-install-desktop.mjs",
+      "sha256": "700626fb1b45448a0382a6506ee8f2d653633789cc591e4e22d4c8bea29a7678",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-node-toolchain.mjs",
+      "sha256": "fc7d0a6f1e8cb31a727fb0d058b6bfbb9fe0b67bfcd1998706463d1a2a313e1a",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-process-status.ps1",
+      "sha256": "688b6957000c7ea978432bd2cc48f523bd9fca746e3c6f55937818075c533853",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-remove-legacy-person-form.mjs",
+      "sha256": "4b163a17314f0b1f3be359f4757511c5a82de9ba16c29b9afd52511c302532c7",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-scope-update.mjs",
+      "sha256": "981be7b0dd47e32feff1496fc7d9f0f3829e776fc7de169378cf0d72da341e9e",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-standalone-smoke.mjs",
+      "sha256": "75aa01be263b9822c6cb56b48e1239cbb7c4c1e94cecda47304c8d334fc267e1",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-toolchain.mjs",
+      "sha256": "dc985b88a8be8b001e7343ec046833e489338944568c057fc2799a0eb4740d49",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-update-e2e.mjs",
+      "sha256": "c5a58fdfcb059c6ea5628066eeaee3e5128d4844770bb22fc1996eb5258675e0",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-workflow-safety.mjs",
+      "sha256": "e7d6dda4937fc90231e2f36a665f7b71dac279363b87a51716c551a15db96f2a",
+      "status": "new"
+    },
+    {
+      "path": "scripts/zubayd-workflow-update.mjs",
+      "sha256": "564f63f2444f1dabd93232fe9a0e9124862e74c87d8a824c5d91d8020bf134cb",
+      "status": "new"
+    },
+    {
+      "path": "server/routes/__zubayd/instance.get.ts",
+      "sha256": "e9ee02c736112ec07bfc1c74624edacf04806c609c1ced4daf404a1869491b50",
+      "status": "new"
+    },
+    {
+      "path": "desktop/connection-renderer.js",
+      "sha256": "45f8ee15bcc287a2497f95c2a71f6cbab80f1003c46c91c69c97e4dccac10e79",
+      "status": "new"
+    },
+    {
+      "path": "desktop/connection.html",
+      "sha256": "7a279854454d63fe491281b088c7a8c64c8be68f0b6dd71474a21fc5a87cb257",
+      "status": "new"
+    },
+    {
+      "path": "desktop/desktop-config.cjs",
+      "sha256": "5a8d9e491ac3bf22a1953423b42cf9d83922aec813492d1d11bbc18973758852",
+      "status": "new"
+    },
+    {
+      "path": "desktop/main.cjs",
+      "sha256": "390ea62f48113f0886cfa8188a3758c2f9996d2347b7117e697bc3d42edb4ba8",
+      "status": "new"
+    },
+    {
+      "path": "desktop/maintenance-renderer.js",
+      "sha256": "4162bc7994b60907a4be5c17dfdc96a3d36d019d86afc7db281f242d1971002b",
+      "status": "new"
+    },
+    {
+      "path": "desktop/maintenance.cjs",
+      "sha256": "bf07914c57404807c8b83f20ba483b1aeb630cf888d612f032a0c79d11dd011e",
+      "status": "new"
+    },
+    {
+      "path": "desktop/maintenance.html",
+      "sha256": "b092bb7dddefa21ca8a281be0418bfb7cbd3ec7f656500071a2c317dac7ea49d",
+      "status": "new"
+    },
+    {
+      "path": "desktop/package.json",
+      "sha256": "ff5d7d8e13c240cc4035751ddd4a00cbf629c540f4c9ee1c68a7222b8c073a87",
+      "status": "new"
+    },
+    {
+      "path": "desktop/preload.cjs",
+      "sha256": "658a82c8749549b54729b5c70c783a9a756cddbd4ef4fd1f69c8829eddbe41e9",
+      "status": "new"
+    },
+    {
+      "path": "desktop/resources/app.ico",
+      "sha256": "726950d7cfc071c42cfcbddd65ff6a6290eb17715e080bd21b89ac18ab1e37f5",
+      "status": "new"
+    },
+    {
+      "path": "desktop/resources/brand.json",
+      "sha256": "6673edaf0070b8109bd914e99ddb43ee8d9177f72c9aad82e1aab23f8e988b1e",
+      "status": "new"
+    },
+    {
+      "path": "desktop/setup-renderer.js",
+      "sha256": "c65c6d23ca2dd20660d1492a18a8853410e22e995353725a81954ccaa604bfac",
+      "status": "new"
+    },
+    {
+      "path": "desktop/setup.html",
+      "sha256": "9275a612794cceb33b8637e0cf39f5a33318432d412d62fe1bb345af1a5045b5",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "6fd97e406a4557c2a03b419060753b4ab1a6e411f2521ea88a465b4e4f7bcef8",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/java/com/zubayd/accesscontrol/CaptureProvider.java",
+      "sha256": "dd4d34a261831e3ba04b39c376cbb25272e71ccfc0f48910ba24e2a43d59a4d5",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/java/com/zubayd/accesscontrol/MainActivity.java",
+      "sha256": "72ce9f66c515cb4bfe5a1c957bb2ae4496c602c1ce37f856b017f93fe644aa6d",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/res/drawable/ic_launcher.png",
+      "sha256": "27c48ec888d4a00e390bf865335a690ea4897ef75f1b1b416bb0c85464ae3b73",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/res/values/strings.xml",
+      "sha256": "b1fa8e28c7f5326a201fb8881b4d5226c838af5099c06109e5662c745d518b15",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/res/values/styles.xml",
+      "sha256": "dd15f2071dac4fce6f8de8d3fc65f22a11e9b6bfd71a34a8fd17f0e3ad514fa4",
+      "status": "new"
+    },
+    {
+      "path": "android/app/src/main/res/xml/network_security_config.xml",
+      "sha256": "145d0c2ba40e896bde57d2533ef242cbba98c3f4be9b173d17af12ae1bb1b5b2",
+      "status": "new"
+    },
+    {
+      "path": "brand.config.json",
+      "sha256": "c92a55c42546789523e8444c0cf506dace2dd5cca30d2195f8fe73f63e9cf0e2",
+      "status": "new"
+    },
+    {
+      "path": "package.json",
+      "sha256": "8900e366d7aa63b1faa373cd09d5e60daed33ddf0e714459b822cc724eebb48d",
+      "status": "modified"
+    },
+    {
+      "path": "vite.zubayd-desktop.config.ts",
+      "sha256": "3b99731451ebbf66c7dbcdb1918ef50d9c323dd0f501973e6bcaf37ff7c492b1",
+      "status": "new"
+    }
+  ],
+  "distributionCheck": {
+    "forbiddenDataFiles": [],
+    "embeddedAvailableSecretDetected": false,
+    "availableSecretValuesChecked": 0,
+    "valuesNeverLogged": true
+  },
+  "artifacts": [
+    {
+      "path": "releases/android/Zubayd-debug.apk",
+      "exists": true,
+      "sha256": "bf250197f230f8a050516badcf59d24b4aaf2773a33adf2c5770a533f5c0ca02"
+    },
+    {
+      "path": "dist-server/server/index.mjs",
+      "exists": true
+    },
+    {
+      "path": "releases/windows/Zubayd-Setup-1.0.0.exe",
+      "exists": false
+    }
+  ]
+}

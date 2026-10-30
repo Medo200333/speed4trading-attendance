@@ -1,0 +1,31 @@
+{
+  "name": "Speed for Training",
+  "englishName": "Speed for Training",
+  "ownerName": "Speed for Training",
+  "publisher": "Speed for Training",
+  "description": "نظام إدارة الحضور والتحكم في الدخول",
+  "version": "1.2.0",
+  "appId": "com.zubayd.accesscontrol",
+  "logoSrc": "/speed-logo.png",
+  "fontFamily": "\"IBM Plex Sans Arabic\",\"Noto Sans Arabic\",\"Segoe UI\",Tahoma,sans-serif",
+  "palette": {
+    "primary": "#0B2242",
+    "navy": "#0B2242",
+    "background": "#F4F6F8",
+    "surface": "#FFFFFF",
+    "text": "#0B2242",
+    "muted": "#64748B",
+    "border": "#DBE1E6",
+    "success": "#206345",
+    "danger": "#a13b32",
+    "warning": "#886527",
+    "gold": "#D6B25E",
+    "goldSoft": "#F1DFAC",
+    "accent": "#2F425D",
+    "subtle": "#9FA7AA"
+  },
+  "identityStatus": "Speed Maintenance Room tokens (C:/Speed-Maintenance-Room-v2/src/styles.css + login-screen.tsx)",
+  "signingPublisher": "MK",
+  "licenseServer": "https://desktop-gd5rj4m-1.tailc255fa.ts.net:8443/speed-license",
+  "licenseEmail": "Ho_mk@hotmail.com"
+}

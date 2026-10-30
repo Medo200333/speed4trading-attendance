@@ -1,0 +1,20 @@
+plugins { id 'com.android.application' }
+def releaseStore = System.getenv('ZUBAYD_ANDROID_KEYSTORE')
+android {
+  namespace 'com.zubayd.accesscontrol'
+  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  defaultConfig { applicationId 'com.zubayd.accesscontrol'; minSdk 26; targetSdk 35; versionCode 1; versionName '1.0.0' }
+  signingConfigs {
+    if (releaseStore) {
+      release {
+        storeFile file(releaseStore)
+        storePassword System.getenv('ZUBAYD_ANDROID_STORE_PASSWORD')
+        keyAlias System.getenv('ZUBAYD_ANDROID_KEY_ALIAS')
+        keyPassword System.getenv('ZUBAYD_ANDROID_KEY_PASSWORD')
+      }
+    }
+  }
+  buildTypes { debug { debuggable true }; release { minifyEnabled false; if (releaseStore) signingConfig signingConfigs.release } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+}
+// Release signing is supplied by the publisher outside source control. No production key is bundled.

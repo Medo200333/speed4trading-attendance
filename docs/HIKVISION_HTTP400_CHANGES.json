@@ -1,0 +1,97 @@
+{
+  "at": "2026-10-22T20:14:32.479Z",
+  "backup": ".codex-backups/attendance-http400-20261022",
+  "changed": [
+    {
+      "file": "src/components/access-center.tsx",
+      "before": "7a9d5e0fa4609a79a9775b8410047406d79b86c074716b8f45f861acfe6ed40e",
+      "after": "4dffe7733398a4101cd8bd1e429c1edcc82517169db3c9fa004b10a896caddb8"
+    },
+    {
+      "file": "src/components/access-pages.tsx",
+      "before": "0315954c1edb246a5eacb61566df51ee9fbf3d9e8cd32cb4353d7167256390c7",
+      "after": "7ce259e78813b9390a9a15834b7da9c7fa1ee10373d5d82ca3a7ff0a260c069a"
+    },
+    {
+      "file": "src/lib/access/domain.ts",
+      "before": "a421bc2385cd32e07e1e9fe73f9f3bd6903a2f5a5fb81804e2f5fdeee976ca53",
+      "after": "edac9dc78141497a09d5b521bc307def78997ce274d21574362b45510386d303"
+    },
+    {
+      "file": "src/lib/access/isapi.server.ts",
+      "before": "c014ce914dc2c8c8bfb467c6af84f1b6bc04889fbe78a841eaa0d6391b660c6f",
+      "after": "1879630d702ab2c88e60a592c74c9284c5576fe4de769fc9c043df89105ba98f"
+    },
+    {
+      "file": "src/lib/access/pull.server.ts",
+      "before": "9e48d8428eb0a3d303c26e5359ee62c81a5305ca00a98e962fe19bc94572c41f",
+      "after": "ae76c603f3679c81c7b2d08dcc5af958f913851e7cad8e42b50f1e443fd05cb7"
+    },
+    {
+      "file": "src/lib/access/search-page.ts",
+      "before": "50e84bae812ddfd1e376776a800b298e29cf10f4f7effddcd8c46cbd72c600a3",
+      "after": "0a3c4864bf462db889beb963f751bbba9dd981d53606eba19730fe8ba590c83f"
+    },
+    {
+      "file": "src/lib/access/service.server.ts",
+      "before": "7786373222e447ab94e6032351e905d6a1f1b4740c631d0bf72870297b910cbf",
+      "after": "54f885806c05866894e6330238f89505b90e5160953fa096765465922c98e8f2"
+    },
+    {
+      "file": "scripts/access-device-probe.mjs",
+      "before": "f58267a17a9cf732532e1d682dc52e9cd19d8d746486f1b9c6be6603471a29b7",
+      "after": "2dc3db0c5a79c5b848439502cbfd5a3c85f02294fa71bc15a1888a9e06540089"
+    },
+    {
+      "file": "scripts/access-test-device.mjs",
+      "before": "e0afa5a0d8c7b3028e57e5471290706db848e64012c188976e4e5d8060954cf1",
+      "after": "17516a15490befa3ff359048e797c5d036d99c099b9780efa2299e088278e49f"
+    },
+    {
+      "file": "scripts/attendance-http400-review.mjs",
+      "before": null,
+      "after": "dc710811ae79f2e0535bdd9e5f4a45ad51d69d35e3a1ca0a81fc509dfc49ca4f"
+    },
+    {
+      "file": "scripts/attendance-live-runtime.mjs",
+      "before": null,
+      "after": "20c4ee2ea05aa779064d592aad7653fc87723851d7b86a77f28b7b6ae7f177cb"
+    },
+    {
+      "file": "scripts/attendance-pull-browser.mjs",
+      "before": "1052b4b3c7f0bca45ee2c04b8f1ca16dabadff9cbc7106ae2735de700304a7e6",
+      "after": "15a2f82360c4b3243095b3025e1c858950f7ffd63cae9d51013bdc1ed1c9e09c"
+    },
+    {
+      "file": "scripts/attendance-pull.test.mjs",
+      "before": "d43beca370d697c9bf60643eb9b48960987e29ce5b0ada76518acdad7379913c",
+      "after": "1fec1e0edade0732d4dd0b81c26d8abe47a9fa0fe6baaa6262472bc73fe3a859"
+    }
+  ],
+  "preserved": [
+    {
+      "file": "src/lib/hikvision.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision.functions.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision-parse.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hik-connect.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/attendance-board.tsx",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/device-desk.tsx",
+      "unchanged": true
+    }
+  ]
+}

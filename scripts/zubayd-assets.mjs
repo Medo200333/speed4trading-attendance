@@ -1,0 +1,30 @@
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve,sep,extname} from 'node:path';
+import {chromium} from 'playwright';
+const brand=JSON.parse(readFileSync('brand.config.json','utf8'));
+let logoData='';
+if(brand.logoSrc){const publicRoot=resolve('public'),file=resolve(publicRoot,String(brand.logoSrc).replace(/^\//,''));if(!file.startsWith(publicRoot+sep)||!/^\.(png|jpe?g|webp|svg)$/i.test(extname(file)))throw Error('Official logo must be a local image inside public');const mime={'.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'}[extname(file).toLowerCase()];logoData=`data:${mime};base64,${readFileSync(file).toString('base64')}`;}
+mkdirSync('desktop/resources',{recursive:true});mkdirSync('android/app/src/main/res/drawable',{recursive:true});
+const browser=await chromium.launch({channel:'chrome',headless:true});
+try{const page=await browser.newPage();
+const draw=(size,{bg,ratio,w,h})=>page.evaluate(async({size,bg,ratio,logoData,w,h})=>{const c=document.createElement('canvas');c.width=w||size;c.height=h||size;const x=c.getContext('2d');if(bg){x.fillStyle=bg;x.fillRect(0,0,c.width,c.height);}const logo=new Image();logo.src=logoData;await logo.decode();const scale=Math.min(c.width,c.height)*ratio/Math.max(logo.width,logo.height)*(logo.width>logo.height?Math.max(1,c.width/c.height):1);const lw=Math.min(logo.width*scale,c.width*ratio),lh=lw*logo.height/logo.width;x.drawImage(logo,(c.width-lw)/2,(c.height-lh)/2,lw,lh);return c.toDataURL('image/png').split(',')[1];},{size,bg,ratio,logoData,w,h}).then(b=>Buffer.from(b,'base64'));
+if(!logoData)throw Error('Speed logo is required');
+const bg=brand.palette.background, icon=s=>draw(s,{bg,ratio:.86});
+writeFileSync('public/app-icon.png',await icon(192));writeFileSync('public/app-icon-512.png',await icon(512));
+const ico=[];for(const s of [16,32,48,64,128,256])ico.push([s,await icon(s)]);
+const head=Buffer.alloc(6+16*ico.length);head.writeUInt16LE(1,2);head.writeUInt16LE(ico.length,4);let off=head.length;ico.forEach(([s,png],i)=>{const o=6+16*i;head.writeUInt8(s>=256?0:s,o);head.writeUInt8(s>=256?0:s,o+1);head.writeUInt16LE(1,o+4);head.writeUInt16LE(32,o+6);head.writeUInt32LE(png.length,o+8);head.writeUInt32LE(off,o+12);off+=png.length;});
+writeFileSync('desktop/resources/app.ico',Buffer.concat([head,...ico.map(i=>i[1])]));
+const res='android/app/src/main/res';for(const [d,s] of [['mdpi',48],['hdpi',72],['xhdpi',96],['xxhdpi',144],['xxxhdpi',192]]){mkdirSync(`${res}/mipmap-${d}`,{recursive:true});writeFileSync(`${res}/mipmap-${d}/ic_launcher.png`,await icon(s));}
+writeFileSync(`${res}/drawable/ic_launcher.png`,await icon(192));
+writeFileSync(`${res}/drawable/splash_logo.png`,await draw(0,{ratio:1,w:600,h:286}));
+writeFileSync(`${res}/drawable/splash.xml`,`<?xml version="1.0" encoding="utf-8"?>\n<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item><color android:color="${bg}"/></item><item android:width="240dp" android:height="114dp" android:gravity="center"><bitmap android:src="@drawable/splash_logo" android:gravity="fill"/></item></layer-list>\n`);
+writeFileSync(`${res}/values/styles.xml`,`<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">${brand.palette.navy}</item><item name="android:colorPrimary">${brand.palette.navy}</item><item name="android:statusBarColor">${brand.palette.navy}</item><item name="android:navigationBarColor">${bg}</item><item name="android:windowLightNavigationBar">true</item><item name="android:windowActionModeOverlay">true</item><item name="android:windowBackground">@drawable/splash</item></style></resources>\n`);
+}finally{await browser.close();}
+const xml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
+writeFileSync('android/app/src/main/res/values/strings.xml',`<resources><string name="app_name">${xml(brand.name)}</string></resources>\n`);
+const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));Object.assign(manifest,{name:brand.name,short_name:brand.name,description:brand.description,background_color:brand.palette.background,theme_color:brand.palette.navy});writeFileSync('public/manifest.webmanifest',JSON.stringify(manifest,null,2));
+writeFileSync('public/favicon.svg',`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><title>${xml(brand.name)}${logoData?'':' — temporary text icon'}</title><rect width="128" height="128" rx="24" fill="${brand.palette.navy}"/>${logoData?`<image href="${logoData}" x="14" y="14" width="100" height="100" preserveAspectRatio="xMidYMid meet"/>`:`<text x="64" y="88" text-anchor="middle" font-size="80" fill="white">${xml(Array.from(brand.name)[0])}</text>`}</svg>`);
+writeFileSync('desktop/resources/brand.json',JSON.stringify(brand,null,2));
+const desktop=JSON.parse(readFileSync('desktop/package.json','utf8'));Object.assign(desktop,{version:brand.version,author:brand.publisher});desktop.build.productName=brand.name;desktop.build.appId=brand.appId;delete desktop.build.win.publisherName;desktop.build.win.signtoolOptions={...desktop.build.win.signtoolOptions,publisherName:brand.signingPublisher||brand.publisher,signingHashAlgorithms:['sha256'],rfc3161TimeStampServer:'http://timestamp.digicert.com'};desktop.build.win.icon='resources/app.ico';desktop.build.nsis.shortcutName=brand.name;desktop.build.win.artifactName='SpeedForTraining-Setup-${version}.${ext}';desktop.build.nsis.artifactName='SpeedForTraining-Setup-${version}.${ext}';desktop.build.files=[...new Set([...desktop.build.files,'resources/brand.json','resources/app.ico'])];writeFileSync('desktop/package.json',JSON.stringify(desktop,null,2));
+writeFileSync('public/zubayd-server.json',JSON.stringify({...JSON.parse(readFileSync('public/zubayd-server.json','utf8')),name:brand.name}));
+console.log('Speed icons, and publisher metadata generated from brand.config.json; no official logo invented.');

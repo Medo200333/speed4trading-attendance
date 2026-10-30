@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-22T18:00:19.287Z",
+  "backup": ".codex-backups/attendance-pull-20261022",
+  "changed": [
+    {
+      "file": "src/components/access-pages.tsx",
+      "before": "cdf7b6b1a69d6bf0a1c78c3faa5c13931c9f59282f5331d6b76cfa4d1625ef80",
+      "after": "0315954c1edb246a5eacb61566df51ee9fbf3d9e8cd32cb4353d7167256390c7"
+    },
+    {
+      "file": "src/components/access-workflows.tsx",
+      "before": "65bdf8bf33bd1d87608a4267e684ce006757ff798706a92e1d2de40097aca835",
+      "after": "f83e1f0033e10c7dcd7c9c6b8db8d98f3a45588b341752cf9c2e843b8e1d027b"
+    },
+    {
+      "file": "src/lib/access/contracts.ts",
+      "before": "87168f20e407dcf4a439631197f165e72452dfe222748cdff71b3bee4bac2dd4",
+      "after": "c5d9d0a6b4e516cc01e0a8fd4a59ddb0d6b167b8b699718496bdf19d190f4bb6"
+    },
+    {
+      "file": "src/lib/access/domain.ts",
+      "before": "4a862199601db7f4b94508337dcd74fe1d64b5f92aa1a692e64ae248496ad55c",
+      "after": "a421bc2385cd32e07e1e9fe73f9f3bd6903a2f5a5fb81804e2f5fdeee976ca53"
+    },
+    {
+      "file": "src/lib/access/isapi.server.ts",
+      "before": "984dcc48fb9c10fe8f21b87e3b253cb54e86c3ad012dab7db69b94b575ed8fb4",
+      "after": "c014ce914dc2c8c8bfb467c6af84f1b6bc04889fbe78a841eaa0d6391b660c6f"
+    },
+    {
+      "file": "src/lib/access/pull.server.ts",
+      "before": null,
+      "after": "9e48d8428eb0a3d303c26e5359ee62c81a5305ca00a98e962fe19bc94572c41f"
+    },
+    {
+      "file": "src/lib/access/search-page.ts",
+      "before": null,
+      "after": "50e84bae812ddfd1e376776a800b298e29cf10f4f7effddcd8c46cbd72c600a3"
+    },
+    {
+      "file": "src/lib/access/service.server.ts",
+      "before": "d8f03840f03a329eff8abad4c28da776f3a116f1ef848a04158042cea7dbf8f1",
+      "after": "7786373222e447ab94e6032351e905d6a1f1b4740c631d0bf72870297b910cbf"
+    },
+    {
+      "file": "scripts/access-center-e2e.mjs",
+      "before": "b4ee3ffbcc922758db2a57b262fd683f99f251f333f54de6afca97d7a675e8a8",
+      "after": "72fa0967e7adb45de4270663f456648a5f28d681afcd96c361f21a0baed75257"
+    },
+    {
+      "file": "scripts/access-device-probe.mjs",
+      "before": "44a42542759e186742c01bbacb22352cf6799e92592a6aac1acc19f1dc122c53",
+      "after": "f58267a17a9cf732532e1d682dc52e9cd19d8d746486f1b9c6be6603471a29b7"
+    },
+    {
+      "file": "scripts/access-test-device.mjs",
+      "before": "2634988b1b12eaa69523d97dc7b71d77b01da71f7872cbabf315e6e354bc2d7d",
+      "after": "e0afa5a0d8c7b3028e57e5471290706db848e64012c188976e4e5d8060954cf1"
+    },
+    {
+      "file": "scripts/attendance-live-state.mjs",
+      "before": null,
+      "after": "b9f9809a14457e025af7830f3e6ddc771eef9764bdcb064723b97cc50823ead1"
+    },
+    {
+      "file": "scripts/attendance-pull-browser.mjs",
+      "before": null,
+      "after": "1052b4b3c7f0bca45ee2c04b8f1ca16dabadff9cbc7106ae2735de700304a7e6"
+    },
+    {
+      "file": "scripts/attendance-pull-review.mjs",
+      "before": null,
+      "after": "a83ea62dd90f10abbac00c87917f42125dfea6cf9d2d2433562153858778f5ee"
+    },
+    {
+      "file": "scripts/attendance-pull.test.mjs",
+      "before": null,
+      "after": "d43beca370d697c9bf60643eb9b48960987e29ce5b0ada76518acdad7379913c"
+    },
+    {
+      "file": "package.json",
+      "before": "431a7618f21aeeee585b99319739ed98256d1d7b0f869bf28601db5e9c4d50a1",
+      "after": "aa6c0e6c567f129f0e0e40e8dff2bb9988637572b2bfa41f355b838e430101bb"
+    }
+  ],
+  "preserved": [
+    {
+      "file": "src/lib/hikvision.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision.functions.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hikvision-parse.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/lib/hik-connect.server.ts",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/attendance-board.tsx",
+      "unchanged": true
+    },
+    {
+      "file": "src/components/device-desk.tsx",
+      "unchanged": true
+    },
+    {
+      "file": "vite.config.ts",
+      "unchanged": null
+    }
+  ]
+}

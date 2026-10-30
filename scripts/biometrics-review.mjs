@@ -1,0 +1,10 @@
+import {readFileSync,readdirSync,existsSync,writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+const backup='.codex-backups/biometrics-20261022';
+const walk=directory=>readdirSync(directory,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(directory,e.name)):[join(directory,e.name)]);
+const hash=file=>existsSync(file)?createHash('sha256').update(readFileSync(file)).digest('hex'):null;
+const changed=[...walk('src'),...walk('scripts'),'package.json'].map(file=>({file:file.replaceAll('\\','/'),before:hash(join(backup,file)),after:hash(file)})).filter(row=>row.before!==row.after);
+const preserved=['src/lib/hik-connect.server.ts','src/lib/hikvision.functions.ts','src/lib/hikvision-parse.ts','src/lib/access/pull.server.ts','src/lib/access/search-page.ts','src/components/attendance-board.tsx','src/components/device-desk.tsx'].map(file=>({file,unchanged:hash(file)===hash(join(backup,file))}));
+const result={at:new Date().toISOString(),backup,changed,preserved};
+writeFileSync('docs/SKYLINE_BIOMETRICS_CHANGES.json',JSON.stringify(result,null,2));console.log(JSON.stringify({changed:changed.map(row=>row.file),preserved}));

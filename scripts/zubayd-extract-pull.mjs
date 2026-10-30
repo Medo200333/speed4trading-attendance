@@ -1,0 +1,13 @@
+import {readFileSync, writeFileSync} from 'node:fs';
+const path='src/components/access-pages.tsx'; let source=readFileSync(path,'utf8');
+const start=source.indexOf('          <Card title="قراءة المستخدمين وسجلات الجهاز">'),end=source.indexOf('\n          </Card>',start)+22;
+if(start<0||end<22)throw Error('pull marker');
+const card=source.slice(start,end);
+writeFileSync('src/components/attendance-pull.tsx',`import {useState} from "react";\nimport {useCenter,Card,Field,Button,When,Empty,supported,canOperate} from "./access-ui";\nimport {InlineDeviceConnection} from "./inline-device-connection";\nexport function AttendancePull({start,end,setStart,setEnd}:{start:string;end:string;setStart:(v:string)=>void;setEnd:(v:string)=>void}){\n const {data,device,selected,busy,run,navigate}=useCenter();\n const [error,setError]=useState(""),[connecting,setConnecting]=useState(false);\n const act=(input:Parameters<typeof run>[0])=>{setError("");return run(input,{inline:true,onError:setError});};\n if(!device)return <Empty>اختر جهازاً مسجلاً لدى الشركة أولاً.</Empty>;\n return <>{error&&<p role="alert" className="ac-message error">{error}</p>}<Button disabled={busy} onClick={()=>setConnecting(true)}>إعادة الاتصال هنا دون تغيير الفترة</Button>\n ${card}\n {connecting&&<InlineDeviceConnection onClose={()=>setConnecting(false)}/>}</>;\n}\n`);
+source='import {AttendancePull} from "./attendance-pull";\n'+source.slice(0,start)+'          <AttendancePull start={start} end={end} setStart={setStart} setEnd={setEnd} />'+source.slice(end);
+writeFileSync(path,source);
+const workflows='src/components/access-workflows.tsx';let w=readFileSync(workflows,'utf8');
+w='import {AttendancePull} from "./attendance-pull";\n'+w;
+const marker='      <Card title="قواعد التقرير وفترته">';if(!w.includes(marker))throw Error('attendance marker');
+w=w.replace(marker,'      <AttendancePull start={start} end={end} setStart={setStart} setEnd={setEnd} />\n'+marker);
+writeFileSync(workflows,w);
