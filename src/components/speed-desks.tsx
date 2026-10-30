@@ -173,91 +173,126 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
     if (!api) { patch(store, desktopOnly); return; }
     if (!account.trim() || !password) { patch(store, "اكتب حساب هيك-كونكت وكلمة السر. مش هيتسجلوا في البرنامج."); return; }
     setBusy("login");
-    const result = await api.cloudLogin({ account, password, imageCode, featureCode, smsCode });
-    setBusy("");
-    if (!result.ok) {
-      setFeatureCode(result.featureCode || featureCode);
-      setCaptcha(result.captcha || "");
-      setNeedSms(Boolean(result.needSms));
-      patch(store, result.error);
-      return;
+    try {
+      const result = await api.cloudLogin({ account, password, imageCode, featureCode, smsCode });
+      if (!result.ok) {
+        setFeatureCode(result.featureCode || featureCode);
+        setCaptcha(result.captcha || "");
+        setNeedSms(Boolean(result.needSms));
+        patch(store, result.error);
+        return;
+      }
+      setSession(result);
+      setCaptcha("");
+      setPassword("");
+      setMap(null);
+      patch({ ...store, teamName: result.teamName || store.teamName }, result.notice || `الفريق اتفتح: ${result.teamName}`);
+    } catch {
+      patch(store, "دخول الفريق من جوه البرنامج وقف. افتح الموقع وسجّل الدخول من هناك.");
+    } finally {
+      setBusy("");
     }
-    setSession(result);
-    setCaptcha("");
-    setPassword("");
-    setMap(null);
-    patch({ ...store, teamName: result.teamName || store.teamName }, result.notice || `الفريق اتفتح: ${result.teamName}`);
+  };
+  const openSite = async () => {
+    const api = speedApi();
+    if (!api) { patch(store, desktopOnly); return; }
+    try {
+      await api.openSite();
+      patch(store, "الموقع اتفتح. سجّل الدخول هناك، وبعدين اضغط سحب.");
+    } catch {
+      patch(store, "الموقع ما فتحش من البرنامج.");
+    }
   };
   const readMap = async () => {
     const api = speedApi();
     if (!api) { patch(store, desktopOnly); return; }
-    if (!session) { patch(store, "ادخل على هيك-كونكت الأول."); return; }
     setBusy("map");
-    const result = await api.cloudMap({ apiBase: session.apiBase, sessionId: session.sessionId });
-    setBusy("");
-    if (!result.ok) { patch(store, result.error); return; }
-    setMap(result.buttons);
-    const report = result.buttons.find((button) => button.key === "report");
-    patch(store, report?.found ? `الخريطة اتقرأت. التقارير: ${report.names.slice(0, 6).join("، ") || report.path}` : "الخريطة اتقرأت، بس مفيش تقرير حضور ظاهر على الموقع.");
+    try {
+      const taken = await api.takeSite();
+      const active = taken.ok ? taken : session;
+      if (taken.ok) setSession(taken);
+      if (!active) { patch(store, taken.ok ? "" : taken.error); return; }
+      const result = await api.cloudMap({ apiBase: active.apiBase, sessionId: active.sessionId });
+      if (!result.ok) { patch(store, `الجلسة من الموقع موجودة. الخريطة: ${result.error}`); return; }
+      setMap(result.buttons);
+      const report = result.buttons.find((button) => button.key === "report");
+      patch(store, report?.found ? `الخريطة اتقرأت. التقارير: ${report.names.slice(0, 6).join("، ") || report.path}` : "الجلسة موجودة. الخريطة ما فيهاش تقرير ظاهر، والسحب يفضل شغال.");
+    } catch {
+      patch(store, "قراءة التيم وقفت. السحب من جلسة الموقع يفضل شغال.");
+    } finally {
+      setBusy("");
+    }
   };
   const pullCloud = async () => {
     const api = speedApi();
     if (!api) { patch(store, desktopOnly); return; }
-    if (!session) { patch(store, "ادخل على هيك-كونكت الأول."); return; }
-    const report = map?.find((button) => button.key === "report");
-    if (!report?.found) { patch(store, "اقرأ التيم الأول. السحب بياخد التقارير من خريطة الموقع."); return; }
     if (!devices.length) { patch(store, "مفيش فرع نركّب عليه الحضور."); return; }
     setBusy("pull");
-    const result = await api.cloudPull({ apiBase: session.apiBase, sessionId: session.sessionId, featureCode: session.featureCode, day: todayKey() });
-    setBusy("");
-    if (!result.ok) { patch(store, result.error); return; }
-    const buckets = new Map<string, { punches: { employeeNo: string; name: string; at: string; method: string }[]; users: { employeeNo: string; name: string; fingers: number; faces: number; cards: number }[] }>();
-    const take = (deviceId: string) => {
-      const found = buckets.get(deviceId);
-      if (found) return found;
-      const empty = { punches: [], users: [] as { employeeNo: string; name: string; fingers: number; faces: number; cards: number }[] };
-      buckets.set(deviceId, empty);
-      return empty;
-    };
-    const known = store.people.filter((person) => person.companyId === store.companyId);
-    const deviceFor = (code: string, name: string) => known.find((person) => person.code === code || person.name === name)?.deviceId || devices[0].id;
-    for (const person of result.people) {
-      take(deviceFor(person.employeeNo, person.name)).users.push({ employeeNo: person.employeeNo, name: person.name, fingers: 0, faces: person.photo ? 1 : 0, cards: 0, photo: person.photo || "" });
+    try {
+      let active = session;
+      if (!active) {
+        const taken = await api.takeSite();
+        if (!taken.ok) { patch(store, taken.error); return; }
+        active = taken;
+        setSession(taken);
+      }
+      const result = await api.cloudPull({ apiBase: active.apiBase, sessionId: active.sessionId, featureCode: active.featureCode, day: todayKey() });
+      if (!result.ok) { patch(store, result.error); return; }
+      const buckets = new Map<string, { punches: { employeeNo: string; name: string; at: string; method: string }[]; users: { employeeNo: string; name: string; fingers: number; faces: number; cards: number; photo?: string }[] }>();
+      const take = (deviceId: string) => {
+        const found = buckets.get(deviceId);
+        if (found) return found;
+        const empty = { punches: [], users: [] as { employeeNo: string; name: string; fingers: number; faces: number; cards: number; photo?: string }[] };
+        buckets.set(deviceId, empty);
+        return empty;
+      };
+      const known = store.people.filter((person) => person.companyId === store.companyId);
+      const deviceFor = (code: string, name: string) => known.find((person) => person.code === code || person.name === name)?.deviceId || devices[0].id;
+      for (const person of result.people) {
+        take(deviceFor(person.employeeNo, person.name)).users.push({ employeeNo: person.employeeNo, name: person.name, fingers: 0, faces: person.photo ? 1 : 0, cards: 0, photo: person.photo || "" });
+      }
+      for (const punch of result.punches) {
+        const code = punch.employeeNo || punch.name;
+        const bucket = take(deviceFor(code, punch.name));
+        if (!bucket.users.some((user) => user.employeeNo === code)) bucket.users.push({ employeeNo: code, name: punch.name, fingers: 1, faces: 0, cards: 0 });
+        else bucket.users = bucket.users.map((user) => user.employeeNo === code ? { ...user, fingers: 1 } : user);
+        bucket.punches.push({ employeeNo: code, name: punch.name, at: `${punch.date} ${punch.time.slice(0, 5)}`, method: punch.method || "بصمة" });
+      }
+      let next = store;
+      if (active.teamName) next = { ...next, teamName: active.teamName };
+      for (const [deviceId, live] of buckets) {
+        const device = devices.find((item) => item.id === deviceId);
+        if (device) next = applyLive(next, device, live, todayKey());
+      }
+      patch(next, result.notice || `هيك-كونكت: ${result.punches.length} حركة و${result.people.length} شخص.`);
+    } catch {
+      patch(store, "السحب من الموقع وقف. افتح الموقع وتأكد إن الدخول لسه مفتوح.");
+    } finally {
+      setBusy("");
     }
-    for (const punch of result.punches) {
-      const code = punch.employeeNo || punch.name;
-      const bucket = take(deviceFor(code, punch.name));
-      if (!bucket.users.some((user) => user.employeeNo === code)) bucket.users.push({ employeeNo: code, name: punch.name, fingers: 1, faces: 0, cards: 0 });
-      else bucket.users = bucket.users.map((user) => user.employeeNo === code ? { ...user, fingers: 1 } : user);
-      bucket.punches.push({ employeeNo: code, name: punch.name, at: `${punch.date} ${punch.time.slice(0, 5)}`, method: punch.method || "بصمة" });
-    }
-    let next = store;
-    if (session.teamName) next = { ...next, teamName: session.teamName };
-    for (const [deviceId, live] of buckets) {
-      const device = devices.find((item) => item.id === deviceId);
-      if (device) next = applyLive(next, device, live, todayKey());
-    }
-    patch(next, result.notice || `هيك-كونكت: ${result.punches.length} حركة و${result.people.length} شخص.`);
   };
   return (
     <section className="space-y-3">
       <article className="rounded-card border border-line bg-panel p-4">
-        <h2 className="font-semibold">دخول Hik-Connect Team</h2>
-        <p className="mt-1 text-sm text-muted">اكتب حساب الفريق بنفسك. كلمة السر مش بتتحفظ، والسحب يجي من موقع هيك-كونكت مش من إيميل محفوظ.</p>
+        <h2 className="font-semibold">Hik-Connect</h2>
+        <p className="mt-1 text-sm text-muted">الموقع هو اللي بيدخّلك. افتحه وسجّل الدخول هناك، وبعدين اسحب. زراير الكود مش مطلوبة.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button className="min-h-11 rounded-card bg-clay px-4 text-panel" onClick={() => void openSite()}>فتح الموقع</button>
+          <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب" : "سحب الحضور"}</button>
+          <button className="min-h-11 rounded-card border border-line px-4 disabled:opacity-50" disabled={busy === "map"} onClick={() => void readMap()}>{busy === "map" ? "جارٍ القراءة" : "اقرأ التيم"}</button>
+        </div>
+        {session ? <p className="mt-2 text-sm">الجلسة من الموقع جاهزة.</p> : null}
+      </article>
+      <article className="rounded-card border border-line bg-panel p-4">
+        <h2 className="font-semibold">دخول بالكود لو الموقع وقف</h2>
         <div className="mt-3 grid gap-2">
           <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="الإيميل أو الموبايل" value={account} onChange={(e) => setAccount(e.target.value)} />
           <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" type="password" placeholder="كلمة سر هيك-كونكت" value={password} onChange={(e) => setPassword(e.target.value)} />
           {captcha ? <img src={captcha} alt="كود الصورة" className="h-16 w-40 rounded-card border border-line bg-paper object-contain" /> : null}
           {captcha ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الصورة" value={imageCode} onChange={(e) => setImageCode(e.target.value)} /> : null}
           {needSms ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الرسالة" value={smsCode} onChange={(e) => setSmsCode(e.target.value)} /> : null}
-          <div className="flex flex-wrap gap-2">
-            <button className="min-h-11 rounded-card bg-clay px-4 text-panel disabled:opacity-50" disabled={busy === "login"} onClick={() => void login()}>{busy === "login" ? "جارٍ الدخول" : "دخول الفريق"}</button>
-            <button className="min-h-11 rounded-card border border-line px-4 disabled:opacity-50" disabled={!session || busy === "map"} onClick={() => void readMap()}>{busy === "map" ? "جارٍ قراءة التيم" : "اقرأ التيم"}</button>
-            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!map?.some((button) => button.key === "report" && button.found) || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب من الموقع" : "سحب من خريطة الموقع"}</button>
-            <a className="inline-flex min-h-11 items-center rounded-card border border-line px-4 text-sm" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح الموقع</a>
-          </div>
+          <button className="min-h-11 rounded-card border border-line px-4 disabled:opacity-50" disabled={busy === "login"} onClick={() => void login()}>{busy === "login" ? "جارٍ الدخول" : "دخول الفريق بالكود"}</button>
         </div>
-        {session ? <p className="mt-2 text-sm">الفريق المفتوح: {session.teamName || store.teamName || "من غير اسم"}</p> : null}
       </article>
       {map ? <ul className="grid gap-2">{map.map((button) => <li key={button.key} className="rounded-card border border-line bg-panel px-4 py-3"><strong>{button.ar}</strong><span className="mt-1 block text-sm text-muted">{button.found ? button.names.slice(0, 8).join(" · ") || button.path : "مش ظاهرة على الموقع"}</span><span className="mt-1 block text-xs text-muted">{button.meaning}</span></li>)}</ul> : null}
       <ol className="grid gap-2">{steps.map(([title, body]) => <li key={title} className="rounded-card border border-line bg-panel px-4 py-3"><strong>{title}</strong><span className="mt-1 block text-sm text-muted">{body}</span></li>)}</ol>

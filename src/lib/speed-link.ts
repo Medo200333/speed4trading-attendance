@@ -20,6 +20,8 @@ type SpeedBridge = {
   pull: (link: DeviceLink & { day: string }) => Promise<PullResult>;
   door: (link: DeviceLink & { cmd: "open" | "close" | "alwaysClose" }) => Promise<DoorResult>;
   cloudLogin: (input: { account: string; password: string; imageCode?: string; featureCode?: string; smsCode?: string }) => Promise<CloudLoginResult>;
+  openSite: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  takeSite: () => Promise<CloudLoginResult>;
   cloudMap: (input: { apiBase: string; sessionId: string }) => Promise<CloudMapResult>;
   cloudPull: (input: { apiBase: string; sessionId: string; featureCode: string; day: string }) => Promise<CloudPullResult>;
 };

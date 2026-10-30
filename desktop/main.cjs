@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, session } = require("electron");
 const path = require("path");
 const zlib = require("zlib");
 const isapi = require("./isapi.cjs");
@@ -29,13 +29,56 @@ function create() {
 ipcMain.handle("speed:probe", (_event, link) => isapi.probe(link));
 ipcMain.handle("speed:pull", (_event, link) => isapi.pull(link));
 ipcMain.handle("speed:door", (_event, link) => isapi.door(link));
-ipcMain.handle("speed:cloudLogin", (_event, input) => hik.hikLogin(
-  String(input?.account || ""),
-  String(input?.password || ""),
-  String(input?.imageCode || ""),
-  String(input?.featureCode || ""),
-  String(input?.smsCode || ""),
-));
+
+let siteWin = null;
+ipcMain.handle("speed:openSite", () => {
+  if (siteWin && !siteWin.isDestroyed()) {
+    siteWin.show();
+    siteWin.focus();
+    return { ok: true };
+  }
+  siteWin = new BrowserWindow({
+    width: 1200,
+    height: 860,
+    title: "Hik-Connect",
+    autoHideMenuBar: true,
+    webPreferences: { partition: "persist:hik-connect", contextIsolation: true, nodeIntegration: false },
+  });
+  siteWin.loadURL("https://www.hik-connect.com/");
+  siteWin.on("closed", () => { siteWin = null; });
+  return { ok: true };
+});
+ipcMain.handle("speed:takeSite", async () => {
+  const cookies = await session.fromPartition("persist:hik-connect").cookies.get({});
+  const team = cookies.find((cookie) => cookie.name === "JSESSIONID" && /hikcentralconnect/i.test(cookie.domain || ""));
+  const portal = cookies.find((cookie) => cookie.name === "HC_sessionId");
+  const anyTeam = cookies.find((cookie) => cookie.name === "JSESSIONID");
+  if (team || (anyTeam && /hikcentral/i.test(anyTeam.domain || ""))) {
+    const chosen = team || anyTeam;
+    return { ok: true, apiBase: "https://ieu-team.hikcentralconnect.com/hcc", sessionId: chosen.value, featureCode: "site", teamName: "الفريق", notice: "جلسة الموقع اتاخدت." };
+  }
+  if (portal) {
+    return { ok: true, apiBase: "https://www.hik-connect.com", sessionId: portal.value, featureCode: "site", teamName: "الموقع", notice: "جلسة الموقع اتاخدت." };
+  }
+  if (anyTeam) {
+    return { ok: true, apiBase: "https://www.hik-connect.com", sessionId: anyTeam.value, featureCode: "site", teamName: "الموقع", notice: "جلسة الموقع اتاخدت." };
+  }
+  return { ok: false, error: "لسه مفيش دخول. افتح الموقع وسجّل الدخول من النافذة دي، وبعدين اسحب." };
+});
+
+ipcMain.handle("speed:cloudLogin", async (_event, input) => {
+  try {
+    return await hik.hikLogin(
+      String(input?.account || ""),
+      String(input?.password || ""),
+      String(input?.imageCode || ""),
+      String(input?.featureCode || ""),
+      String(input?.smsCode || ""),
+    );
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "دخول الفريق وقف." };
+  }
+});
 ipcMain.handle("speed:cloudPull", async (_event, input) => {
   const day = String(input?.day || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok: false, error: "تاريخ السحب مش مظبوط." };
