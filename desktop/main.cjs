@@ -1,7 +1,12 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const zlib = require("zlib");
 const isapi = require("./isapi.cjs");
 const hik = require("./hik-connect.cjs");
+
+function pack(value) {
+  return { gzip: zlib.gzipSync(JSON.stringify(value)).toString("base64") };
+}
 
 function create() {
   const win = new BrowserWindow({
@@ -85,8 +90,23 @@ ipcMain.handle("speed:cloudPull", async (_event, input) => {
     }
   }
   const photos = people.filter((person) => person.photo).length;
-  const notice = `الحضور ${attendance.punches.length} حركة. Transaction ${transactions.punches.length} حركة. صور ${photos}.`;
-  return { ok: true, punches, people, notice };
+  const notice = `من الموقع: حضور ${attendance.punches.length}، Transaction ${transactions.punches.length}، صور ${photos}.`;
+  return pack({ ok: true, punches, people, notice });
+});
+ipcMain.handle("speed:cloudMap", async (_event, input) => {
+  const map = await hik.hikReadMap(String(input?.apiBase || ""), String(input?.sessionId || ""));
+  if (!map.ok) return map;
+  const buttons = (map.buttons || []).map((button) => ({
+    key: button.key,
+    ar: button.ar,
+    en: button.en,
+    meaning: button.meaning,
+    found: Boolean(button.found),
+    path: button.path || "",
+    count: button.count || 0,
+    names: button.names || [],
+  }));
+  return pack({ ok: true, buttons });
 });
 
 app.whenReady().then(create);

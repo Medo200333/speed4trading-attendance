@@ -12,12 +12,15 @@ export type CloudPerson = { employeeNo: string; name: string; photo?: string };
 export type CloudPullResult =
   | { ok: true; punches: CloudPunch[]; people: CloudPerson[]; notice?: string }
   | { ok: false; error: string };
+export type TeamRow = { key: string; ar: string; en: string; meaning: string; found: boolean; path: string; count: number; names: string[] };
+export type CloudMapResult = { ok: true; buttons: TeamRow[] } | { ok: false; error: string };
 
 type SpeedBridge = {
   probe: (link: DeviceLink) => Promise<ProbeResult>;
   pull: (link: DeviceLink & { day: string }) => Promise<PullResult>;
   door: (link: DeviceLink & { cmd: "open" | "close" | "alwaysClose" }) => Promise<DoorResult>;
   cloudLogin: (input: { account: string; password: string; imageCode?: string; featureCode?: string; smsCode?: string }) => Promise<CloudLoginResult>;
+  cloudMap: (input: { apiBase: string; sessionId: string }) => Promise<CloudMapResult>;
   cloudPull: (input: { apiBase: string; sessionId: string; featureCode: string; day: string }) => Promise<CloudPullResult>;
 };
 

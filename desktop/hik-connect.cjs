@@ -585,14 +585,14 @@ async function fetchPeople(base, sessionId) {
   });
   const groupBody = groups.json?.data && typeof groups.json.data === "object" ? groups.json.data : groups.json ?? {};
   const groupList = Array.isArray(groupBody.personGroupList) ? groupBody.personGroupList : [];
-  for (const group of groupList.slice(0, 6)) {
+  for (const group of groupList) {
     if (!group || typeof group !== "object") continue;
     const id = plainCell(group.id ?? group.groupId);
     if (id) criteriaList.push({ personGroup: { groupId: id }, logicalOperation: 1 });
   }
   for (const searchCriteria of criteriaList) {
     if (found.length) break;
-    for (let page = 1; page <= 4 && found.length < 80; page += 1) {
+    for (let page = 1; page <= 40 && found.length < 5e3; page += 1) {
       const result = await readBody(`${base}/ccfperson/v1/persons/search`, {
         method: "POST",
         headers: teamHeaders(sessionId),
@@ -621,7 +621,7 @@ async function fetchPeople(base, sessionId) {
       if (list.length < 100) break;
     }
   }
-  const missing = found.filter((person) => person.id && !person.url).slice(0, 40);
+  const missing = found.filter((person) => person.id && !person.url);
   let cursor = 0;
   async function fillUrl() {
     while (cursor < missing.length) {
@@ -631,7 +631,7 @@ async function fetchPeople(base, sessionId) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(6, missing.length) }, () => fillUrl()));
-  const withPhoto = found.filter((person) => person.url).slice(0, 40);
+  const withPhoto = found.filter((person) => person.url);
   const photos = /* @__PURE__ */ new Map();
   cursor = 0;
   async function download() {

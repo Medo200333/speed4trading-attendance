@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Door, Finger, Store } from "@/lib/speed-data";
 import { applyLive, todayKey } from "@/lib/speed-data";
-import { desktopOnly, speedApi, type CloudLoginResult } from "@/lib/speed-link";
+import { desktopOnly, speedApi, type CloudLoginResult, type TeamRow } from "@/lib/speed-link";
 
 type Patch = (next: Store, message: string) => void;
 
@@ -165,6 +165,7 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
   const [captcha, setCaptcha] = useState("");
   const [needSms, setNeedSms] = useState(false);
   const [session, setSession] = useState<Extract<CloudLoginResult, { ok: true }> | null>(null);
+  const [map, setMap] = useState<TeamRow[] | null>(null);
   const [busy, setBusy] = useState("");
   const devices = store.devices.filter((d) => d.companyId === store.companyId && !d.removed);
   const login = async () => {
@@ -184,12 +185,27 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
     setSession(result);
     setCaptcha("");
     setPassword("");
+    setMap(null);
     patch({ ...store, teamName: result.teamName || store.teamName }, result.notice || `الفريق اتفتح: ${result.teamName}`);
+  };
+  const readMap = async () => {
+    const api = speedApi();
+    if (!api) { patch(store, desktopOnly); return; }
+    if (!session) { patch(store, "ادخل على هيك-كونكت الأول."); return; }
+    setBusy("map");
+    const result = await api.cloudMap({ apiBase: session.apiBase, sessionId: session.sessionId });
+    setBusy("");
+    if (!result.ok) { patch(store, result.error); return; }
+    setMap(result.buttons);
+    const report = result.buttons.find((button) => button.key === "report");
+    patch(store, report?.found ? `الخريطة اتقرأت. التقارير: ${report.names.slice(0, 6).join("، ") || report.path}` : "الخريطة اتقرأت، بس مفيش تقرير حضور ظاهر على الموقع.");
   };
   const pullCloud = async () => {
     const api = speedApi();
     if (!api) { patch(store, desktopOnly); return; }
     if (!session) { patch(store, "ادخل على هيك-كونكت الأول."); return; }
+    const report = map?.find((button) => button.key === "report");
+    if (!report?.found) { patch(store, "اقرأ التيم الأول. السحب بياخد التقارير من خريطة الموقع."); return; }
     if (!devices.length) { patch(store, "مفيش فرع نركّب عليه الحضور."); return; }
     setBusy("pull");
     const result = await api.cloudPull({ apiBase: session.apiBase, sessionId: session.sessionId, featureCode: session.featureCode, day: todayKey() });
@@ -236,12 +252,14 @@ export function CloudDesk({ store, patch }: { store: Store; patch: Patch }) {
           {needSms ? <input className="min-h-11 rounded-card border border-line bg-paper px-3" dir="ltr" placeholder="كود الرسالة" value={smsCode} onChange={(e) => setSmsCode(e.target.value)} /> : null}
           <div className="flex flex-wrap gap-2">
             <button className="min-h-11 rounded-card bg-clay px-4 text-panel disabled:opacity-50" disabled={busy === "login"} onClick={() => void login()}>{busy === "login" ? "جارٍ الدخول" : "دخول الفريق"}</button>
-            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!session || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب" : "سحب الحضور والـ Transaction"}</button>
+            <button className="min-h-11 rounded-card border border-line px-4 disabled:opacity-50" disabled={!session || busy === "map"} onClick={() => void readMap()}>{busy === "map" ? "جارٍ قراءة التيم" : "اقرأ التيم"}</button>
+            <button className="min-h-11 rounded-card bg-ink px-4 text-panel disabled:opacity-50" disabled={!map?.some((button) => button.key === "report" && button.found) || busy === "pull"} onClick={() => void pullCloud()}>{busy === "pull" ? "جارٍ السحب من الموقع" : "سحب من خريطة الموقع"}</button>
             <a className="inline-flex min-h-11 items-center rounded-card border border-line px-4 text-sm" href="https://www.hik-connect.com/" target="_blank" rel="noreferrer">فتح الموقع</a>
           </div>
         </div>
         {session ? <p className="mt-2 text-sm">الفريق المفتوح: {session.teamName || store.teamName || "من غير اسم"}</p> : null}
       </article>
+      {map ? <ul className="grid gap-2">{map.map((button) => <li key={button.key} className="rounded-card border border-line bg-panel px-4 py-3"><strong>{button.ar}</strong><span className="mt-1 block text-sm text-muted">{button.found ? button.names.slice(0, 8).join(" · ") || button.path : "مش ظاهرة على الموقع"}</span><span className="mt-1 block text-xs text-muted">{button.meaning}</span></li>)}</ul> : null}
       <ol className="grid gap-2">{steps.map(([title, body]) => <li key={title} className="rounded-card border border-line bg-panel px-4 py-3"><strong>{title}</strong><span className="mt-1 block text-sm text-muted">{body}</span></li>)}</ol>
       <ul className="grid gap-2">{devices.map((d) => <li key={d.id} className="rounded-card border border-line bg-panel p-4"><div className="flex justify-between gap-2"><strong><bdi>{d.cloudName}</bdi></strong><span className="text-sm text-muted">{d.branch}</span></div><p className="text-xs text-muted"><bdi>{d.serial}</bdi></p></li>)}</ul>
     </section>
