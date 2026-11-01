@@ -139,3 +139,13 @@ export function personsToPeople(data: any) {
   const list: any[] = data?.personList ?? data?.list ?? data?.persons ?? [];
   return list.map((x) => { const p = x?.personInfo ?? x; return { employeeNo: personCode(p), name: personName(p), photo: "", gender: "" }; }).filter((p) => p.employeeNo);
 }
+
+/** Egypt observes DST again (UTC+2 winter / UTC+3 summer): build the day bounds with the real Cairo offset. */
+export function cairoBound(day: string, end: boolean) {
+  const probe = new Date(`${day}T12:00:00Z`);
+  const name = new Intl.DateTimeFormat("en-US", { timeZone: "Africa/Cairo", timeZoneName: "longOffset" }).formatToParts(probe).find((p) => p.type === "timeZoneName")?.value || "GMT+02:00";
+  const m = /GMT([+-]\d{2}):?(\d{2})?/.exec(name);
+  const off = m ? `${m[1]}:${m[2] || "00"}` : "+02:00";
+  return `${day}T${end ? "23:59:59" : "00:00:00"}${off}`;
+}
+export const pageDone = (pageIndex: number, got: number, total: number, size = 200) => !got || pageIndex * size >= total;

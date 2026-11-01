@@ -371,7 +371,15 @@ function FingerprintStep({ deviceId, employeeNo, onNext }: { deviceId: string; e
             setError("");
             await run({ action: "fingerprint.enroll", deviceId, employeeNo, fingerNo: Math.min(10, (info.count || 0) + 1) }, { inline: true, onError: setError });
             await load();
-          }}>التقاط بصمة من حساس الجهاز</Button>
+          }}>إضافة بصمة (التقاط من حساس الجهاز)</Button>
+        )}
+        {info?.supported && Boolean(info.count) && (
+          <Button disabled={busy || data.actor.role !== "admin"} onClick={async () => {
+            if (!window.confirm(`حذف كل بصمات الموظف ${employeeNo} من الجهاز؟`)) return;
+            setError("");
+            await run({ action: "fingerprint.delete", deviceId, employeeNo }, { inline: true, onError: setError });
+            await load();
+          }}>مسح بصمات الموظف</Button>
         )}
         <Button disabled={busy} onClick={() => void load()}>إعادة القراءة</Button>
         <Button primary={!info?.supported} disabled={busy} onClick={onNext}>

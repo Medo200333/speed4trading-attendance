@@ -1484,6 +1484,29 @@ export async function actionCenter(
     });
     return { notice: `سُجلت البصمة وأعيدت قراءتها: ${result.count} بصمة للموظف.` };
   }
+  if (input.action === "fingerprint.delete") {
+    requireRole(actor, "admin");
+    const device = getDevice(await readState(), input.deviceId);
+    const { deleteFingerprints } = await import("./biometrics.server");
+    const result = await withDeviceLock(device.id, async () => {
+      try {
+        return await deleteFingerprints(device, input.employeeNo, input.fingerNo);
+      } catch (error) {
+        // The terminal can drop the connection for a few seconds after a capture timeout; retry once.
+        if (!(error instanceof AccessError) || !["DEVICE_NETWORK", "DEVICE_TIMEOUT"].includes(error.code)) throw error;
+        await new Promise((r) => setTimeout(r, 3000));
+        return deleteFingerprints(device, input.employeeNo, input.fingerNo);
+      }
+    });
+    await updateState((state) => {
+      const person = state.people.find(
+        (p) => p.deviceId === device.id && p.employeeNo === input.employeeNo,
+      );
+      if (person) person.fingerprintCount = result.count ?? 0;
+      audit(state, actor, "fingerprint.delete", `${device.id}:${input.employeeNo}`, "success", `إصبع: ${input.fingerNo ?? "الكل"}؛ المتبقي ${result.count ?? 0}`);
+    });
+    return { notice: `حُذفت البصمة. المتبقي: ${result.count ?? 0} بصمة.` };
+  }
   if (input.action === "connect" || input.action === "probe") {
     const device = getDevice(await readState(), input.deviceId);
     if (jobs().busy.has(device.id))

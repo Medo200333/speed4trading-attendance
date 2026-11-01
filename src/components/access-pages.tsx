@@ -570,6 +570,30 @@ export function EmployeesPage() {
                       تفعيل / تعديل فترة الصلاحية
                     </Button>
                     <Button
+                      disabled={busy || !admin || !supported(device, "fingerprint.capture")}
+                      title="يطلب الجهاز وضع الإصبع على الحساس خلال ثوانٍ"
+                      onClick={() =>
+                        act({
+                          action: "fingerprint.enroll",
+                          deviceId: selected,
+                          employeeNo: person.employeeNo,
+                          fingerNo: Math.min(10, (person.fingerprintCount || 0) + 1),
+                        })
+                      }
+                    >
+                      إضافة بصمة
+                    </Button>
+                    <Button
+                      danger
+                      disabled={busy || !admin || !supported(device, "fingerprints")}
+                      onClick={() => {
+                        if (window.confirm(`حذف كل بصمات الموظف ${person.employeeNo} من الجهاز؟`))
+                          act({ action: "fingerprint.delete", deviceId: selected, employeeNo: person.employeeNo });
+                      }}
+                    >
+                      مسح البصمات
+                    </Button>
+                    <Button
                       danger
                       disabled={
                         busy || !admin || !supported(device, "users.delete")

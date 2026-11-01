@@ -5,7 +5,7 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { companyDirectory } from "./access/tenant-context.server";
-import { deriveKey, hcClient, HcError, open, personsToPeople, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal, type HcStored } from "./hcteam-core";
+import { cairoBound, pageDone, deriveKey, hcClient, HcError, open, personsToPeople, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal, type HcStored } from "./hcteam-core";
 
 const dir = () => { const d = companyDirectory(); mkdirSync(d, { recursive: true }); return d; };
 const file = () => join(dir(), "hcteam.json");
@@ -48,15 +48,14 @@ export async function hcTest() {
   catch (e) { return { ok: false as const, error: e instanceof HcError ? e.message : "تعذر اختبار الاتصال." }; }
 }
 
-const cairo = (d: string, end: boolean) => `${d}T${end ? "23:59:59" : "00:00:00"}+03:00`;
 export async function hcPull(from: string, to: string, pageIndex: number) {
   try {
     const c = client();
-    const data = await c.records(cairo(from, false), cairo(to, true), pageIndex);
+    const data = await c.records(cairoBound(from, false), cairoBound(to, true), pageIndex);
     const list: unknown[] = data?.recordList ?? [];
     const total = Number(data?.totalNum ?? list.length);
     let people: ReturnType<typeof personsToPeople> | undefined;
     if (pageIndex === 1) { try { people = personsToPeople(await c.persons(1)); } catch { people = undefined; } }
-    return { ok: true as const, punches: recordsToPunches(list as never[]), people, pageIndex: pageIndex + 1, done: !list.length || pageIndex * 200 >= total };
+    return { ok: true as const, punches: recordsToPunches(list as never[]), people, pageIndex: pageIndex + 1, done: pageDone(pageIndex, list.length, total) };
   } catch (e) { return { ok: false as const, error: e instanceof HcError ? e.message : "تعذر سحب الحضور من Hik-Connect Team." }; }
 }

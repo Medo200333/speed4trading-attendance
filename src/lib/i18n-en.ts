@@ -1,5 +1,11 @@
 /** Arabic → English UI dictionary (exact, trimmed text). */
 export const EN: Record<string, string> = {
+ "تسجيل الدخول إلى Hik-Connect Team": "Sign in to Hik-Connect Team",
+ "جارٍ تسجيل الدخول…": "Signing in…",
+ "إضافة بصمة": "Add fingerprint",
+ "مسح البصمات": "Delete fingerprints",
+ "مسح بصمات الموظف": "Delete employee fingerprints",
+ "إضافة بصمة (التقاط من حساس الجهاز)": "Add fingerprint (capture on device sensor)",
  "HTTPS بشهادة موثوقة": "HTTPS with a trusted certificate",
  "Hik-Connect والاستيراد اليدوي": "Hik-Connect and manual import",
  "Hik-Connect والملفات": "Hik-Connect and files",

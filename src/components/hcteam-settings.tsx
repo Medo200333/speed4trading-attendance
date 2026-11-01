@@ -43,7 +43,7 @@ export function HcTeamCard() {
             setNote({ text: "جارٍ طلب رمز الدخول من Hik-Connect…", error: false });
             const r = await test();
             if (r.ok) { setS(r.status); setNote({ text: `نجح الاتصال. رمز الدخول صالح حتى ${new Date(r.validUntil).toLocaleString("ar-EG")}.`, error: false }); } else setNote({ text: r.error, error: true });
-          })}>{busy === "test" ? "جارٍ الاختبار…" : "اختبار الاتصال"}</Button>
+          })}>{busy === "test" ? "جارٍ تسجيل الدخول…" : "تسجيل الدخول إلى Hik-Connect Team"}</Button>
           {s?.configured ? <Button type="button" disabled={!!busy} onClick={() => run("clear", async () => { const r = await clear(); if (r.ok) { setS(r.status); setNote({ text: "تم حذف المفتاح من هذا الخادم.", error: false }); } })}>إلغاء الربط</Button> : null}
           <Button type="button" onClick={() => setGuide(!guide)}>{guide ? "إخفاء الدليل" : "كيف تحصل على مفتاح Hik-Connect Team"}</Button>
         </div>

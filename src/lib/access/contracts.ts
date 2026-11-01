@@ -135,6 +135,12 @@ const legacyActionSchema = z.discriminatedUnion("action", [
     fingerNo: z.number().int().min(1).max(10),
   }),
   z.object({
+    action: z.literal("fingerprint.delete"),
+    deviceId: id,
+    employeeNo: id,
+    fingerNo: z.number().int().min(1).max(10).optional(),
+  }),
+  z.object({
     action: z.literal("person.metadata"),
     personId: id,
     localEnabled: z.boolean(),

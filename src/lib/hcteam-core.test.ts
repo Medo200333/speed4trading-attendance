@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { deriveKey, hcClient, open, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal } from "./hcteam-core.ts";
+import { cairoBound, pageDone, deriveKey, hcClient, open, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal } from "./hcteam-core.ts";
 
 const SECRET = "unit-test-fake-sk", AK = "unit-test-fake-ak";
 function mock() {
@@ -56,4 +56,23 @@ test("rate limiter allows at most 5 requests per second", async () => {
   const take = rateLimiter(5, 1000, () => t, async (ms) => { waits.push(ms); t += ms; });
   for (let i = 0; i < 6; i++) await take();
   assert.equal(waits.length, 1); assert.ok(t >= 1000);
+});
+test("Cairo day bounds follow Egypt DST (+02:00 winter, +03:00 summer)", () => {
+  assert.equal(cairoBound("2026-12-01", false), "2026-12-01T00:00:00+02:00");
+  assert.equal(cairoBound("2026-07-01", true), "2026-07-01T23:59:59+03:00");
+});
+test("expired token (OPEN000006) refreshes once and retries the pull", async () => {
+  const m = mock(); let first = true;
+  const fetch = async (url: string, init: any) => {
+    if (!url.endsWith("token/get") && first) { first = false; m.calls.push({ url, body: JSON.parse(init.body), headers: init.headers }); return { ok: true, status: 200, json: async () => ({ errorCode: "OPEN000006", message: "token expired" }) }; }
+    return m.fetch(url, init);
+  };
+  const c = hcClient({ baseUrl: regionUrl("isgp"), appKey: AK, secret: SECRET, fetch, take: fast, cached: { accessToken: "stale", expiresAt: Date.now() + 86400e3, areaDomain: "https://isgp.x" } });
+  const page = await c.records("a", "b", 1);
+  assert.equal(page.totalNum, 1);
+  assert.equal(m.calls.filter((x) => x.url.endsWith("token/get")).length, 1);
+  assert.equal(m.calls.at(-1)!.headers.Token, "hcc.tok");
+});
+test("pull pagination stops on empty page or when all records were read", () => {
+  assert.equal(pageDone(1, 200, 450), false); assert.equal(pageDone(3, 50, 450), true); assert.equal(pageDone(2, 0, 999), true);
 });

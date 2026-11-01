@@ -983,6 +983,8 @@ export async function enrollFingerprint(device: Device, employeeNo: string, fing
   const capture = await client.request("/ISAPI/AccessControl/CaptureFingerPrint", "POST",
     `<?xml version="1.0" encoding="UTF-8"?><CaptureFingerPrintCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><fingerNo>${fingerNo}</fingerNo></CaptureFingerPrintCond>`,
     "application/xml");
+  if (/captureTimeout/i.test(capture.text))
+    throw new AccessError("FP_CAPTURE_TIMEOUT", "انتهت مهلة التقاط البصمة: لم يُوضع إصبع على حساس الجهاز. اضغط إضافة بصمة مرة أخرى وضع الإصبع فوراً.");
   checkResponse(capture);
   const fingerData = /<fingerData>([^<]+)<\/fingerData>/.exec(capture.text)?.[1];
   if (!fingerData) throw new AccessError("FP_CAPTURE", "لم يلتقط الجهاز البصمة. ضع الإصبع على الحساس عند ظهور الطلب وأعد المحاولة.");
@@ -1004,6 +1006,32 @@ export async function enrollFingerprint(device: Device, employeeNo: string, fing
   }
   const after = await fingerprintStatus(device, employeeNo);
   if (!after.count) throw new AccessError("BIO_READBACK", "أرسل الجهاز البصمة لكن إعادة القراءة لم تُظهر بصمة للموظف.");
+  return after;
+}
+
+/** Delete one finger (or all) of one employee: PUT FingerPrint/Delete → poll DeleteProcess → read back. */
+export async function deleteFingerprints(device: Device, employeeNo: string, fingerNo?: number) {
+  if (!deviceWritesEnabled()) throw new AccessError("READ_ONLY", READ_ONLY_MESSAGE);
+  const status = await fingerprintStatus(device, employeeNo);
+  if (!status.supported) throw new AccessError("CAPABILITY", status.reason);
+  const client = await isapi(device);
+  const detail: Record<string, unknown> = { employeeNo };
+  if (fingerNo) detail.fingerPrintID = [fingerNo];
+  const response = await client.request("/ISAPI/AccessControl/FingerPrint/Delete?format=json", "PUT",
+    JSON.stringify({ FingerPrintDelete: { mode: "byEmployeeNo", EmployeeNoDetail: detail } }));
+  if (response.status === 401 || response.status === 404)
+    throw new AccessError("CAPABILITY", "الجهاز لا يدعم حذف البصمات عن بُعد (FingerPrint/Delete). احذفها من شاشة الجهاز.");
+  checkResponse(response);
+  for (let i = 0; i < 15; i += 1) {
+    const progress = await client.request("/ISAPI/AccessControl/FingerPrint/DeleteProcess?format=json");
+    if (progress.status !== 200) break;
+    const st = String(object(json(progress.text).FingerPrintDeleteProcess).status ?? "");
+    if (/success/i.test(st)) break;
+    if (/fail/i.test(st)) throw new AccessError("FP_DELETE", "رفض الجهاز حذف البصمة.");
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  const after = await fingerprintStatus(device, employeeNo);
+  if (!fingerNo && after.count) throw new AccessError("BIO_READBACK", `ما زالت ${after.count} بصمة مسجلة بعد الحذف.`);
   return after;
 }
 

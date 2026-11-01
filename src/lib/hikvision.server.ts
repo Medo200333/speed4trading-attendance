@@ -210,7 +210,15 @@ export class DigestSession {
     let result = await send(firstAuth);
     trace(firstAuth, result.status);
     if (result.status !== 401) return result;
-    const challenge = parseChallenge(result.www);
+    let challenge = parseChallenge(result.www);
+    if (!challenge && firstAuth) {
+      // Hikvision (DS-K1T342 V4.39) stops honouring a nonce after ~10 uses and answers a bare 401
+      // with no new challenge. Ask for a fresh challenge once instead of reporting a wrong password.
+      const probe = await send("");
+      trace("", probe.status);
+      if (probe.status !== 401) return probe;
+      challenge = parseChallenge(probe.www);
+    }
     if (challenge) {
       this.challenge = challenge;
       this.nc = 0;

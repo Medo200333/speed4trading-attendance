@@ -37,3 +37,26 @@ test("digest auth matches Hikvision challenge exactly like curl (opaque echoed, 
     assert.equal(c.algorithm, "SHA-256"); assert.equal(c.algorithmGiven, true); assert.equal(c.opaqueGiven, false);
   } finally { await vite.close(); server.close(); }
 });
+
+test("expired nonce answered with bare 401 (no challenge) gets one fresh challenge, not a password error", async () => {
+  let nonce = 0, uses = 0;
+  const server = http.createServer((req, res) => {
+    const auth = req.headers.authorization || "";
+    const challenge = () => { nonce++; uses = 0; res.writeHead(401, { "WWW-Authenticate": `Digest qop="auth", realm="DS-469cf832", nonce="n${nonce}", stale="false", opaque=""` }); res.end(); };
+    if (!auth) return challenge();
+    const f = {}; for (const m of auth.slice(7).matchAll(/(\w+)=(?:"([^"]*)"|([^,\s]+))/g)) f[m[1]] = m[2] ?? m[3];
+    const ha1 = md5(`admin:DS-469cf832:fixture-pass`), ha2 = md5(`${req.method}:${req.url}`);
+    const ok = f.nonce === `n${nonce}` && f.response === md5(`${ha1}:${f.nonce}:${f.nc}:${f.cnonce}:auth:${ha2}`);
+    if (!ok || ++uses > 3) { res.writeHead(401); return res.end(); } // bare 401 like DS-K1T342
+    res.writeHead(200); res.end("{}");
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const vite = await createServer({ configFile: false, logLevel: "silent", server: { middlewareMode: true, watch: null }, appType: "custom" });
+  try {
+    const m = await vite.ssrLoadModule("/src/lib/hikvision.server.ts");
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const s = new m.DigestSession("admin", "fixture-pass");
+    for (let i = 0; i < 10; i++) assert.equal((await s.request(`${base}/ISAPI/x${i}`, "GET")).status, 200, `request ${i}`);
+    assert.equal((await new m.DigestSession("admin", "bad").request(`${base}/ISAPI/x`, "GET")).status, 401);
+  } finally { await vite.close(); server.close(); }
+});
