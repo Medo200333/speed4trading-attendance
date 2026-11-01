@@ -221,8 +221,8 @@ export async function resolveSession(token: string): Promise<Actor | null> {
 }
 export function requireRole(actor: Actor, minimum: Role) {
   if (
-    { viewer: 0, operator: 1, admin: 2 }[actor.role] <
-    { viewer: 0, operator: 1, admin: 2 }[minimum]
+    { accountant: 0, viewer: 0, operator: 1, admin: 2 }[actor.role] <
+    { accountant: 0, viewer: 0, operator: 1, admin: 2 }[minimum]
   )
     throw new AccessError(
       "FORBIDDEN",

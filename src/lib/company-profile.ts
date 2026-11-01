@@ -10,13 +10,13 @@ export function profileFrom(company?: { nameAr?: string; logo?: string } | null)
 }
 /** Report owner line: always the customer company; product name only as a small "powered by". */
 export function reportHeader(profile: CompanyProfile, title: string) {
-  return { owner: profile.name || "—", title: profile.name ? `${profile.name} — ${title}` : title, poweredBy: "Speed for Training" };
+  return { owner: profile.name || "—", title: profile.name ? `${profile.name} — ${title}` : title, poweredBy: "speed4trading" };
 }
 export const LOGO_MAX_BYTES = 1024 * 1024;
 export const LOGO_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 /** Excel/CSV header block: Speed frame line, then the customer company (report owner), title and period. */
 export function reportSheetHeader(profile: CompanyProfile, title: string, period = ""): string[][] {
-  const rows = [["Speed for Training"], ["الشركة", profile.name || "—"], ["التقرير", title]];
+  const rows = [["speed4trading"], ["الشركة", profile.name || "—"], ["التقرير", title]];
   if (period) rows.push(["الفترة", period]);
   rows.push([]);
   return rows;

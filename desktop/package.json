@@ -1,8 +1,8 @@
 {
   "name": "zubayd-desktop",
   "version": "1.2.1",
-  "description": "Speed for Training - attendance and Hikvision access control",
-  "author": "Speed for Training",
+  "description": "speed4trading - attendance and Hikvision access control",
+  "author": "speed4trading",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.zubayd.accesscontrol",
-    "productName": "Speed for Training",
+    "productName": "speed4trading",
     "copyright": "ط²ط¨ظٹط¯",
     "directories": {
       "output": "../releases/windows",
@@ -65,7 +65,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Speed for Training",
+      "shortcutName": "speed4trading",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": false,
       "artifactName": "SpeedForTraining-Setup-${version}.${ext}"

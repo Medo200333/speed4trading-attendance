@@ -41,7 +41,7 @@ function LicensePanel() {
         <details className="ac-details">
           <summary>لديّ كود تفعيل / أريد كود الطلب</summary>
           <div className="ac-stack" style={{ marginTop: 10 }}>
-            <label className="ac-stack">كود الطلب (أرسله إلى Speed for Training)
+            <label className="ac-stack">كود الطلب (أرسله إلى speed4trading)
               <textarea readOnly dir="ltr" rows={3} value={s.requestCode} onFocus={(e) => e.currentTarget.select()} style={{ fontSize: 12 }} />
             </label>
             <Button type="button" onClick={async () => { try { await navigator.clipboard.writeText(s.requestCode); setNote({ text: "تم نسخ كود الطلب.", error: false }); } catch { setNote({ text: "حدد كود الطلب وانسخه يدوياً.", error: true }); } }}>نسخ كود الطلب</Button>
@@ -110,7 +110,7 @@ function Onboarding({ onDone }: { onDone: () => void }) {
         </section>
         <Button type="submit" primary disabled={busy || score < 3 || !f.confirm}>{busy ? "جارٍ الحفظ…" : "حفظ والمتابعة إلى البحث عن الأجهزة"}</Button>
         {note.text ? <p role={note.error ? "alert" : "status"} className={`ac-message${note.error ? " error" : ""}`}>{note.text}</p> : null}
-        <p className="sp-powered">برنامج من إنتاج Speed for Training</p>
+        <p className="sp-powered">برنامج من إنتاج speed4trading</p>
       </form>
     </main>
   );

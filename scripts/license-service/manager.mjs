@@ -1,4 +1,4 @@
-// Speed License Manager - 127.0.0.1, optionally behind tailscale serve (tailnet only, password login). Signs Speed for Training activation codes.
+// Speed License Manager - 127.0.0.1, optionally behind tailscale serve (tailnet only, password login). Signs speed4trading activation codes.
 import http from 'node:http';import {readFileSync,appendFileSync,existsSync,writeFileSync} from 'node:fs';import {createPrivateKey,sign,scryptSync,randomBytes,timingSafeEqual,createHmac} from 'node:crypto';import {exec} from 'node:child_process';
 const DIR='C:/ProgramData/SpeedLicense',KEY=DIR+'/private-ed25519.pem',LOG=DIR+'/issued-licenses.csv',PORT=Number(process.env.SPEED_LICENSE_PORT||7788);
 const norm=m=>String(m||'').replace(/[^0-9a-f]/gi,'').toUpperCase();
@@ -12,7 +12,7 @@ export function issue({customer,machine,mac,expires},key=createPrivateKey(readFi
 const parseReq=c=>{try{return JSON.parse(Buffer.from(String(c).trim().replace(/^SFT-REQ-/,''),'base64url').toString())}catch{return null}};
 const page=`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Speed License Manager</title>
 <style>body{font-family:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;background:#F8F5EC;color:#0B2242;margin:0;padding:16px}form{max-width:620px;margin:auto;background:#fff;border:1px solid #E5DDC9;border-radius:14px;padding:20px;display:grid;gap:10px}h1{margin:0;font-size:22px}label{display:grid;gap:4px;font-weight:600}input,textarea{font:inherit;padding:8px;border:1px solid #E5DDC9;border-radius:8px}button{font:inherit;background:#0B2242;color:#fff;border:0;border-radius:8px;padding:10px;cursor:pointer}button.alt{background:#D6B25E;color:#0B2242}.msg{padding:8px;border-radius:8px;background:#F1DFAC}.err{background:#f6d5d2;color:#a13b32}</style>
-<form id=f><h1>Speed License Manager</h1><p>إصدار كود تفعيل Speed for Training لجهاز محدد.</p>
+<form id=f><h1>Speed License Manager</h1><p>إصدار كود تفعيل speed4trading لجهاز محدد.</p>
 <label>كود الطلب (اختياري — يملأ الجهاز وMAC)<textarea id=req dir=ltr rows=2></textarea></label><button type=button class=alt id=fill>قراءة كود الطلب</button>
 <label>اسم العميل<input id=customer required></label><label>اسم الجهاز<input id=machine dir=ltr required></label><label>MAC<input id=mac dir=ltr required placeholder="AA:BB:CC:DD:EE:FF"></label>
 <label>تاريخ الانتهاء (اختياري)<input id=expires type=date></label><button id=go>إصدار كود التفعيل</button><p id=msg class=msg hidden></p>

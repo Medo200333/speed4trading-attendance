@@ -7,7 +7,7 @@ import { buildXlsx, decodeLogo } from "./xlsx-io.ts";
 const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 test("xlsx embeds the company logo on sheets that have one", () => {
   const files = unzipSync(buildXlsx([
-    { name: "الحضور", logo: png, widths: [10, 10, 10, 10, 10], rows: [["Speed for Training"], ["الشركة", "شركة النور"]] },
+    { name: "الحضور", logo: png, widths: [10, 10, 10, 10, 10], rows: [["speed4trading"], ["الشركة", "شركة النور"]] },
     { name: "info", widths: [10], rows: [["x"]] },
   ]));
   assert.ok(files["xl/media/logo1.png"]);

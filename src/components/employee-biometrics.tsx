@@ -230,7 +230,7 @@ export function EmployeeBiometrics({
   const faceSupport = !admin
     ? {
         state: "needs-login" as const,
-        reason: "رفع الوجه وبدء كاميرا الجهاز يحتاج حساب مسؤول في Speed for Training.",
+        reason: "رفع الوجه وبدء كاميرا الجهاز يحتاج حساب مسؤول في speed4trading.",
       }
     : loginNeeded
       ? {

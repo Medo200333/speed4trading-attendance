@@ -383,6 +383,22 @@ test("capability-gated center persists original events and requires role, sessio
     assert.equal(await store.resolveSession("disabled-session"), null);
     delete process.env.SKYLINE_ADMIN_USERNAME;
     delete process.env.SKYLINE_ADMIN_PASSWORD;
+    // Accountant: reports and transactions only.
+    const accountant = { ...actor, role: "accountant", sessionId: "fixture-session-acc" };
+    const accSnap = await service.queryCenter(accountant, { action: "snapshot" });
+    assert.ok(accSnap.snapshot);
+    await service.queryCenter(accountant, { action: "events", page: 0 });
+    await service.queryCenter(accountant, { action: "attendance", start: "2015-01-01", end: "2015-01-02" });
+    await assert.rejects(service.queryCenter(accountant, { action: "schedule", deviceId: "hikvision-main", templateNo: 1 }), (e) => e.code === "FORBIDDEN");
+    await assert.rejects(service.actionCenter(accountant, { action: "sync", deviceId: "hikvision-main" }), (e) => e.code === "FORBIDDEN");
+    // Device read-only mode (default): every device write is refused before reaching the device.
+    delete process.env.SPEED_DEVICE_WRITES;
+    const before = fixture.mutations.length;
+    await assert.rejects(service.prepareOperation(actor, { kind: "door", deviceId: "hikvision-main", doorNo: 1, command: "open" }), (e) => e.code === "READ_ONLY");
+    await assert.rejects(service.commitOperation(actor, "x", "y"), (e) => e.code === "READ_ONLY");
+    assert.equal((await service.queryCenter(actor, { action: "snapshot" })).snapshot.deviceWrites, false);
+    assert.equal(fixture.mutations.length, before, "read-only mode never writes");
+    process.env.SPEED_DEVICE_WRITES = "1";
   } finally {
     await fixture.close();
     await vite.close();

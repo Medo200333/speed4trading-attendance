@@ -92,7 +92,7 @@ export function HomePage() {
         </div>
         <div className="ac-welcome-mark" aria-hidden="true">
           <Server size={44} />
-          <span>Speed for Training</span>
+          <span>speed4trading</span>
           <small>البصمة · الأبواب · الحضور</small>
         </div>
       </section>

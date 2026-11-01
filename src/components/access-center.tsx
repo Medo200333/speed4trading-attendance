@@ -128,7 +128,7 @@ export function AccessCenter() {
       } else if (!result.ok && result.code === "LOGIN_REQUIRED") setData(null);
       else if (!result.ok) tell(result.error, true);
     } catch {
-      tell("تعذر الوصول إلى خادم Speed for Training. حاول تحديث الصفحة.", true);
+      tell("تعذر الوصول إلى خادم speed4trading. حاول تحديث الصفحة.", true);
     } finally {
       setInitial(false);
     }
@@ -327,9 +327,12 @@ export function AccessCenter() {
   const device = data.devices.find((device) => device.id === selected);
   // Device read-only mode (default): hide door control and device write forms.
   const deviceWrites = data.deviceWrites === true;
-  const shownTabs = deviceWrites ? tabs : tabs.filter((item) => item.id !== "doors");
+  const accountant = data.actor.role === "accountant";
+  const shownTabs = accountant
+    ? tabs.filter((item) => ["dashboard", "attendance", "reports"].includes(item.id))
+    : deviceWrites ? tabs : tabs.filter((item) => item.id !== "doors");
   const activeTab =
-    [...shownTabs, ...extraTabs].find((item) => item.id === tab) || shownTabs[0];
+    [...shownTabs, ...(accountant ? extraTabs.filter((item) => item.id === "events") : extraTabs)].find((item) => item.id === tab) || shownTabs[0];
   return (
     <CenterContext.Provider
       value={{
@@ -542,7 +545,7 @@ export function AccessCenter() {
                     }}
                   />
                 ) : (
-                  <AccessPanels tab={tab} guideTopic={guideTopic} />
+                  <AccessPanels tab={activeTab.id} guideTopic={guideTopic} />
                 )}
               </div>
             )}

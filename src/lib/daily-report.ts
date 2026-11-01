@@ -122,7 +122,7 @@ export function dailyPdfBytes(
       cmd += `q ${w} 0 0 ${h} ${x} ${pageH - 15.5 * PT} cm /Im${slot("speed")} Do Q\n`;
       x += w + 4 * PT;
     }
-    cmd += `BT /F1 15 Tf 1 1 1 rg 1 0 0 1 ${x} ${pageH - 9 * PT} Tm (${pdfText(BRAND.englishName || "Speed for Training")}) Tj ET\n`;
+    cmd += `BT /F1 15 Tf 1 1 1 rg 1 0 0 1 ${x} ${pageH - 9 * PT} Tm (${pdfText(BRAND.englishName || "speed4trading")}) Tj ET\n`;
     cmd += `BT /F2 9 Tf 1 1 1 rg 1 0 0 1 ${x} ${pageH - 14 * PT} Tm (Daily attendance report) Tj ET\n`;
     cmd += `BT /F2 9 Tf 1 1 1 rg 1 0 0 1 ${right - 48 * PT} ${pageH - 11 * PT} Tm (${pdfText(`${from}  to  ${to}`)}) Tj ET\n`;
     // Customer company logo + name beneath.
@@ -182,7 +182,7 @@ export function dailyPdfBytes(
   });
   if (!rows.length) cmd += `BT /F2 10 Tf 0.3 0.38 0.45 rg 1 0 0 1 ${left} ${y - 16} Tm (No employees in this period.) Tj ET\n`;
   const footer = (n: number, total: number) =>
-    `BT /F2 7 Tf 0.45 0.5 0.55 rg 1 0 0 1 ${left} ${8 * PT} Tm (${pdfText(`Speed for Training  -  page ${n} / ${total}`)}) Tj ET\n`;
+    `BT /F2 7 Tf 0.45 0.5 0.55 rg 1 0 0 1 ${left} ${8 * PT} Tm (${pdfText(`speed4trading  -  page ${n} / ${total}`)}) Tj ET\n`;
   pages.push(cmd);
 
   const list = [...images.entries()];
@@ -206,7 +206,7 @@ export function dailyPdfBytes(
     const stream = text(content + footer(i + 1, count));
     add(concat([text(`<< /Length ${stream.length} >>\nstream\n`), stream, text("endstream")]));
   });
-  const info = add(text(`<< /Title ${pdfUnicode(`${companyName || "Speed for Training"} - Daily attendance ${from} - ${to}`)} /Author ${pdfUnicode(companyName || "-")} /Producer (Speed for Training) >>`));
+  const info = add(text(`<< /Title ${pdfUnicode(`${companyName || "speed4trading"} - Daily attendance ${from} - ${to}`)} /Author ${pdfUnicode(companyName || "-")} /Producer (speed4trading) >>`));
   const chunks: Uint8Array[] = [text("%PDF-1.4\n")];
   let length = chunks[0].length;
   const offsets: number[] = [];
@@ -226,7 +226,7 @@ export function dailyPdfBytes(
 /** Excel: same layout; photos embedded in column A, Speed logo + company logo at the top. */
 export function dailyXlsxBytes(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", speedLogo = ""): Uint8Array {
   const top: (string | number)[][] = [
-    ["", BRAND.englishName || "Speed for Training", "", "", "", "", "", ""],
+    ["", BRAND.englishName || "speed4trading", "", "", "", "", "", ""],
     ["", "Daily attendance report", "", "", "", "", "", ""],
     ["", companyName, "", "", "", "", "", ""],
     ["", `Period: ${from} to ${to} (Cairo local time)`, "", "", "", "", "", ""],

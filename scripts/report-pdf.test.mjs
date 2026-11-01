@@ -18,7 +18,7 @@ test("attendance PDF carries the company name in header and metadata", async () 
   assert.match(pdf, /^%PDF-1\.4/);
   assert.match(pdf, /\(Acme Trading - Attendance report\) Tj/);
   assert.ok(pdf.includes(hex("Acme Trading")), "Author/Title metadata is the company");
-  assert.match(pdf, /\/Producer \(Speed for Training\)/);
+  assert.match(pdf, /\/Producer \(speed4trading\)/);
   assert.doesNotMatch(pdf, /Mohamed Kamal|Skyline|Zubayd/);
 });
 test("attendance PDF embeds the company logo when given", async () => {

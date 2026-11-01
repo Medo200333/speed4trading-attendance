@@ -125,7 +125,7 @@ export async function requireSystemAdmin(actor: Actor) {
   if (!identity?.enabled || !identity.systemAdmin)
     throw new AccessError(
       "FORBIDDEN",
-      "هذه العملية متاحة لمسؤول نظام Speed for Training فقط.",
+      "هذه العملية متاحة لمسؤول نظام speed4trading فقط.",
     );
   return identity;
 }
@@ -137,7 +137,7 @@ export async function withCompany<T>(
   const identity = await identityByName(actor.username),
     platform = await platformState();
   if (!identity?.enabled)
-    throw new AccessError("LOGIN_REQUIRED", "أعد تسجيل الدخول إلى Speed for Training.");
+    throw new AccessError("LOGIN_REQUIRED", "أعد تسجيل الدخول إلى speed4trading.");
   const companyId =
     requested ||
     identity.memberships[0]?.companyId ||

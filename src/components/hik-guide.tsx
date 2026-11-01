@@ -65,7 +65,7 @@ function guideHtml(): string {
   const refs = links.map(([label, href]) => `<li><a href="${new URL(href, location.origin).href}">${label}</a></li>`).join("");
   return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>دليل الباك أب</title>
 <style>body{font-family:sans-serif;background:#e7ebf0;color:#1c2834;margin:0}main{max-width:840px;margin:auto;padding:32px 20px}h1,h2{color:#0c3d66}h2{border-bottom:2px solid #d5dee7;padding-bottom:6px}p,li{line-height:1.8}</style>
-</head><body><main><p>Speed for Training</p><h1>دليل الباك أب — هيك-كونكت تيم</h1>${ordered}${body}<h2>المراجع</h2><ul>${refs}</ul></main></body></html>`;
+</head><body><main><p>speed4trading</p><h1>دليل الباك أب — هيك-كونكت تيم</h1>${ordered}${body}<h2>المراجع</h2><ul>${refs}</ul></main></body></html>`;
 }
 
 export function HikGuide({ onClose }: { onClose: () => void }) {

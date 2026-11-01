@@ -1,6 +1,7 @@
 import { methodLabel, splitStamp } from "../hikvision-parse";
 
-export type Role = "admin" | "operator" | "viewer";
+/** accountant: reports and transactions only (view/export), no devices or settings. */
+export type Role = "admin" | "operator" | "viewer" | "accountant";
 export type Support = "supported" | "unsupported" | "unverified";
 export type Feature =
   | "users.read"

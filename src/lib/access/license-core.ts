@@ -2,7 +2,9 @@ import { createPublicKey, verify } from "node:crypto";
 
 /** Pure license logic (no I/O) so it can be unit tested. */
 export const LICENSE_PUBLIC_KEY = "MCowBQYDK2VwAyEAUtgdtZmxHCqklG8F/5bzQwePrfmh1GQs4PnK3YMwmkw=";
-export const TRIAL_MS = 24 * 60 * 60 * 1000;
+/** 10-day demo, then a license is required. */
+export const TRIAL_DAYS = 10;
+export const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 export const ROLLBACK_TOLERANCE_MS = 10 * 60 * 1000;
 export type LicensePayload = { v: 1; product: "speed-for-training"; customer: string; machine: string; mac: string; issued: string; expires?: string | null };
 export type Machine = { name: string; macs: string[] };

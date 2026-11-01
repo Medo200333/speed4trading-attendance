@@ -30,7 +30,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       <div className="ac-daily-head" dir="ltr" style={{ background: "var(--ac-navy, #0b2242)", color: "#fff", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
         <img src="/speed-logo.png" alt="Speed" height={36} style={{ background: "#fff", borderRadius: 8, padding: 2 }} />
         <div>
-          <strong>Speed for Training</strong>
+          <strong>speed4trading</strong>
           <div style={{ fontSize: 12, opacity: 0.85 }}>Daily attendance report · {start} → {end}</div>
         </div>
       </div>

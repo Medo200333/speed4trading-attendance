@@ -185,7 +185,7 @@ const legacyActionSchema = z.discriminatedUnion("action", [
       .trim()
       .regex(/^[a-z0-9_.-]{3,32}$/),
     name: z.string().trim().min(1).max(80),
-    role: z.enum(["admin", "operator", "viewer"]),
+    role: z.enum(["admin", "operator", "viewer", "accountant"]),
     password: z.string().min(10).max(128),
     enabled: z.boolean(),
   }),

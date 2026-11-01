@@ -1,8 +1,9 @@
 {
-  "name": "Speed for Training",
-  "englishName": "Speed for Training",
-  "ownerName": "Speed for Training",
-  "publisher": "Speed for Training",
+  "name": "speed4trading",
+  "storageName": "Speed for Training",
+  "englishName": "speed4trading",
+  "ownerName": "speed4trading",
+  "publisher": "speed4trading",
   "description": "نظام إدارة الحضور والتحكم في الدخول",
   "version": "1.2.1",
   "appId": "com.zubayd.accesscontrol",
@@ -26,6 +27,6 @@
   },
   "identityStatus": "Speed Maintenance Room tokens (C:/Speed-Maintenance-Room-v2/src/styles.css + login-screen.tsx)",
   "signingPublisher": "MK",
-  "licenseServer": "https://desktop-gd5rj4m-1.tailc255fa.ts.net:8443/speed-license",
+  "licenseServer": "https://desktop-gd5rj4m.tailee8f5e.ts.net:8443/speed-license",
   "licenseEmail": "Ho_mk@hotmail.com"
 }

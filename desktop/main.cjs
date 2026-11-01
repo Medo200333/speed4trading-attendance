@@ -43,7 +43,8 @@ let window,
   shuttingDown = false,
   maintaining = false,
   restorePending;
-app.setName(brand.name);
+// Keep the original storage name so upgrades keep the same userData folder and data.
+app.setName(brand.storageName || brand.name);
 app.setAppUserModelId(brand.appId);
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on("second-instance", () => {
@@ -68,7 +69,7 @@ const eventLog = (code) => {
 };
 function trusted(event) {
   const u = event.senderFrame?.url || "";
-  // Compare real file: URLs. Install paths contain spaces ("Speed for Training"), which Chromium %20-encodes.
+  // Compare real file: URLs. Install paths can contain spaces, which Chromium %20-encodes.
   const page = (name) => require("node:url").pathToFileURL(join(__dirname, name)).href.toLowerCase();
   const local = ["setup.html", "maintenance.html", "connection.html"].some((name) => u.toLowerCase() === page(name));
   let fromServer = false;
@@ -272,13 +273,13 @@ function administrator(input) {
 }
 ipcMain.handle("zubayd:connection",async(event,input)=>{
  checkSender(event);administrator(input);
- if(input.phrase!=="تغيير اتصال Speed for Training")throw new Error("CONFIRMATION_REQUIRED");
+ if(input.phrase!=="تغيير اتصال speed4trading")throw new Error("CONFIRMATION_REQUIRED");
  const connection=validateConnection(input.connection);validateCertificate(connection);
  const previous=configuration;maintaining=true;
  try{
   await stopOwnedServer();configuration={...previous,connection};atomic(settings(),configuration);
   await startServer();eventLog("CONNECTION_CHANGED");
-  return {ok:true,notice:"تم تشغيل خادم Speed for Training بإعداد الاتصال الجديد. لم تتغير قواعد Firewall أو Tailscale."};
+  return {ok:true,notice:"تم تشغيل خادم speed4trading بإعداد الاتصال الجديد. لم تتغير قواعد Firewall أو Tailscale."};
  }catch(error){
   await stopOwnedServer();configuration=previous;atomic(settings(),previous);await startServer();throw error;
  }finally{maintaining=false;}
@@ -288,7 +289,7 @@ ipcMain.handle("zubayd:backup", async (event, input) => {
   administrator(input);
   const result = await dialog.showSaveDialog(maintenance || window, {
     defaultPath: "SpeedForTraining-backup.zubayd",
-    filters: [{ name: "Speed for Training encrypted backup", extensions: ["zubayd"] }],
+    filters: [{ name: "speed4trading encrypted backup", extensions: ["zubayd"] }],
   });
   if (result.canceled) return { cancelled: true };
   const backupRoot=resolve(configuration.dataDirectory),backupTarget=resolve(result.filePath);
@@ -313,7 +314,7 @@ ipcMain.handle("zubayd:restore", async (event, input) => {
   const { decodeBackup, restoreBackup, summary } = require("./maintenance.cjs");
   if (input.phase === "commit") {
     const pending = restorePending;
-    if (!pending || pending.sender !== event.sender.id || pending.username !== input.username || pending.until < Date.now() || input.token !== pending.token || input.phrase !== "استعادة بيانات Speed for Training") throw new Error("CONFIRMATION_REQUIRED");
+    if (!pending || pending.sender !== event.sender.id || pending.username !== input.username || pending.until < Date.now() || input.token !== pending.token || input.phrase !== "استعادة بيانات speed4trading") throw new Error("CONFIRMATION_REQUIRED");
     restorePending = undefined;
     maintaining = true;
     try {
@@ -322,12 +323,12 @@ ipcMain.handle("zubayd:restore", async (event, input) => {
       await window.webContents.session.clearStorageData({storages:["cookies","localstorage","indexdb","cachestorage"]});
       eventLog("BACKUP_RESTORED");
     } finally { pending.data.vaultKey = ""; try { await startServer(); } finally { maintaining = false; } }
-    return {ok:true,notice:"استُعيدت النسخة وأعيد تشغيل خادم Speed for Training. بقي مجلد البيانات السابق بجواره للرجوع إليه. سجّل الدخول بحساب النسخة المستعادة."};
+    return {ok:true,notice:"استُعيدت النسخة وأعيد تشغيل خادم speed4trading. بقي مجلد البيانات السابق بجواره للرجوع إليه. سجّل الدخول بحساب النسخة المستعادة."};
   }
   if (input.phase !== "inspect") throw new Error("RESTORE_PHASE");
   const result = await dialog.showOpenDialog(maintenance || window, {
     properties: ["openFile"],
-    filters: [{ name: "Speed for Training encrypted backup", extensions: ["zubayd"] }],
+    filters: [{ name: "speed4trading encrypted backup", extensions: ["zubayd"] }],
   });
   if (result.canceled) return { cancelled: true };
   const data = await decodeBackup(
@@ -343,7 +344,7 @@ ipcMain.handle("zubayd:restore", async (event, input) => {
     preview: summary(data),
     requiresServerStop: true,
     notice:
-      "فُحصت النسخة فقط. التأكيد التالي يوقف خادم Speed for Training الخاص بالتطبيق مؤقتاً ثم يستعيد النسخة، مع الاحتفاظ بمجلد البيانات الحالي كاملاً.",
+      "فُحصت النسخة فقط. التأكيد التالي يوقف خادم speed4trading الخاص بالتطبيق مؤقتاً ثم يستعيد النسخة، مع الاحتفاظ بمجلد البيانات الحالي كاملاً.",
   };
 });
 app.whenReady().then(async () => {
@@ -353,7 +354,7 @@ app.whenReady().then(async () => {
         label: brand.name,
         submenu: [
           {
-            label: "حول Speed for Training",
+            label: "حول speed4trading",
             click: () =>
               dialog.showMessageBox({
                 title: brand.name,

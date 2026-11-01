@@ -138,7 +138,7 @@ export function ConfigurationStudio({ apiBase, sessionId }: { apiBase: string; s
     update(next, "تم الحذف من الخطة");
   }
   function downloadDraft() {
-    const body = JSON.stringify({ ...draft, exportedAt: new Date().toISOString(), note: "Speed for Training local configuration plan only. NOT a backup from Hik-Connect devices. No biometric images." }, null, 2);
+    const body = JSON.stringify({ ...draft, exportedAt: new Date().toISOString(), note: "speed4trading local configuration plan only. NOT a backup from Hik-Connect devices. No biometric images." }, null, 2);
     const url = URL.createObjectURL(new Blob([body], { type: "application/json;charset=utf-8" }));
     const a = document.createElement("a"); a.href = url; a.download = `SpeedForTraining-config-plan-${new Date().toISOString().slice(0, 10)}.json`; a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -160,7 +160,7 @@ export function ConfigurationStudio({ apiBase, sessionId }: { apiBase: string; s
     <section className="mt-4 rounded-lg border-2 border-brass bg-panel p-4" dir="rtl" aria-labelledby="studio-title">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 id="studio-title" className="text-lg font-bold">Speed for Training — مدير الإعدادات</h2>
+          <h2 id="studio-title" className="text-lg font-bold">speed4trading — مدير الإعدادات</h2>
           <p className="mt-1 text-xs text-muted">Areas → Devices → Departments → Persons → Access → Sync → Backup</p>
         </div>
         <button type="button" className={buttonClass} onClick={() => setOpen((v) => !v)} aria-expanded={open}>{open ? "إغلاق المدير" : "فتح مدير الإعدادات"}</button>

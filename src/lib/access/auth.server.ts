@@ -19,6 +19,8 @@ const cookie = "skyline-access";
 const defaultTrusted = [
   "https://desktop-gd5rj4m-1.tailc255fa.ts.net",
   "https://desktop-gd5rj4m-1.tailc255fa.ts.net:8444",
+  "https://desktop-gd5rj4m.tailee8f5e.ts.net",
+  "https://desktop-gd5rj4m.tailee8f5e.ts.net:8444",
 ];
 function safeOrigin(value: string) {
   try {
@@ -66,7 +68,7 @@ export async function requireActor() {
   }
   const actor = await currentActor();
   if (!actor)
-    throw new AccessError("LOGIN_REQUIRED", "سجّل الدخول إلى Speed for Training أولاً.");
+    throw new AccessError("LOGIN_REQUIRED", "سجّل الدخول إلى speed4trading أولاً.");
   return actor;
 }
 /** Legacy cloud/direct tools have no company identifier; keep them with the system owner. */

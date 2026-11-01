@@ -10,7 +10,7 @@ import "./speed-design.css";
 
 type Status = Awaited<ReturnType<typeof licenseStatusFn>>;
 const mac = (m: string) => m.match(/.{2}/g)?.join(":") || m;
-/** Packaged builds only: 24h trial, then an activation screen. Dev servers are never enforced. */
+/** Packaged builds only: 10-day trial, then an activation screen. Dev servers are never enforced. */
 export function LicensedAccessCenter() {
   const status = useServerFn(licenseStatusFn), activate = useServerFn(activateLicenseFn);
   const [state, setState] = useState<Status | null>(null), [failed, setFailed] = useState(false);
@@ -33,7 +33,7 @@ export function LicensedAccessCenter() {
       if (stop) return;
       if (r.status === "activated") { setOnline({ text: `تمت الموافقة والتفعيل باسم ${"customer" in r ? r.customer : ""}. جارٍ فتح البرنامج…`, error: false, busy: false, waiting: false }); setTimeout(load, 800); }
       else if (r.status === "pending") setOnline((o) => ({ ...o, waiting: true, text: "تم إرسال الطلب وهو قيد المراجعة. سيتم التفعيل تلقائياً فور الموافقة.", error: false }));
-      else if (r.status === "rejected") setOnline((o) => ({ ...o, waiting: false, text: "تم رفض الطلب. تواصل مع Speed for Training.", error: true }));
+      else if (r.status === "rejected") setOnline((o) => ({ ...o, waiting: false, text: "تم رفض الطلب. تواصل مع speed4trading.", error: true }));
     };
     void tick(); const t = setInterval(tick, 20_000); return () => { stop = true; clearInterval(t); };
   }, [locked]);
@@ -50,12 +50,12 @@ export function LicensedAccessCenter() {
       <SetupGate />
     </>);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(state.requestCode); setNote({ text: "تم نسخ كود الطلب. أرسله إلى Speed for Training للحصول على كود التفعيل.", error: false }); }
+    try { await navigator.clipboard.writeText(state.requestCode); setNote({ text: "تم نسخ كود الطلب. أرسله إلى speed4trading للحصول على كود التفعيل.", error: false }); }
     catch { setNote({ text: "تعذر النسخ التلقائي. حدد كود الطلب وانسخه يدوياً.", error: true }); }
   };
-  const mailBody = `طلب ترخيص Speed for Training\nالبريد: ${email}\nالشركة: ${company}\nاسم الجهاز: ${state.machineName}\nكود الطلب:\n${state.requestCode}`;
-  const mailto = `mailto:${state.email || ""}?subject=${encodeURIComponent("طلب ترخيص Speed for Training")}&body=${encodeURIComponent(mailBody)}`;
-  const copyMail = async () => { try { await navigator.clipboard.writeText(mailBody); setNote({ text: "تم نسخ نص الرسالة. أرسله بنفسك بالبريد إلى Speed for Training.", error: false }); } catch { setNote({ text: "تعذر النسخ التلقائي.", error: true }); } };
+  const mailBody = `طلب ترخيص speed4trading\nالبريد: ${email}\nالشركة: ${company}\nاسم الجهاز: ${state.machineName}\nكود الطلب:\n${state.requestCode}`;
+  const mailto = `mailto:${state.email || ""}?subject=${encodeURIComponent("طلب ترخيص speed4trading")}&body=${encodeURIComponent(mailBody)}`;
+  const copyMail = async () => { try { await navigator.clipboard.writeText(mailBody); setNote({ text: "تم نسخ نص الرسالة. أرسله بنفسك بالبريد إلى speed4trading.", error: false }); } catch { setNote({ text: "تعذر النسخ التلقائي.", error: true }); } };
   return (
     <main className="access-center ac-login" dir="rtl" style={brandTheme}>
       <form className="ac-card ac-stack" style={{ maxWidth: 520, width: "100%" }} onSubmit={async (e) => {
@@ -68,7 +68,7 @@ export function LicensedAccessCenter() {
         finally { setBusy(false); }
       }}>
         <Brand />
-        <h1 style={{ fontSize: 22, margin: 0 }}>تفعيل Speed for Training</h1>
+        <h1 style={{ fontSize: 22, margin: 0 }}>تفعيل speed4trading</h1>
         {state.mode === "trial" ? <p role="status" className="ac-message">النسخة التجريبية ما زالت تعمل حتى {new Date(state.trialEndsAt || "").toLocaleString("ar-EG")}. <button type="button" className="ac-button" onClick={() => setActivateNow(false)}>رجوع للبرنامج</button></p> : <p role="alert" className="ac-message error">{state.message || "البرنامج غير مفعّل."}</p>}
         <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", margin: 0 }}>
           <dt>اسم الجهاز</dt><dd dir="ltr" style={{ margin: 0, fontWeight: 700 }}>{state.machineName}</dd>

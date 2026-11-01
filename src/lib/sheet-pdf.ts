@@ -272,7 +272,7 @@ export function attendancePdfBytes(from: string, to: string, rows: DayRow[], peo
     add(concat([text(`<< /Length ${stream.length} >>\nstream\n`), stream, text("endstream")]));
   }
 
-  const infoId = add(text(`<< /Title ${pdfUnicode(companyName ? `${companyName} — تقرير الحضور والانصراف` : "تقرير الحضور والانصراف")} /Author ${pdfUnicode(companyName || "—")} /Producer (Speed for Training) >>`));
+  const infoId = add(text(`<< /Title ${pdfUnicode(companyName ? `${companyName} — تقرير الحضور والانصراف` : "تقرير الحضور والانصراف")} /Author ${pdfUnicode(companyName || "—")} /Producer (speed4trading) >>`));
   const chunks: Uint8Array[] = [text("%PDF-1.4\n")];
   let length = chunks[0].length;
   const offsets = [0];

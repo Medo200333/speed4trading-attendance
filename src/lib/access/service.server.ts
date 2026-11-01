@@ -479,6 +479,8 @@ function requireDeviceWrites() {
 export async function queryCenter(actor: Actor, input: QueryInput) {
   ensureScheduler();
   if (input.action === "snapshot") return { snapshot: await snapshot(actor) };
+  if (actor.role === "accountant" && !["attendance", "events", "photo"].includes(input.action))
+    throw new AccessError("FORBIDDEN", "حساب المحاسبة للتقارير والحركات فقط.");
   const state = await readState();
   if (input.action === "attendance") {
     if (!input.start || !input.end)
@@ -1398,6 +1400,8 @@ export async function actionCenter(
   deviceId?: string;
 }> {
   ensureScheduler();
+  if (actor.role === "accountant")
+    throw new AccessError("FORBIDDEN", "حساب المحاسبة للتقارير والحركات فقط.");
   if (input.action === "prepare")
     return { confirmation: await prepareOperation(actor, input.operation) };
   if (input.action === "commit")
@@ -1767,7 +1771,7 @@ export async function actionCenter(
     );
   });
   return {
-    notice: "تم الحفظ داخل Speed for Training. لم تُغيّر بيانات الجهاز أو أبوابه.",
+    notice: "تم الحفظ داخل speed4trading. لم تُغيّر بيانات الجهاز أو أبوابه.",
     deviceId: savedDeviceId || undefined,
   };
 }

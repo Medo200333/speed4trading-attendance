@@ -69,7 +69,7 @@ export function CompaniesPage({
     <div className="ac-stack">
       <div className="ac-page-intro">
         <p>
-          Speed for Training هو مالك البرنامج. كل شركة عميل لها بياناتها وأجهزتها وتقاريرها
+          speed4trading هو مالك البرنامج. كل شركة عميل لها بياناتها وأجهزتها وتقاريرها
           المستقلة.
         </p>
         <Button primary disabled={!data.systemAdmin} onClick={() => open()}>
@@ -206,7 +206,7 @@ export function CompaniesPage({
                 />
               )}
               <p className="ac-muted">
-                مثال لاسم عميل: شركة ماجفيجن. لا تستخدم اسم Speed for Training مكان اسم
+                مثال لاسم عميل: شركة ماجفيجن. لا تستخدم اسم speed4trading مكان اسم
                 العميل.
               </p>
               <Button primary type="submit">

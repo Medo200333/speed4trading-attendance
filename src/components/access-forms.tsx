@@ -133,7 +133,7 @@ export function CenterForms({
         username: text(form, "username").toLowerCase(),
         name: text(form, "name"),
         password: text(form, "password"),
-        role: text(form, "role") as "admin" | "operator" | "viewer",
+        role: text(form, "role") as "admin" | "operator" | "viewer" | "accountant",
         enabled: form.has("enabled"),
       };
     } else if (modal.kind === "plan") {
@@ -354,7 +354,7 @@ export function CenterForms({
             {modal.kind === "door" ? (
               <>
                 <p className="ac-muted ac-field wide">
-                  هذا اسم منطقي داخل Speed for Training لقناة موجودة فعلياً؛ لا يُنشئ باباً أو
+                  هذا اسم منطقي داخل speed4trading لقناة موجودة فعلياً؛ لا يُنشئ باباً أو
                   قناة في الجهاز.
                 </p>
                 <Field label="القناة الفعلية">
@@ -569,6 +569,7 @@ export function CenterForms({
                 <Field label="الدور">
                   <select name="role" defaultValue="viewer">
                     <option value="viewer">مشاهد — قراءة فقط</option>
+                    <option value="accountant">محاسبة — التقارير والحركات فقط (عرض وتصدير)</option>
                     <option value="operator">
                       مشغّل — قراءة ومزامنة وقواعد تقارير
                     </option>

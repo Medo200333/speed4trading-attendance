@@ -38,7 +38,7 @@ export function AccessPanels({
   if (tab === "dashboard") return <HomePage />;
   if (tab === "people") return <EmployeesPage />;
   if (tab === "devices") return <DevicesPage />;
-  if (tab === "doors") return data.deviceWrites === true ? <Doors /> : <HomePage />;
+  if (tab === "doors") return data.deviceWrites === true && data.actor.role !== "accountant" ? <Doors /> : <HomePage />;
   if (tab === "attendance") return <AttendancePanel />;
   if (tab === "reports") return <ReportsPage />;
   if (tab === "guide")
@@ -49,7 +49,7 @@ export function AccessPanels({
   if (tab === "permissions") return <PermissionsPanel />;
   if (tab === "settings") return <SettingsPage />;
   if (tab === "audit") return <AuditPanel />;
-  if (!data.systemAdmin) return <Empty>تكامل Hik-Connect الحالي يديره مسؤول نظام Speed for Training في مساره المستقل. أجهزة شركتك المحلية متاحة في صفحة الأجهزة؛ حساب السحابة لا يحل محل اعتماد ISAPI.</Empty>;
+  if (!data.systemAdmin) return <Empty>تكامل Hik-Connect الحالي يديره مسؤول نظام speed4trading في مساره المستقل. أجهزة شركتك المحلية متاحة في صفحة الأجهزة؛ حساب السحابة لا يحل محل اعتماد ISAPI.</Empty>;
   return (
     <Card title="Hik-Connect والاستيراد اليدوي">
       <p className="ac-muted">

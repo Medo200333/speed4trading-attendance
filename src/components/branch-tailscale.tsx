@@ -14,6 +14,25 @@ export function TailscaleLink({ onPick }: { onPick: (row: Found) => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState("");
+  const [results, setResults] = useState<Record<string, string>>({});
+
+  /** Read-only reach test (TCP/HTTP on port 80) for every fingerprint address, one after another. */
+  const testAll = async () => {
+    if (!snap?.devices.length) return;
+    setTesting("*"); setResults({});
+    let ok = 0;
+    for (const d of snap.devices) {
+      let line = "";
+      try {
+        const r = await reach({ data: { host: d.ip, port: 80 } });
+        line = r.ok ? (r.data.reachable ? `يصل (${r.data.ms} ms)${r.data.hikvision ? " · Hikvision" : ""}` : "لا يصل على منفذ 80") : r.error;
+        if (r.ok && r.data.reachable) ok++;
+      } catch { line = "تعذر الاختبار"; }
+      setResults((prev) => ({ ...prev, [d.name + d.ip]: line }));
+    }
+    setNote(`نتيجة اختبار الكل: ${ok} من ${snap.devices.length} يصل.`);
+    setTesting("");
+  };
 
   const refresh = async () => {
     setBusy(true); setNote("");
@@ -43,6 +62,7 @@ export function TailscaleLink({ onPick }: { onPick: (row: Found) => void }) {
       <div className="ac-toolbar">
         <Button primary disabled={busy} onClick={() => void refresh()}>{busy ? "جارٍ القراءة…" : "تحديث الأجهزة"}</Button>
         <Button disabled={busy} onClick={() => void relog()}>تغيير الحساب</Button>
+        <Button disabled={busy || testing !== "" || !snap?.devices.length} onClick={() => void testAll()}>{testing === "*" ? "جارٍ اختبار الكل…" : "اختبار كل البصمات"}</Button>
       </div>
       {note ? <p className="ac-message">{note}</p> : null}
       {snap ? (
@@ -60,6 +80,7 @@ export function TailscaleLink({ onPick }: { onPick: (row: Found) => void }) {
             } catch { setNote("تعذر الاختبار."); }
             finally { setTesting(""); }
           }}>{testing === d.name + d.ip ? "جارٍ الاختبار…" : "اختبار الوصول"}</Button>
+          {results[d.name + d.ip] ? <> · <span role="status">{results[d.name + d.ip]}</span></> : null}
         </p>
       ))}
       <p className="ac-muted">القائمة عناوين البصمة من مسارات Tailscale، مش رقم الكمبيوتر اللي بيبدأ بـ 100. اضغط «إضافة الجهاز» ثم اكتب اسم المستخدم وكلمة مرور البصمة تحت.</p>
