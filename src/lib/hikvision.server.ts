@@ -56,6 +56,9 @@ type Challenge = {
   opaque?: string;
   qop: string;
   algorithm: string;
+  /** Hikvision firmware rejects an algorithm it did not announce and expects opaque echoed even when empty (like curl). */
+  algorithmGiven?: boolean;
+  opaqueGiven?: boolean;
 };
 
 type Variant = { major: number; pageSize: number; withOffset: boolean };
@@ -110,7 +113,7 @@ function requestUri(url: string): string {
   return `${parsed.pathname}${parsed.search}`;
 }
 
-function parseChallenge(header: string): Challenge | null {
+export function parseChallenge(header: string): Challenge | null {
   if (!/digest/i.test(header)) return null;
   const body = header.replace(/^digest\s+/i, "");
   const fields: Record<string, string> = {};
@@ -125,6 +128,8 @@ function parseChallenge(header: string): Challenge | null {
     opaque: fields.opaque,
     qop: qopList.includes("auth") ? "auth" : qopList[0] ?? "",
     algorithm: fields.algorithm || "MD5",
+    algorithmGiven: Boolean(fields.algorithm),
+    opaqueGiven: "opaque" in fields,
   };
 }
 
@@ -158,12 +163,12 @@ export class DigestSession {
       `realm="${escapeDigest(challenge.realm)}"`,
       `nonce="${escapeDigest(challenge.nonce)}"`,
       `uri="${uri}"`,
-      `algorithm=${challenge.algorithm || "MD5"}`,
+      ...(challenge.algorithmGiven === false ? [] : [`algorithm=${challenge.algorithm || "MD5"}`]),
       `response="${response}"`,
     ];
     if (challenge.qop) parts.push(`qop=${challenge.qop}`, `nc=${nc}`, `cnonce="${cnonce}"`);
     else if (algorithm.endsWith("-SESS")) parts.push(`cnonce="${cnonce}"`);
-    if (challenge.opaque) parts.push(`opaque="${escapeDigest(challenge.opaque)}"`);
+    if (challenge.opaque || challenge.opaqueGiven) parts.push(`opaque="${escapeDigest(challenge.opaque || "")}"`);
     return `Digest ${parts.join(", ")}`;
   }
 
