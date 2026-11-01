@@ -216,6 +216,7 @@ export async function saveCompany(
       };
       const state = initialState();
       state.devices = [];
+      { const { applyEditionSeed } = await import("./edition-seed.server"); applyEditionSeed(state); }
       state.companyId = company.id;
       const directory = companyDirectory(company.id);
       await mkdir(directory, { recursive: true, mode: 0o700 });

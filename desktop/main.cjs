@@ -35,6 +35,11 @@ const {
   findFreePort,
 } = require("./desktop-config.cjs");
 const brand = require("./resources/brand.json");
+// Edition preset (Sky Line build only): resources/edition-seed.json is added by the edition build, never in git.
+const EDITION_SEED = require("node:path").join(__dirname, "resources", "edition-seed.json");
+function editionInfo() {
+  try { const s = JSON.parse(require("node:fs").readFileSync(EDITION_SEED, "utf8")); return { edition: String(s.edition || ""), companyNameAr: String(s.company?.nameAr || ""), companyNameEn: String(s.company?.nameEn || "") }; } catch { return null; }
+}
 let window,
   maintenance,
   server,
@@ -154,6 +159,7 @@ async function startServer() {
     SKYLINE_EMPTY_INSTALL: "1",
     SKYLINE_LICENSE_ENFORCE: "1",
     SKYLINE_VAULT_KEY: vault,
+    ...(editionInfo() ? { SKYLINE_EDITION_SEED: EDITION_SEED } : {}),
     NITRO_HOST: config.host,
     NITRO_PORT: String(config.port),
   });
@@ -219,6 +225,7 @@ ipcMain.handle("zubayd:info", (event) => {
       configuration?.dataDirectory || join(app.getPath("userData"), "data"),
     connection: configuration?.connection,
     installed: Boolean(configuration),
+    edition: editionInfo(),
   };
 });
 ipcMain.handle("zubayd:folder", async (event) => {

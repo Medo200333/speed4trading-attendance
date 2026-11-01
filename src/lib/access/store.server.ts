@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, copyFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { homedir } from "node:os";
 import {companyDirectory,companyContext,LEGACY_COMPANY} from "./tenant-context.server";
+import { applyEditionSeed } from "./edition-seed.server";
 import {
   randomBytes,
   createCipheriv,
@@ -71,7 +72,7 @@ async function load(): Promise<AccessState> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     cache.state = initialState();
-    if(companyContext()!==LEGACY_COMPANY){cache.state.devices=[];cache.state.companyId=companyContext();}
+    if(companyContext()!==LEGACY_COMPANY){cache.state.devices=[];cache.state.companyId=companyContext();if(applyEditionSeed(cache.state))await writeFile(join(companyDirectory(companyContext()),"state.json"),JSON.stringify(cache.state),{mode:0o600}).catch(()=>{});}
   }
   return cache.state;
 }

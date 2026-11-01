@@ -14,3 +14,4 @@ android/local.properties
 screenshots/
 *.log
 .DS_Store
+desktop/resources/edition-seed.json

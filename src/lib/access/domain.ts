@@ -184,6 +184,8 @@ export type Person = {
   cardCount: number | null;
   fingerprintCount: number | null;
   faceCount: number | null;
+  /** Optional preset photo (edition seed / Teams), data URL. */
+  photo?: string;
 };
 export type LogicalDoor = {
   id: string;

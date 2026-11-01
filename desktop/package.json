@@ -25,6 +25,7 @@
       "package.json",
       "!node_modules/**",
       "resources/brand.json",
+      "resources/edition-seed.json",
       "resources/app.ico"
     ],
     "extraResources": [
