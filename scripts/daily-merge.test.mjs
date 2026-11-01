@@ -7,11 +7,11 @@ test("daily report merges device rows with Hik-Connect Team punches by source, w
   try {
     const { mergeDailySources } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
     const device = [
-      { personId: "p1", employeeNo: "3", name: "Mohamed Ayman", date: "2026-11-01", first: "09:20", last: "11:53", worked: "02:33", status: "Present", absent: false },
+      { personId: "p1", employeeNo: "3", name: "Employee Three", date: "2026-11-01", first: "09:20", last: "11:53", worked: "02:33", status: "Present", absent: false },
       { personId: "p2", employeeNo: "8", name: "Device Only", date: "2026-11-01", first: "", last: "", worked: "", status: "Absent", absent: true },
     ];
     const team = {
-      people: [{ employeeNo: "3", name: "mohamed ayman", photo: "data:image/jpeg;base64,AAA" }, { employeeNo: "6", name: "Mazen Yaser", photo: "data:image/jpeg;base64,BBB" }],
+      people: [{ employeeNo: "3", name: "employee three", photo: "data:image/jpeg;base64,AAA" }, { employeeNo: "6", name: "Employee Six", photo: "data:image/jpeg;base64,BBB" }],
       punches: [
         { employeeNo: "3", name: "", date: "2026-11-01", time: "09:20:30", method: "t" }, // same swipe as device first (<=45s)
         { employeeNo: "3", name: "", date: "2026-11-01", time: "13:05:00", method: "t" }, // later than device last
@@ -28,7 +28,7 @@ test("daily report merges device rows with Hik-Connect Team punches by source, w
     const both = mergeDailySources(device, team, "both", "2026-11-01", "2026-11-01");
     const m = both.find((r) => r.employeeNo === "3");
     assert.equal(both.length, 3);
-    assert.equal(m.personId, "p1"); assert.equal(m.name, "Mohamed Ayman");
+    assert.equal(m.personId, "p1"); assert.equal(m.name, "Employee Three");
     assert.equal(m.first, "09:20"); assert.equal(m.last, "13:05"); assert.equal(m.worked, "03:45"); assert.equal(m.photo, "data:image/jpeg;base64,AAA");
     assert.equal(both.find((r) => r.employeeNo === "8").absent, true);
     assert.equal(mergeDailySources(device, null, "teams", "2026-11-01", "2026-11-01").length, 0);
