@@ -65,7 +65,7 @@ const tabs = [
   { id: "doors", name: "الأبواب", icon: DoorOpen },
   { id: "attendance", name: "الحضور والانصراف", icon: CalendarClock },
   { id: "reports", name: "التقارير", icon: ChartNoAxesCombined },
-  { id: "guide", name: "دليل التشغيل", icon: BookOpen },
+  { id: "guide", name: "الدليل المصور", icon: BookOpen },
   { id: "settings", name: "الإعدادات", icon: Settings },
 ];
 const extraTabs = [

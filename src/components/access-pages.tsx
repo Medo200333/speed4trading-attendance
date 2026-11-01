@@ -1,3 +1,4 @@
+import { PictureGuide } from "./picture-guide";
 import { isEnglishName } from "@/lib/access/domain";
 import {AttendancePull} from "./attendance-pull";
 import { PhotoImportButton } from "./photo-import";
@@ -69,6 +70,7 @@ export function HomePage() {
         };
   return (
     <div className="ac-stack">
+      <PictureGuide />
       <section className="ac-welcome">
         <div>
           <span className="ac-eyebrow">مساحة العمل</span>

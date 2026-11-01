@@ -16,6 +16,7 @@ import {
   CapabilitiesPage,
 } from "./access-pages";
 import { OperatingGuide } from "./access-guide";
+import { PictureGuide } from "./picture-guide";
 import {
   useCenter,
   Button,
@@ -43,7 +44,7 @@ export function AccessPanels({
   if (tab === "attendance") return <AttendancePanel />;
   if (tab === "reports") return <ReportsPage />;
   if (tab === "guide")
-    return <OperatingGuide key={guideTopic} initialTopic={guideTopic} />;
+    return <><PictureGuide /><OperatingGuide key={guideTopic} initialTopic={guideTopic} /></>;
   if (tab === "advanced") return <CapabilitiesPage />;
   if (tab === "events") return <EventsPanel />;
   if (tab === "credentials") return <CredentialsPanel />;

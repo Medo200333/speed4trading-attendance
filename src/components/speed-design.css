@@ -999,3 +999,20 @@
 .ac-tour-actions button{min-height:42px;padding:0 16px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font:inherit}
 .ac-tour-actions button.primary{background:#1f4e79;color:#fff;border-color:#1f4e79}
 .ac-teams-page{display:flex;flex-direction:column;gap:16px}
+.pg-guide{background:#fff;border-radius:18px;padding:18px;margin-bottom:16px;border:1px solid #dbe1e6}
+.pg-guide h2{margin:0 0 12px;font-size:22px}
+.pg-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.pg-tile{position:relative;display:grid;justify-items:center;gap:10px;padding:22px 10px;border-radius:18px;border:2px solid #dbe1e6;background:#f4f6f8;color:#0b2242;font:inherit;font-size:17px;cursor:pointer}
+.pg-tile.on,.pg-tile:hover{border-color:#1d5ed8;background:#eaf0fb}
+.pg-num{position:absolute;top:8px;right:10px;width:30px;height:30px;border-radius:50%;background:#0b2242;color:#fff;display:grid;place-items:center;font-weight:700}
+.pg-steps{margin-top:18px}
+.pg-dots{display:flex;gap:10px;justify-content:center;margin-bottom:12px}
+.pg-dots button{width:42px;height:42px;border-radius:50%;border:2px solid #b8c3d6;background:#fff;font:inherit;font-weight:700;cursor:pointer}
+.pg-dots .on{background:#1d5ed8;color:#fff;border-color:#1d5ed8}.pg-dots .done{background:#15803d;color:#fff;border-color:#15803d}
+.pg-picture{margin:0;border:4px solid;border-radius:22px;padding:26px;text-align:center;background:#fbfcfe}
+.pg-icons{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+.pg-icons span{display:inline-flex;align-items:center;gap:8px}.pg-arrow{color:#94a3b8}
+.pg-picture figcaption{margin-top:16px;font-size:22px;font-weight:700;color:#0b2242}
+.pg-nav{display:flex;justify-content:space-between;margin-top:14px}
+.pg-nav button{font:inherit;font-size:18px;padding:12px 22px;border-radius:14px;border:1px solid #b8c3d6;background:#fff;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.pg-nav .pri{background:#1d5ed8;color:#fff;border-color:#1d5ed8}.pg-nav button:disabled{opacity:.4}
