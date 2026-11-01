@@ -32,5 +32,23 @@ test("daily report merges device rows with Hik-Connect Team punches by source, w
     assert.equal(m.first, "09:20"); assert.equal(m.last, "13:05"); assert.equal(m.worked, "03:45"); assert.equal(m.photo, "data:image/jpeg;base64,AAA");
     assert.equal(both.find((r) => r.employeeNo === "8").absent, true);
     assert.equal(mergeDailySources(device, null, "teams", "2026-11-01", "2026-11-01").length, 0);
+    // Same employee enrolled on several branches: an "Absent" row on a later device must not erase the punches.
+    const multi = [
+      { ...device[0], personId: "a1", branch: "Masr el gdeda" },
+      { ...device[0], personId: "b1", branch: "alex", first: "08:10", last: "08:10", worked: "", status: "One punch only" },
+      { ...device[0], personId: "c1", branch: "mansora", first: "", last: "", worked: "", status: "Absent", absent: true },
+      { ...device[1], personId: "c2", branch: "mansora" },
+    ];
+    const md = mergeDailySources(multi, null, "devices", "2026-11-01", "2026-11-01");
+    assert.equal(md.length, 2);
+    const e = md.find((r) => r.employeeNo === "3");
+    assert.deepEqual([e.first, e.last, e.worked, e.absent, e.branch, e.personId], ["08:10", "11:53", "03:43", false, "Masr el gdeda + alex", "a1"]);
+    const ab = md.find((r) => r.employeeNo === "8");
+    assert.deepEqual([ab.absent, ab.branch], [true, ""]);
+    const mb = mergeDailySources(multi, team, "both", "2026-11-01", "2026-11-01").find((r) => r.employeeNo === "3");
+    assert.deepEqual([mb.first, mb.last, mb.branch], ["08:10", "13:05", "Masr el gdeda + alex + Teams"]);
+    const { dailyPdfBytes, dailyXlsxBytes } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
+    assert.ok(new TextDecoder("latin1").decode(dailyPdfBytes("2026-11-01", "2026-11-01", md, "X")).includes("Branch / source"));
+    assert.ok(dailyXlsxBytes("2026-11-01", "2026-11-01", md, "X").length > 1000);
   } finally { await vite.close(); }
 });

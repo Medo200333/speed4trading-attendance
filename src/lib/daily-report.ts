@@ -17,6 +17,8 @@ export type DailyRow = {
   status: string;
   absent: boolean;
   photo?: string | null;
+  /** Where the punches came from (device/branch names, "Teams"); shown as a column only when some row has it. */
+  branch?: string;
 };
 
 const hm = (value: string) => (value ? value.slice(0, 5) : "");
@@ -76,12 +78,28 @@ export function mergeDailySources(
   start: string,
   end: string,
 ): DailyRow[] {
-  const out = new Map<string, DailyRow & { times: number[] }>();
+  type Acc = DailyRow & { times: number[]; from: string[] };
+  const out = new Map<string, Acc>();
   const key = (no: string, date: string) => `${no}|${date}`;
+  const tag = (row: Acc, from?: string) => { if (from && !row.from.includes(from)) row.from.push(from); };
   if (source !== "teams")
     for (const row of device) {
       const times = row.absent ? [] : [row.first, row.last].filter(Boolean).map(sec);
-      out.set(key(row.employeeNo, row.date), { ...row, times });
+      const k = key(row.employeeNo, row.date);
+      const seen = out.get(k);
+      // The same employee is usually enrolled on several devices/branches: pool their punches instead of
+      // letting the last device (often an "Absent" row) overwrite the others.
+      if (!seen) {
+        const { branch, ...rest } = row;
+        const acc: Acc = { ...rest, times, from: [] };
+        if (times.length) tag(acc, branch);
+        out.set(k, acc);
+      } else {
+        seen.times.push(...times);
+        if (times.length) tag(seen, row.branch);
+        if (!seen.photo && row.photo) seen.photo = row.photo;
+        if (seen.absent && !row.absent) Object.assign(seen, { status: row.status, absent: false });
+      }
     }
   if (source !== "devices" && team) {
     const people = new Map(team.people.map((p) => [p.employeeNo, p]));
@@ -92,20 +110,23 @@ export function mergeDailySources(
       let row = out.get(k);
       if (!row) {
         const person = people.get(no);
-        row = { personId: `team:${no}`, employeeNo: no, name: person?.name || p.name || no, date: p.date, first: "", last: "", worked: "", status: "", absent: false, photo: person?.photo || null, times: [] };
+        row = { personId: `team:${no}`, employeeNo: no, name: person?.name || p.name || no, date: p.date, first: "", last: "", worked: "", status: "", absent: false, photo: person?.photo || null, times: [], from: [] };
         out.set(k, row);
       }
       row.times.push(sec(p.time));
+      tag(row, "Teams");
     }
     for (const row of out.values()) if (!row.photo) row.photo = people.get(row.employeeNo)?.photo || row.photo;
   }
+  const anyBranch = device.some((r) => r.branch);
   const rows: DailyRow[] = [];
-  for (const { times, ...row } of out.values()) {
-    if (!times.length) { rows.push(row); continue; }
+  for (const { times, from, ...row } of out.values()) {
+    const branch = anyBranch || (source !== "devices" && from.length) ? { branch: from.join(" + ") } : {};
+    if (!times.length) { rows.push({ ...row, ...branch }); continue; }
     const kept: number[] = [];
     for (const t of [...times].sort((a, b) => a - b)) if (!kept.length || t - kept[kept.length - 1] > 45) kept.push(t);
     const first = hhmm(kept[0]), last = kept.length > 1 ? hhmm(kept[kept.length - 1]) : "";
-    rows.push({ ...row, first, last, worked: workedTime(first, last, kept.length), status: kept.length > 1 ? "Present" : "One punch only", absent: false });
+    rows.push({ ...row, ...branch, first, last, worked: workedTime(first, last, kept.length), status: kept.length > 1 ? "Present" : "One punch only", absent: false });
   }
   return rows.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name) || a.employeeNo.localeCompare(b.employeeNo));
 }
@@ -125,7 +146,9 @@ export function dailyPdfBytes(
   const enc = new TextEncoder();
   const text = (v: string) => enc.encode(v);
   const pageW = 210 * PT, pageH = 297 * PT, left = 10 * PT, right = pageW - 10 * PT, bottom = 14 * PT;
-  const widths = [14, 44, 20, 22, 20, 20, 18, 32].map((w) => w * PT);
+  const withBranch = rows.some((r) => r.branch);
+  const head = withBranch ? [...HEAD, "Branch / source"] : HEAD;
+  const widths = (withBranch ? [11, 34, 19, 18, 17, 17, 14, 22, 38] : [14, 44, 20, 22, 20, 20, 18, 32]).map((w) => w * PT);
   const rowH = 12 * PT, headH = 8 * PT;
   const images = new Map<string, Uint8Array>();
   const slot = (key: string) => [...images.keys()].indexOf(key) + 1;
@@ -190,7 +213,7 @@ export function dailyPdfBytes(
     y = pageH - 42 * PT;
     cmd += `0.043 0.133 0.259 rg ${left} ${y - headH} ${right - left} ${headH} re f\n`;
     let cx = left;
-    HEAD.forEach((h, i) => {
+    head.forEach((h, i) => {
       cmd += `BT /F1 8 Tf 1 1 1 rg 1 0 0 1 ${cx + 3} ${y - headH + 8} Tm (${h}) Tj ET\n`;
       cx += widths[i];
     });
@@ -217,7 +240,7 @@ export function dailyPdfBytes(
       const size = 10 * PT, ix = left + (widths[0] - size) / 2, iy = y - rowH + (rowH - size) / 2;
       cmd += `q ${size} 0 0 ${size} ${ix} ${iy} cm /Im${slot(key)} Do Q\n`;
     }
-    const cells = ["", row.name, row.employeeNo, row.date, row.first || "-", row.last || "-", row.worked || "", row.status];
+    const cells = ["", row.name, row.employeeNo, row.date, row.first || "-", row.last || "-", row.worked || "", row.status, ...(withBranch ? [row.branch || ""] : [])];
     let cx = left;
     cells.forEach((value, i) => {
       if (i > 0 && value) {
@@ -283,7 +306,8 @@ export function dailyXlsxBytes(from: string, to: string, rows: DailyRow[], compa
     [],
   ];
   const headRow = top.length;
-  const data = rows.map((r) => ["", r.name, r.employeeNo, r.date, r.first, r.last, r.worked, r.status]);
+  const withBranch = rows.some((r) => r.branch);
+  const data = rows.map((r) => ["", r.name, r.employeeNo, r.date, r.first, r.last, r.worked, r.status, ...(withBranch ? [r.branch || ""] : [])]);
   const heights: Record<number, number> = { 0: 30, 2: 40 };
   const images: { col: number; row: number; dataUrl: string; maxW?: number; maxH?: number }[] = [];
   if (speedLogo) images.push({ col: 0, row: 0, dataUrl: speedLogo, maxW: 60, maxH: 38 });
@@ -296,8 +320,8 @@ export function dailyXlsxBytes(from: string, to: string, rows: DailyRow[], compa
       name: "Daily attendance",
       ltr: true,
       logo: companyLogo,
-      rows: [...top, HEAD, ...data],
-      widths: [8, 30, 14, 13, 12, 12, 10, 16],
+      rows: [...top, withBranch ? [...HEAD, "Branch / source"] : HEAD, ...data],
+      widths: [8, 30, 14, 13, 12, 12, 10, 16, ...(withBranch ? [28] : [])],
       heights,
       images,
     },
