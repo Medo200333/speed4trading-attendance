@@ -12,7 +12,9 @@ export function companyFor(platform: { companies: Co[] }, companyId?: string) {
 }
 export function companySetupNeeded(platform: { companies: Co[] }, companyId?: string) {
   const c = companyFor(platform, companyId);
-  return !c || !profileFrom(c).name || LEGACY_BRAND.test(c.nameAr || "");
+  // The Sky Line edition legitimately carries the Sky Line name; only generic installs must rename a legacy brand.
+  const edition = typeof process !== "undefined" && Boolean(process.env?.SKYLINE_EDITION_SEED);
+  return !c || !profileFrom(c).name || (!edition && LEGACY_BRAND.test(c.nameAr || ""));
 }
 export function validateCompanySetup(input: CompanySetupInput, currentUsername: string) {
   const companyName = normalizeCompanyName(input.companyName);
