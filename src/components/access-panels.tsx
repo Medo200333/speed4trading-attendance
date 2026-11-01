@@ -38,6 +38,7 @@ export function AccessPanels({
   if (tab === "dashboard") return <HomePage />;
   if (tab === "people") return <EmployeesPage />;
   if (tab === "devices") return <DevicesPage />;
+  if (tab === "teams") return <TeamsPage />;
   if (tab === "doors") return data.deviceWrites === true && data.actor.role !== "accountant" ? <Doors /> : <HomePage />;
   if (tab === "attendance") return <AttendancePanel />;
   if (tab === "reports") return <ReportsPage />;
@@ -177,6 +178,21 @@ function Doors() {
           </p>
         </Card>
       ))}
+    </div>
+  );
+}
+
+/** Hik-Connect Team lives on its own page: cloud login, pull, and Team reports only — no device/Tailscale calls. */
+function TeamsPage() {
+  return (
+    <div className="ac-teams-page">
+      <Card title="Hik-Connect Team">
+        <p className="ac-muted">
+          السحب هنا من موقع Hik-Connect Team مباشرة على الإنترنت، ومش محتاج Tailscale ولا إن أجهزة الفروع تكون شغالة.
+          ادخل بحساب الموقع، اختار الفترة، واسحب البصمات والتقارير (Excel و PDF بالصور).
+        </p>
+      </Card>
+      <AttendanceBoard embedded teamsOnly />
     </div>
   );
 }

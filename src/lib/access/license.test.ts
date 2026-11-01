@@ -40,8 +40,8 @@ test("clock rollback locks even when licensed", () => {
   assert.equal(run(null, { lastSeen: [now + 60_000] }).mode, "trial");
 });
 test("request code round-trip", () => assert.deepEqual(parseRequestCode(requestCode(machine)), machine));
-test("demo lasts 10 days", () => {
-  assert.equal(TRIAL_MS, 10 * 24 * 60 * 60 * 1000);
-  assert.equal(run(null, { trialStarts: [now - 9 * 24 * 3600e3] }).mode, "trial");
-  assert.equal(run(null, { trialStarts: [now - 11 * 24 * 3600e3] }).reason, "TRIAL_OVER");
+test("demo lasts 30 days", () => {
+  assert.equal(TRIAL_MS, 30 * 24 * 60 * 60 * 1000);
+  assert.equal(run(null, { trialStarts: [now - 29 * 24 * 3600e3] }).mode, "trial");
+  assert.equal(run(null, { trialStarts: [now - 31 * 24 * 3600e3] }).reason, "TRIAL_OVER");
 });

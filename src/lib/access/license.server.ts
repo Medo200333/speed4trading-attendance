@@ -79,7 +79,7 @@ export function activateLicense(code: string) {
   return verdict;
 }
 export const LICENSE_MESSAGES: Record<string, string> = {
-  TRIAL_OVER: "انتهت الفترة التجريبية (10 أيام). أدخل كود التفعيل للمتابعة.",
+  TRIAL_OVER: "انتهت الفترة التجريبية (30 يوم). أدخل كود التفعيل للمتابعة.",
   CLOCK: "تم اكتشاف رجوع ساعة الجهاز للخلف. صحح التاريخ والوقت ثم أعد فتح البرنامج.",
   SIGNATURE: "كود التفعيل غير صالح.",
   FORMAT: "كود التفعيل غير مكتمل. انسخه كاملاً.",

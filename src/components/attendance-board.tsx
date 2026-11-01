@@ -86,7 +86,7 @@ function loadSaved(): SavedLink | null {
   }
 }
 
-export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
+export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embedded?: boolean; teamsOnly?: boolean }) {
   const testDevice = useServerFn(testDeviceFn);
   const pullChunk = useServerFn(pullChunkFn);
   const devicePhotosCall = useServerFn(devicePhotosFn);
@@ -121,8 +121,8 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
   const [remember, setRemember] = useState(false);
   const [ready, setReady] = useState(false);
   const [shift, setShift] = useState("08:00");
-  const [from, setFrom] = useState("2026-10-11");
-  const [to, setTo] = useState("2026-10-17");
+  const [from, setFrom] = useState(() => isoDay(new Date()).slice(0, 8) + "01");
+  const [to, setTo] = useState(() => isoDay(new Date()));
   const [punches, setPunches] = useState<Punch[]>([]);
   const [source, setSource] = useState<Source>("empty");
   const [roster, setRoster] = useState<RosterPerson[]>([]);
@@ -831,6 +831,12 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
           <span dir="ltr">{from} — {to}</span>
         </div>
 
+        {teamsOnly && board === "transaction" && shown.length ? (
+          <section className="rounded-lg border border-line bg-panel p-3 md:p-4">
+            <h2 className="no-print mb-3 text-lg font-semibold">الحركات (Transaction)</h2>
+            <WeekBoard rows={shown} people={roster} />
+          </section>
+        ) : null}
         {!embedded && (board === "transaction" && shown.length ? (
           <section className="rounded-lg border border-line bg-panel p-3 md:p-4">
             <h2 className="no-print mb-3 text-lg font-semibold">Attendance</h2>
@@ -875,7 +881,7 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
                 <p className="text-xs text-muted">الطرق بالأسفل (دخول موقع هيك-كونكت بالإيميل، أو الجهاز مباشرة) بديلة.</p>
               </div>
             ) : null}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className={teamsOnly ? "hidden" : "grid grid-cols-1 gap-2 sm:grid-cols-3"}>
               <button
                 type="button"
                 aria-pressed={mode === "team"}

@@ -51,6 +51,13 @@ app.on("second-instance", () => {
   window?.show();
   window?.focus();
 });
+/** The NSIS uninstaller reads this value to delete the customer's data folder (see build/installer.nsh). */
+function recordDataDirectory(root) {
+  if (process.platform !== "win32") return;
+  try {
+    require("node:child_process").execFileSync("reg", ["add", "HKCU\\Software\\SpeedForTraining\\Install", "/v", "DataDirectory", "/t", "REG_SZ", "/d", root, "/f"], { windowsHide: true, stdio: "ignore" });
+  } catch { /* best effort */ }
+}
 const settings = () => join(app.getPath("userData"), "installation.json");
 const eventLog = (code) => {
   try {
@@ -249,6 +256,7 @@ ipcMain.handle("zubayd:setup", async (event, input) => {
     }
     configuration = { dataDirectory: root, connection };
     atomic(settings(), configuration);
+    recordDataDirectory(root);
     await startServer();
     return { ok: true, dataDirectory: root, port: connection.port };
   } catch (error) {

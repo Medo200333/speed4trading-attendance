@@ -988,3 +988,14 @@
 .ac-dot.online { background: #18a058; box-shadow: 0 0 0 3px rgba(24,160,88,.18); }
 .ac-dot.offline { background: #d03050; box-shadow: 0 0 0 3px rgba(208,48,80,.15); }
 .ac-lang-toggle { min-height: 36px; padding: 0 12px; }
+
+/* 1.2.10 guided tour */
+.ac-tour-backdrop{position:fixed;inset:0;background:rgba(10,20,35,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.ac-tour-card{background:#fff;color:#14213d;border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.ac-tour-card h2{margin:6px 0 10px;font-size:1.35rem}
+.ac-tour-card p{line-height:1.8;margin:0 0 18px}
+.ac-tour-card small{color:#6b7280}
+.ac-tour-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ac-tour-actions button{min-height:42px;padding:0 16px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font:inherit}
+.ac-tour-actions button.primary{background:#1f4e79;color:#fff;border-color:#1f4e79}
+.ac-teams-page{display:flex;flex-direction:column;gap:16px}

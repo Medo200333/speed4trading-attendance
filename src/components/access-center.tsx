@@ -1,4 +1,5 @@
 import { ManagerToday } from "./manager-today";
+import { GuidedTour } from "./guided-tour";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -18,6 +19,7 @@ import {
   BookOpen,
   ChartNoAxesCombined,
   CircleHelp,
+  Cloud,
 } from "lucide-react";
 import {
   centerQueryFn,
@@ -57,6 +59,7 @@ import "./speed-design.css";
 const tabs = [
   { id: "dashboard", name: "الرئيسية", icon: LayoutDashboard },
   { id: "devices", name: "الأجهزة", icon: Server },
+  { id: "teams", name: "Hik-Connect Team", icon: Cloud },
   { id: "people", name: "الموظفون", icon: Users },
   { id: "credentials", name: "بصمة الوجه ووسائل التحقق", icon: Fingerprint },
   { id: "doors", name: "الأبواب", icon: DoorOpen },
@@ -70,7 +73,7 @@ const extraTabs = [
   { id: "events", name: "الأحداث والاستثناءات", icon: ListFilter },
   { id: "audit", name: "سجل التدقيق", icon: ScrollText },
   { id: "advanced", name: "دعم الوظائف والتشخيص", icon: Settings },
-  { id: "legacy", name: "Hik-Connect والملفات", icon: FileSpreadsheet },
+  { id: "legacy", name: "استيراد ملفات الحضور", icon: FileSpreadsheet },
   { id: "companies", name: "الشركات والفروع", icon: Users },
 ];
 
@@ -92,6 +95,7 @@ export function AccessCenter() {
     [selected, setSelected] = useState("hikvision-main"),
     [employeeId, setEmployeeId] = useState(""),
     [menu, setMenu] = useState(false);
+  const [tourTick, setTourTick] = useState(0);
   const [message, setMessage] = useState({ text: "", error: false });
   const pendingPerson = useRef<{ deviceId: string; employeeNo: string } | null>(
     null,
@@ -345,7 +349,7 @@ export function AccessCenter() {
   const accountant = data.actor.role === "accountant";
   const manager = data.actor.role === "manager";
   const shownTabs = accountant
-    ? tabs.filter((item) => ["dashboard", "attendance", "reports"].includes(item.id))
+    ? tabs.filter((item) => ["dashboard", "teams", "attendance", "reports"].includes(item.id))
     : deviceWrites ? tabs : tabs.filter((item) => item.id !== "doors");
   const activeTab =
     [...shownTabs, ...(accountant ? extraTabs.filter((item) => item.id === "events") : extraTabs)].find((item) => item.id === tab) || shownTabs[0];
@@ -389,6 +393,7 @@ export function AccessCenter() {
       }}
     >
       {manager ? <ManagerToday /> : <div className="access-center" dir={lang === "en" ? "ltr" : "rtl"} lang={lang} style={brandTheme}>
+        <GuidedTour forceOpen={tourTick} />
         <a className="ac-skip" href="#main-content">
           انتقل إلى محتوى الصفحة
         </a>
@@ -398,7 +403,7 @@ export function AccessCenter() {
             tabs={shownTabs}
             active={tab}
             navigate={navigate}
-            help={() => help("start")}
+            help={() => { setTourTick((n) => n + 1); help("start"); }}
             close={() => setMenu(false)}
           />
         )}
@@ -407,7 +412,7 @@ export function AccessCenter() {
             tabs={shownTabs}
             active={tab}
             navigate={navigate}
-            help={() => help("start")}
+            help={() => { setTourTick((n) => n + 1); help("start"); }}
           />
           <main className="ac-main" id="main-content" tabIndex={-1}>
             {busy ? <ProgressBar label="جارٍ التنفيذ…" /> : null}

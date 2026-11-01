@@ -6,6 +6,14 @@ const PORTAL = "https://www.hik-connect.com";
 const TEAM_API = "https://ieu-team.hikcentralconnect.com/hcc";
 const PAGE_SIZE = 100;
 const PAGES_PER_CALL = 2;
+const REPORT_CAP = 200;
+const clockSeconds = (c: string) => { const [h, m, x] = c.split(":").map(Number); return h * 3600 + m * 60 + (x || 0); };
+const secondsClock = (n: number) => [Math.floor(n / 3600), Math.floor((n % 3600) / 60), n % 60].map((v) => String(v).padStart(2, "0")).join(":");
+export function daysBetween(start: string, end: string): string[] {
+  const out: string[] = [];
+  for (let t = Date.parse(`${start}T00:00:00Z`); t <= Date.parse(`${end}T00:00:00Z`) && out.length < 400; t += 86_400_000) out.push(new Date(t).toISOString().slice(0, 10));
+  return out;
+}
 
 export type PortalTeam = { id: string; name: string };
 
@@ -847,22 +855,37 @@ async function pullFirstLastReport(base: string, input: CloudChunkRequest, offse
     if (parsed.length) break;
   }
   const title = report.translatedName || report.name || "الحضور";
-  let page = Math.max(1, input.pageIndex || 1);
+  // Hik-Connect Team silently stops after ~200 rows per query (nextPageExists=false on page 2),
+  // so a month-long range came back cut after the first days. Read one day at a time and split a
+  // day in halves if it ever reaches the cap. Each day uses that day's real Cairo offset (DST).
   const punches: Punch[] = [];
-  let done = false;
-  for (let step = 0; step < PAGES_PER_CALL && !done; step += 1) {
-    const loaded = await readReportPage(base, headersForRead, report.reportTypeId as number, page, filters, range);
-    if (loaded.error) return { ok: false, error: loaded.error };
-    const parsed = punchesFromReport(loaded.rows, columns);
-    if (!parsed.length && !punches.length && step === 0 && range === ranges[0]) {
-      range = ranges[1];
-      step -= 1;
-      continue;
+  const withOffset = range === ranges[0];
+  const tz = input.timeZone || "Africa/Cairo";
+  async function readWindow(day: string, from: string, to: string, depth: number): Promise<string> {
+    const off = zoneOffset(tz, day);
+    const value = withOffset ? `${day}T${from}${off},${day}T${to}${off}` : `${day} ${from},${day} ${to}`;
+    const rows: unknown[] = [];
+    for (let page = 1; page <= 50; page += 1) {
+      const loaded = await readReportPage(base, headersForRead, report.reportTypeId as number, page, filters, value);
+      if (loaded.error) return loaded.error;
+      rows.push(...loaded.rows);
+      if (!loaded.rows.length || loaded.noMore || loaded.rows.length < PAGE_SIZE) break;
     }
-    punches.push(...parsed);
-    done = !loaded.rows.length || loaded.noMore || loaded.rows.length < PAGE_SIZE;
-    page += 1;
+    if (rows.length >= REPORT_CAP && depth < 4) {
+      const a = clockSeconds(from), b = clockSeconds(to), mid = Math.floor((a + b) / 2);
+      const e1 = await readWindow(day, from, secondsClock(mid), depth + 1);
+      if (e1) return e1;
+      return readWindow(day, secondsClock(mid + 1), to, depth + 1);
+    }
+    punches.push(...punchesFromReport(rows, columns));
+    return "";
   }
+  for (const day of daysBetween(input.startDate, input.endDate)) {
+    const error = await readWindow(day, "00:00:00", "23:59:59", 0);
+    if (error) return { ok: false, error };
+  }
+  const page = 2;
+  const done = true;
   const notice = punches.length
     ? `التقرير: ${title}. الأوقات 00:00 و 23:59 اتسابت لأنها الشيفت.`
     : `تقرير ${title} رجّع مواعيد الشيفت بس (00:00–23:59) ومفيش وقت بصمة.`;

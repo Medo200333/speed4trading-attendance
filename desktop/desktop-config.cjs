@@ -22,7 +22,7 @@ function pickDataDirectory(documents, nameEn) {
   for (let i = 1; i < 100; i++) {
     const dir = i === 1 ? base : base + "-" + i;
     if (!existsSync(dir) || !readdirSync(dir).length) return { dir, reuse: false };
-    if (ourData(dir) && existsSync(join(dir, "vault-key.bin"))) return { dir, reuse: true };
+    // 1.2.10: never reuse a leftover data folder — a new install always starts fresh (old folder is left untouched).
   }
   throw new Error("DATA_NOT_EMPTY");
 }
