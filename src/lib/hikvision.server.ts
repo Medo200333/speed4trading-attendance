@@ -172,7 +172,7 @@ export class DigestSession {
     return `Digest ${parts.join(", ")}`;
   }
 
-  async request(url: string, method: string, body?: string | FormData, contentType?: string, binary = false): Promise<{ status: number; text: string; bytes: Uint8Array; contentType: string }> {
+  async request(url: string, method: string, body?: string | FormData, contentType?: string, binary = false, timeoutMs = 20_000): Promise<{ status: number; text: string; bytes: Uint8Array; contentType: string }> {
     const send = async (auth: string) => {
       const headers: Record<string, string> = { Accept: "application/json, application/xml, text/xml, */*" };
       if (typeof body === "string") headers["Content-Type"] = contentType || "application/json";
@@ -182,7 +182,7 @@ export class DigestSession {
         headers,
         body,
         redirect: "error",
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       const reader = response.body?.getReader();
       const chunks: Uint8Array[] = [];

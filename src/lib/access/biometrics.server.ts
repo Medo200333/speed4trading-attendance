@@ -517,82 +517,21 @@ export async function cancelBiometric(actor: Actor, token: string) {
   }
   return { cancelled: true };
 }
-function extractPhoto(response: { bytes: Uint8Array; contentType: string }) {
-  const bytes = Buffer.from(response.bytes);
-  if (/image\/jpeg/i.test(response.contentType)) return new Uint8Array(bytes);
-  if (/multipart\//i.test(response.contentType)) {
-    const boundary = /boundary\s*=\s*"?([^";\s]+)/i.exec(
-      response.contentType,
-    )?.[1];
-    if (!boundary)
-      throw new AccessError(
-        "CAPTURE_FORMAT",
-        "رد الالتقاط متعدد الأجزاء بلا حدود صالحة.",
-      );
-    const marker = Buffer.from("--" + boundary);
-    let pos = bytes.indexOf(marker);
-    while (pos >= 0) {
-      const head = bytes.indexOf(Buffer.from("\r\n\r\n"), pos),
-        next = bytes.indexOf(marker, pos + marker.length);
-      if (head < 0 || next < 0) break;
-      if (
-        head - pos < 16384 &&
-        /content-type:\s*image\/jpeg/i.test(
-          bytes.subarray(pos, head).toString("ascii"),
-        )
-      )
-        return new Uint8Array(bytes.subarray(head + 4, next - 2));
-      pos = next;
-    }
-  }
-  return null;
-}
 async function capture(client: Client, infrared: boolean, job: Job) {
-  let response = await client.request(
-    "/ISAPI/AccessControl/CaptureFaceData",
-    "POST",
-    `<CaptureFaceDataCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><captureInfrared>${infrared}</captureInfrared><dataType>binary</dataType></CaptureFaceDataCond>`,
-    "application/xml",
-    true,
-  );
-  for (let count = 0; count < 60; count++) {
-    if (job.stop)
-      throw new AccessError(
-        "CAPTURE_STOPPED",
-        "توقفت المتابعة في البرنامج فقط؛ لا يوجد أمر إلغاء مثبت للجهاز. راجع شاشته قبل المحاولة من جديد.",
-      );
-    checkResponse(response);
-    const photo = extractPhoto(response);
-    if (photo) return photo;
-    const fields = flattened(Buffer.from(response.bytes).toString("utf8"));
-    job.progress = Math.max(
-      0,
-      Math.min(99, Number(field(fields, "captureProgress")) || 0),
-    );
-    const over = field(fields, "isCurRequestOver");
-    if ((over === true || over === "true") && job.progress < 100)
-      throw new AccessError(
-        "CAPTURE_FAILED",
-        "أنهى الجهاز الالتقاط دون صورة صالحة. أعد الوقوف أمام الكاميرا ثم حاول بتأكيد جديد.",
-      );
-    if (job.progress >= 99)
-      throw new AccessError(
-        "CAPTURE_FORMAT",
-        "اكتمل الجمع لكن الجهاز لم يُرجع JPEG يمكن التحقق منه. لم يُسجل وجه.",
-      );
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    response = await client.request(
-      "/ISAPI/AccessControl/CaptureFaceData/Progress",
-      "GET",
-      undefined,
-      undefined,
-      true,
-    );
+  const { captureFace, CaptureError } = await import("./face-capture-core");
+  try {
+    return await captureFace({
+      post: (body, timeoutMs) => client.request("/ISAPI/AccessControl/CaptureFaceData", "POST", body, "application/xml", true, timeoutMs),
+      progress: () => client.request("/ISAPI/AccessControl/CaptureFaceData/Progress", "GET", undefined, undefined, true),
+      picture: (url) => client.picture(url),
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+      onStep: (progress, message) => { job.progress = Math.min(99, progress); job.message = message; },
+      stopped: () => job.stop,
+    }, infrared);
+  } catch (error) {
+    if (error instanceof CaptureError) throw new AccessError(`CAPTURE_${error.code}`, error.message);
+    throw error;
   }
-  throw new AccessError(
-    "CAPTURE_TIMEOUT",
-    "انتهت مهلة متابعة الالتقاط؛ لم يُؤكد تسجيل وجه. راجع شاشة الجهاز.",
-  );
 }
 function faceForm(pending: Pending, photo: Uint8Array) {
   const form = new FormData();
@@ -982,7 +921,7 @@ export async function enrollFingerprint(device: Device, employeeNo: string, fing
   const client = await isapi(device);
   const capture = await client.request("/ISAPI/AccessControl/CaptureFingerPrint", "POST",
     `<?xml version="1.0" encoding="UTF-8"?><CaptureFingerPrintCond version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><fingerNo>${fingerNo}</fingerNo></CaptureFingerPrintCond>`,
-    "application/xml");
+    "application/xml", false, 75_000); // blocks until a finger is placed (iVMS keeps it open)
   if (/captureTimeout/i.test(capture.text))
     throw new AccessError("FP_CAPTURE_TIMEOUT", "انتهت مهلة التقاط البصمة: لم يُوضع إصبع على حساس الجهاز. اضغط إضافة بصمة مرة أخرى وضع الإصبع فوراً.");
   checkResponse(capture);

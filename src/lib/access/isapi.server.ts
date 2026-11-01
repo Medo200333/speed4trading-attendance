@@ -160,11 +160,13 @@ export async function isapi(device: Device) {
       body?: string | FormData,
       contentType?: string,
       binary = false,
+      /** Blocking device-side captures (face/finger) keep the HTTP request open until the person acts. */
+      timeoutMs = 20_000,
     ) => {
       if (!path.startsWith("/ISAPI/") || /[\r\n]|\.\.|:\/\//.test(path))
         throw new AccessError("ENDPOINT", "مسار الجهاز غير مسموح.");
       return session
-        .request(base + path, method, body, contentType, binary)
+        .request(base + path, method, body, contentType, binary, timeoutMs)
         .catch((error: unknown) => {
           if (
             error instanceof Error &&

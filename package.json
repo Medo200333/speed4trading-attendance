@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node scripts/run-tests.mjs && npm run test:source",
-    "test:source": "node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts src/lib/hikvision-parse.test.ts src/lib/company-name.test.ts src/lib/access/company-setup-core.test.ts src/lib/attendance.test.ts src/lib/access/import.test.ts src/lib/access/sadp.test.ts src/lib/access/tailscale-core.test.ts src/lib/access/license.test.ts src/lib/access/first-admin.test.ts src/lib/company-profile.test.ts src/lib/xlsx-io.test.ts src/lib/report-layout.test.ts src/lib/hcteam-core.test.ts src/lib/access/device-writes.test.ts src/lib/access/device-errors.test.ts src/lib/i18n.test.ts",
+    "test:source": "node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts src/lib/hikvision-parse.test.ts src/lib/company-name.test.ts src/lib/access/company-setup-core.test.ts src/lib/attendance.test.ts src/lib/access/import.test.ts src/lib/access/sadp.test.ts src/lib/access/tailscale-core.test.ts src/lib/access/license.test.ts src/lib/access/first-admin.test.ts src/lib/company-profile.test.ts src/lib/xlsx-io.test.ts src/lib/report-layout.test.ts src/lib/access/face-capture-core.test.ts src/lib/hcteam-core.test.ts src/lib/access/device-writes.test.ts src/lib/access/device-errors.test.ts src/lib/i18n.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
