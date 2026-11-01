@@ -32,6 +32,12 @@ const pullSchema = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to:
 export const hcTeamPullFn = createServerFn({ method: "POST" })
   .validator((d: z.infer<typeof pullSchema>) => pullSchema.parse(d))
   .handler(async ({ data }) => {
-    try { await admin("operator"); } catch (e) { return fail(e); }
+    try {
+      const { requireLegacyActor } = await import("./access/auth.server");
+      const actor = await requireLegacyActor();
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      // Manager may read today's Team punches only; everyone else needs operator.
+      if (!(actor.role === "manager" && data.from === day && data.to === day)) { const { requireRole } = await import("./access/store.server"); requireRole(actor, "operator"); }
+    } catch (e) { return fail(e); }
     const { hcPull } = await import("./hcteam.server"); return hcPull(data.from, data.to, data.pageIndex);
   });

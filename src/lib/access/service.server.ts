@@ -479,6 +479,10 @@ function requireDeviceWrites() {
 export async function queryCenter(actor: Actor, input: QueryInput) {
   ensureScheduler();
   if (input.action === "snapshot") return { snapshot: await snapshot(actor) };
+  if (actor.role === "manager" && !["attendance", "photo"].includes(input.action))
+    throw new AccessError("FORBIDDEN", "حساب المدير لشاشة حضور اليوم فقط.");
+  if (actor.role === "manager" && input.action === "attendance" && (input.start !== today() || input.end !== today()))
+    throw new AccessError("FORBIDDEN", "حساب المدير لحضور النهارده بس.");
   if (actor.role === "accountant" && !["attendance", "events", "photo"].includes(input.action))
     throw new AccessError("FORBIDDEN", "حساب المحاسبة للتقارير والحركات فقط.");
   const state = await readState();
@@ -1452,11 +1456,14 @@ export async function actionCenter(
   ensureScheduler();
   if (actor.role === "accountant")
     throw new AccessError("FORBIDDEN", "حساب المحاسبة للتقارير والحركات فقط.");
+  // Manager: the only action is a read-only pull of today's punches (no users, no writes).
+  if (actor.role === "manager" && !(input.action === "sync" && !input.usersOnly && input.start === today() && input.end === today()))
+    throw new AccessError("FORBIDDEN", "حساب المدير لشاشة حضور اليوم فقط.");
   if (input.action === "prepare")
     return { confirmation: await prepareOperation(actor, input.operation) };
   if (input.action === "commit")
     return commitOperation(actor, input.token, input.phrase);
-  requireRole(
+  if (actor.role !== "manager") requireRole(
     actor,
     [
       "device.save",

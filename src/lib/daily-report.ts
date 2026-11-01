@@ -431,3 +431,16 @@ export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], 
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
 }
+
+/** Manager "who came today" summary: حضر = one punch (still inside), خرج = has a last punch, غائب = no punch. */
+export type ManagerRow = DailyRow & { state: "inside" | "left" | "absent"; label: "حضر" | "خرج" | "غائب" };
+export function managerSummary(rows: DailyRow[]) {
+  const list: ManagerRow[] = rows.map((r) => {
+    const state = r.absent || !r.first ? "absent" : r.last ? "left" : "inside";
+    return { ...r, state, label: state === "absent" ? "غائب" : state === "left" ? "خرج" : "حضر" };
+  });
+  const order = { inside: 0, left: 1, absent: 2 } as const;
+  list.sort((a, b) => order[a.state] - order[b.state] || (a.first || "").localeCompare(b.first || "") || a.name.localeCompare(b.name));
+  const inside = list.filter((r) => r.state === "inside").length, left = list.filter((r) => r.state === "left").length;
+  return { present: inside + left, absent: list.length - inside - left, inside, left, list };
+}

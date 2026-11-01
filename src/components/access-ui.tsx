@@ -112,6 +112,7 @@ export function Badge({ value }: { value: string }) {
     operator: "مشغّل",
     viewer: "مشاهد",
     accountant: "محاسبة",
+    manager: "مدير",
   };
   return <span className={`ac-badge ${value}`}>{label[value] || value}</span>;
 }

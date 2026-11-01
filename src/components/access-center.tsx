@@ -1,3 +1,4 @@
+import { ManagerToday } from "./manager-today";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -342,6 +343,7 @@ export function AccessCenter() {
   // Device read-only mode (default): hide door control and device write forms.
   const deviceWrites = data.deviceWrites === true;
   const accountant = data.actor.role === "accountant";
+  const manager = data.actor.role === "manager";
   const shownTabs = accountant
     ? tabs.filter((item) => ["dashboard", "attendance", "reports"].includes(item.id))
     : deviceWrites ? tabs : tabs.filter((item) => item.id !== "doors");
@@ -386,7 +388,7 @@ export function AccessCenter() {
         run,
       }}
     >
-      <div className="access-center" dir={lang === "en" ? "ltr" : "rtl"} lang={lang} style={brandTheme}>
+      {manager ? <ManagerToday /> : <div className="access-center" dir={lang === "en" ? "ltr" : "rtl"} lang={lang} style={brandTheme}>
         <a className="ac-skip" href="#main-content">
           انتقل إلى محتوى الصفحة
         </a>
@@ -656,7 +658,7 @@ export function AccessCenter() {
             </footer>
           </Modal>
         ) : null}
-      </div>
+      </div>}
     </CenterContext.Provider>
   );
 }

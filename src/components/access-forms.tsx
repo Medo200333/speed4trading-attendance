@@ -133,7 +133,7 @@ export function CenterForms({
         username: text(form, "username").toLowerCase(),
         name: text(form, "name"),
         password: text(form, "password"),
-        role: text(form, "role") as "admin" | "operator" | "viewer" | "accountant",
+        role: text(form, "role") as "admin" | "operator" | "viewer" | "accountant" | "manager",
         enabled: form.has("enabled"),
       };
     } else if (modal.kind === "plan") {
@@ -570,6 +570,7 @@ export function CenterForms({
                   <select name="role" defaultValue="viewer">
                     <option value="viewer">مشاهد — قراءة فقط</option>
                     <option value="accountant">محاسبة — التقارير والحركات فقط (عرض وتصدير)</option>
+                    <option value="manager">مدير — شاشة «مين حضر النهارده» فقط (عرض)</option>
                     <option value="operator">
                       مشغّل — قراءة ومزامنة وقواعد تقارير
                     </option>
