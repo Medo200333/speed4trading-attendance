@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {useCenter,Card,Field,Button,When,Empty,supported,canOperate} from "./access-ui";
+import {useCenter,Card,Field,Button,When,Empty,supported,canOperate,ProgressBar} from "./access-ui";
 import {InlineDeviceConnection} from "./inline-device-connection";
 export function AttendancePull({start,end,setStart,setEnd}:{start:string;end:string;setStart:(v:string)=>void;setEnd:(v:string)=>void}){
  const {data,device,selected,busy,run,navigate}=useCenter();
@@ -26,6 +26,9 @@ export function AttendancePull({start,end,setStart,setEnd}:{start:string;end:str
                 onChange={(event) => setEnd(event.target.value)}
               />
             </div>
+            {device.sync.running || (busy && device.sync.result === "running") ? (
+              <ProgressBar label={`جارٍ السحب… صفحة ${device.sync.pages || 0} · ${device.sync.scanned || 0} سجل مقروء`} />
+            ) : null}
             <div className="ac-actions" style={{ marginTop: 16 }}>
               <Button
                 primary

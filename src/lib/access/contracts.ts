@@ -27,6 +27,11 @@ export const operationSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("disablePerson"), deviceId: id, employeeNo: id }),
   z.object({ kind: z.literal("deletePerson"), deviceId: id, employeeNo: id }),
   z.object({
+    kind: z.literal("deletePeople"),
+    deviceId: id,
+    employeeNos: z.array(id).min(1).max(50),
+  }),
+  z.object({
     kind: z.literal("addCard"),
     deviceId: id,
     employeeNo: id,

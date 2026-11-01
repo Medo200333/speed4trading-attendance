@@ -25,6 +25,7 @@ import {
   SettingsPanel,
 } from "./access-workflows";
 import { DeviceInfo } from "./access-device-info";
+import { DeviceDashboard } from "./device-dashboard";
 import {
   Button,
   Badge,
@@ -128,27 +129,8 @@ export function HomePage() {
         ))}
       </div>
       <div className="ac-grid">
-        <Card title="أجهزتك">
-          <div className="ac-list">
-            {data.devices.map((row) => (
-              <button
-                className="ac-device-row"
-                key={row.id}
-                onClick={() => navigate("devices")}
-              >
-                <span className="ac-icon-tile">
-                  <Server size={20} />
-                </span>
-                <span>
-                  <strong>{row.name}</strong>
-                  <small>
-                    {row.model || "لم تُقرأ الهوية بعد"} · <bdi>{row.host}</bdi>
-                  </small>
-                </span>
-                <Badge value={row.status} />
-              </button>
-            ))}
-          </div>
+        <Card title="لوحة الأجهزة">
+          <DeviceDashboard />
           <Button onClick={() => navigate("devices")}>
             إدارة الأجهزة
             <ArrowUpLeft size={16} />
@@ -302,12 +284,53 @@ export function EmployeesPage() {
     help,
   } = useCenter();
   const [search, setSearch] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [target, setTarget] = useState("");
+  useEffect(() => setPicked(new Set()), [selected]);
   const people = data.people.filter(
     (person) =>
       person.deviceId === selected &&
       `${person.name} ${person.employeeNo}`.includes(search.trim()),
   );
   const admin = data.actor.role === "admin";
+  const chosen = people.filter((person) => picked.has(person.id));
+  const toggle = (id: string) =>
+    setPicked((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const otherDevices = data.devices.filter((row) => row.id !== selected);
+  const sendSelected = () => {
+    const ready = chosen.filter((person) => isEnglishName(person.name)).slice(0, 50);
+    if (!target || !ready.length) return;
+    const day = (value?: string) => (value || "").slice(0, 10);
+    act({
+      action: "prepare",
+      operation: {
+        kind: "importPeople",
+        deviceId: target,
+        people: ready.map((person) => ({
+          employeeNo: person.employeeNo,
+          name: person.name,
+          arabicName: person.arabicName,
+          permanent: !person.validity?.enable,
+          begin: day(person.validity?.beginTime) || dateToday(),
+          end: day(person.validity?.endTime) || "2037-12-31",
+        })),
+      },
+    });
+  };
+  const deleteSelected = () =>
+    act({
+      action: "prepare",
+      operation: {
+        kind: "deletePeople",
+        deviceId: selected,
+        employeeNos: chosen.slice(0, 50).map((person) => person.employeeNo),
+      },
+    });
   const rows = [
     ["employeeNo", "name", "device", "validFrom", "validTo"],
     ...people.map((person) => [
@@ -375,11 +398,72 @@ export function EmployeesPage() {
             والتقارير تعرض الاسم الإنجليزي. افتح «تعديل الموظف» لكل واحد واحفظه بنفسك؛ لا يُكتب شيء تلقائياً.
           </p>
         ) : null}
+        {admin && people.length ? (
+          <div className="ac-bulk-bar" role="toolbar" aria-label="إجراءات جماعية">
+            <label className="ac-check">
+              <input
+                type="checkbox"
+                checked={chosen.length === people.length && people.length > 0}
+                onChange={(event) =>
+                  setPicked(event.target.checked ? new Set(people.map((p) => p.id)) : new Set())
+                }
+              />
+              تحديد الكل
+            </label>
+            <span className="ac-muted">
+              <bdi>{chosen.length}</bdi> محدد
+            </span>
+            <select
+              aria-label="الجهاز الهدف"
+              value={target}
+              onChange={(event) => setTarget(event.target.value)}
+              disabled={!otherDevices.length}
+            >
+              <option value="">— الجهاز الهدف —</option>
+              {otherDevices.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              disabled={busy || !chosen.length || !target || !supported(data.devices.find((row) => row.id === target), "users.add")}
+              onClick={sendSelected}
+            >
+              إرسال المحدد إلى جهاز آخر
+            </Button>
+            <Button
+              danger
+              disabled={busy || !chosen.length || !supported(device, "users.delete")}
+              onClick={deleteSelected}
+            >
+              حذف المحدد — معاينة
+            </Button>
+            {chosen.length ? (
+              <Button onClick={() => setPicked(new Set())}>إلغاء التحديد</Button>
+            ) : null}
+            {chosen.length > 50 ? (
+              <p role="status" className="ac-message warning">الدفعة الواحدة حتى 50 موظف؛ هيتنفذ أول 50 وبعدها كرر للباقي.</p>
+            ) : null}
+            {chosen.some((p) => !isEnglishName(p.name)) && target ? (
+              <p role="status" className="ac-message warning">الموظفين بدون اسم إنجليزي مش هيتبعتوا للجهاز التاني.</p>
+            ) : null}
+          </div>
+        ) : null}
         {people.length ? (
           <div className="ac-employee-list">
             {people.map((person) => (
-              <article key={person.id} className="ac-employee">
+              <article key={person.id} className={`ac-employee${picked.has(person.id) ? " picked" : ""}`}>
                 <header>
+                  {admin ? (
+                    <input
+                      type="checkbox"
+                      className="ac-pick"
+                      aria-label={`تحديد ${person.name}`}
+                      checked={picked.has(person.id)}
+                      onChange={() => toggle(person.id)}
+                    />
+                  ) : null}
                   <PersonAvatar person={person} size={44} />
                   <div>
                     <h3 dir="auto">{person.name}</h3>

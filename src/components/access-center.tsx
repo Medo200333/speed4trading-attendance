@@ -39,6 +39,7 @@ import {
   type ModalData,
   type QueryData,
   type ActionData,
+  ProgressBar,
 } from "./access-ui";
 import { AccessPanels } from "./access-panels";
 import { CenterForms } from "./access-forms";
@@ -47,6 +48,7 @@ import type { Device } from "@/lib/access/domain";
 import { Brand } from "./access-brand";
 import { AppNavigation } from "./access-navigation";
 import { BRAND, brandTheme } from "@/lib/brand";
+import { getLang, setLang, translateTree, type Lang } from "@/lib/i18n";
 import { CompaniesPage } from "./company-workspace";
 import "./access-center.css";
 import "./speed-design.css";
@@ -104,6 +106,18 @@ export function AccessCenter() {
     [confirmation, setConfirmation] = useState<Confirmation | null>(null),
     [phrase, setPhrase] = useState("");
   const tell = (text: string, error = false) => setMessage({ text, error });
+  const [lang, setLangState] = useState<Lang>("ar");
+  useEffect(() => setLangState(getLang()), []);
+  useEffect(() => {
+    if (lang !== "en") return;
+    document.documentElement.lang = "en";
+    return translateTree(document.body);
+  }, [lang]);
+  const switchLang = (next: Lang) => {
+    setLang(next);
+    if (next === "ar") window.location.reload();
+    else setLangState("en");
+  };
   const firstRun = useRef(false);
   useEffect(() => {
     if (data && data.devices.length === 0 && !firstRun.current) {
@@ -372,7 +386,7 @@ export function AccessCenter() {
         run,
       }}
     >
-      <div className="access-center" dir="rtl" style={brandTheme}>
+      <div className="access-center" dir={lang === "en" ? "ltr" : "rtl"} lang={lang} style={brandTheme}>
         <a className="ac-skip" href="#main-content">
           انتقل إلى محتوى الصفحة
         </a>
@@ -394,6 +408,7 @@ export function AccessCenter() {
             help={() => help("start")}
           />
           <main className="ac-main" id="main-content" tabIndex={-1}>
+            {busy ? <ProgressBar label="جارٍ التنفيذ…" /> : null}
             <div className="ac-print-brand">
               <Brand />
             </div>
@@ -408,6 +423,14 @@ export function AccessCenter() {
                 <span>الشركة</span>
                 <strong>{data.company?.nameAr || "—"}</strong>
               </div>
+              <button
+                type="button"
+                className="ac-button ac-lang-toggle"
+                aria-label="Language / اللغة"
+                onClick={() => switchLang(lang === "en" ? "ar" : "en")}
+              >
+                {lang === "en" ? "العربية" : "English"}
+              </button>
               <label>
                 تبديل الشركة
                 <select

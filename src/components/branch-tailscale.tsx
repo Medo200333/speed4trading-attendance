@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { tsDevicesFn, tsSwitchFn, reachDeviceFn } from "@/lib/tailscale.functions";
-import { Button } from "./access-ui";
+import { Button, ProgressBar } from "./access-ui";
 
 type Found = { ip: string; httpPort: number; model: string; peer: string };
 type Device = { name: string; dns: string; ip: string; os: string; online: boolean };
@@ -63,6 +63,7 @@ export function TailscaleLink({ onPick }: { onPick: (row: Found) => void }) {
         <Button primary disabled={busy} onClick={() => void refresh()}>{busy ? "جارٍ القراءة…" : "تحديث الأجهزة"}</Button>
         <Button disabled={busy} onClick={() => void relog()}>تغيير الحساب</Button>
         <Button disabled={busy || testing !== "" || !snap?.devices.length} onClick={() => void testAll()}>{testing === "*" ? "جارٍ اختبار الكل…" : "اختبار كل البصمات"}</Button>
+        {testing === "*" && snap ? <ProgressBar value={Object.keys(results).length} max={snap.devices.length} label={`اختبار ${Object.keys(results).length} / ${snap.devices.length}`} /> : null}
       </div>
       {note ? <p className="ac-message">{note}</p> : null}
       {snap ? (

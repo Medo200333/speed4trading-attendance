@@ -111,6 +111,7 @@ export function Badge({ value }: { value: string }) {
     admin: "مسؤول",
     operator: "مشغّل",
     viewer: "مشاهد",
+    accountant: "محاسبة",
   };
   return <span className={`ac-badge ${value}`}>{label[value] || value}</span>;
 }
@@ -396,5 +397,22 @@ export function PersonAvatar({
     <img className="ac-avatar ac-avatar-photo" src={src} alt={`صورة ${person.name}`} width={size} height={size} style={{ width: size, height: size, objectFit: "cover", borderRadius: "50%" }} />
   ) : (
     <span className="ac-avatar" style={{ width: size, height: size }}>{person.name.slice(0, 1)}</span>
+  );
+}
+
+/** Progress bar for long operations. Without `max` it shows an indeterminate (moving) bar. */
+export function ProgressBar({ value, max, label }: { value?: number; max?: number; label: string }) {
+  const known = typeof value === "number" && typeof max === "number" && max > 0;
+  const percent = known ? Math.min(100, Math.round((value! / max!) * 100)) : undefined;
+  return (
+    <div className="ac-progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+      <div className="ac-progress-track">
+        <div className={`ac-progress-fill${known ? "" : " indeterminate"}`} style={known ? { width: `${percent}%` } : undefined} />
+      </div>
+      <small>
+        {label}
+        {known ? <> · <bdi dir="ltr">{percent}%</bdi></> : null}
+      </small>
+    </div>
   );
 }

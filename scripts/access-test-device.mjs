@@ -417,14 +417,14 @@ export async function createAccessFixture() {
       }
       if (req.method === "PUT" && path.endsWith("UserInfoDetail/Delete")) {
         const list = body.UserInfoDetail.EmployeeNoList;
-        if (body.UserInfoDetail.mode !== "byEmployeeNo" || list?.length !== 1) {
+        if (body.UserInfoDetail.mode !== "byEmployeeNo" || !list?.length || list.length > 50) {
           res.statusCode = 400;
           return json({ statusString: "invalid delete" });
         }
-        const index = users.findIndex(
-          (user) => user.employeeNo === list[0].employeeNo,
-        );
-        if (index >= 0) users.splice(index, 1);
+        for (const item of list) {
+          const index = users.findIndex((user) => user.employeeNo === item.employeeNo);
+          if (index >= 0) users.splice(index, 1);
+        }
         return ok();
       }
       if (req.method === "POST" && path.endsWith("CardInfo/Record")) {

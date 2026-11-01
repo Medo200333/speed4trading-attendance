@@ -1,3 +1,4 @@
+import { describeHttpStatus, describeIsapiStatus, describeNetworkError } from "./device-errors";
 import { DigestSession } from "../hikvision.server";
 import { parseDevicePayload } from "../hikvision-parse";
 import { parseSearchPage, eventTimeBounds } from "./search-page";
@@ -108,26 +109,23 @@ function functions(probe?: Probe) {
 }
 export function checkResponse(response: { status: number; text: string }) {
   if (response.status === 401)
-    throw new AccessError(
-      "DEVICE_AUTH",
-      "رفض الجهاز بيانات الدخول. راجع حساب الجهاز قبل إعادة المحاولة.",
-    );
+    throw new AccessError("DEVICE_AUTH", describeHttpStatus(401));
   if (response.status === 403)
-    throw new AccessError(
-      "DEVICE_FORBIDDEN",
-      "حساب الجهاز لا يملك صلاحية هذه العملية.",
-    );
-  if (response.status < 200 || response.status >= 300)
+    throw new AccessError("DEVICE_FORBIDDEN", describeHttpStatus(403));
+  if (response.status < 200 || response.status >= 300) {
+    const failed = flattened(response.text);
+    const sub = field(failed, "subStatusCode");
     throw new AccessError(
       "DEVICE_HTTP",
-      `لم يقبل الجهاز الطلب (HTTP ${response.status}).`,
+      sub ? describeIsapiStatus(field(failed, "statusCode"), sub, field(failed, "errorMsg")) : describeHttpStatus(response.status),
     );
+  }
   const fields = flattened(response.text);
   const code = field(fields, "statusCode");
   if (code != null && !["0", "1"].includes(String(code)))
     throw new AccessError(
       "DEVICE_REJECTED",
-      "رفض الجهاز الطلب. لم يُسجّل نجاح للعملية.",
+      describeIsapiStatus(code, field(fields, "subStatusCode"), field(fields, "errorMsg")),
     );
   return fields;
 }
@@ -176,10 +174,8 @@ export async function isapi(device: Device) {
               "DEVICE_PROTOCOL",
               "بروتوكول المصادقة أو حجم رد الجهاز غير مدعوم. راجع تشخيص ISAPI.",
             );
-          throw new AccessError(
-            "DEVICE_NETWORK",
-            "تعذر الوصول إلى الجهاز أو انتهت مهلة القراءة. تحقق من الشبكة ثم أعد المحاولة.",
-          );
+          const described = describeNetworkError(error);
+          throw new AccessError(described.code, described.message);
         });
     },
   };

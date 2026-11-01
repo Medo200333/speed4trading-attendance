@@ -961,3 +961,30 @@
 .ac-sidebar .sp-lockup .sp-title { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Logo picker: hide the raw native file input; the visible button opens it. */
 .sp-logo-picker input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* v1.2.3 — progress, bulk actions, device dashboard, language toggle */
+.ac-progress { display: grid; gap: 6px; margin: 10px 0; }
+.ac-progress-track { height: 8px; border-radius: 999px; background: rgba(127,127,127,.18); overflow: hidden; position: relative; }
+.ac-progress-fill { height: 100%; border-radius: inherit; background: var(--ac-primary, #0f6fd6); transition: width .3s ease; }
+.ac-progress-fill.indeterminate { width: 35%; position: absolute; animation: ac-indeterminate 1.2s ease-in-out infinite; }
+@keyframes ac-indeterminate { 0% { inset-inline-start: -35%; } 100% { inset-inline-start: 100%; } }
+@media (prefers-reduced-motion: reduce) { .ac-progress-fill.indeterminate { animation: none; width: 100%; opacity: .5; } }
+.ac-bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; margin: 10px 0; border: 1px solid rgba(127,127,127,.25); border-radius: 12px; background: rgba(15,111,214,.05); position: sticky; top: 0; z-index: 2; }
+.ac-bulk-bar select { min-height: 38px; border-radius: 8px; padding: 0 8px; }
+.ac-bulk-bar .ac-message { flex-basis: 100%; margin: 0; }
+.ac-employee .ac-pick { width: 20px; height: 20px; flex: none; accent-color: var(--ac-primary, #0f6fd6); }
+.ac-employee.picked { outline: 2px solid var(--ac-primary, #0f6fd6); outline-offset: -2px; }
+.ac-branch-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); margin-bottom: 12px; }
+.ac-branch { border: 1px solid rgba(127,127,127,.22); border-radius: 14px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.ac-branch > header { display: flex; justify-content: space-between; align-items: baseline; }
+.ac-branch h3 { margin: 0; font-size: 1rem; }
+.ac-device-card { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: start; padding: 10px; border-radius: 10px; border: 1px solid rgba(127,127,127,.18); background: transparent; cursor: pointer; font: inherit; color: inherit; }
+.ac-device-card:hover { background: rgba(127,127,127,.06); }
+.ac-device-card-main { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.ac-device-card-main strong { display: flex; gap: 6px; align-items: center; }
+.ac-device-metrics { display: flex; flex-wrap: wrap; gap: 12px; font-size: .85rem; opacity: .85; }
+.ac-device-metrics span { display: inline-flex; gap: 4px; align-items: center; }
+.ac-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; flex: none; background: #9aa3ad; }
+.ac-dot.online { background: #18a058; box-shadow: 0 0 0 3px rgba(24,160,88,.18); }
+.ac-dot.offline { background: #d03050; box-shadow: 0 0 0 3px rgba(208,48,80,.15); }
+.ac-lang-toggle { min-height: 36px; padding: 0 12px; }

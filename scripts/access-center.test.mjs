@@ -391,6 +391,23 @@ test("capability-gated center persists original events and requires role, sessio
     await service.queryCenter(accountant, { action: "attendance", start: "2015-01-01", end: "2015-01-02" });
     await assert.rejects(service.queryCenter(accountant, { action: "schedule", deviceId: "hikvision-main", templateNo: 1 }), (e) => e.code === "FORBIDDEN");
     await assert.rejects(service.actionCenter(accountant, { action: "sync", deviceId: "hikvision-main" }), (e) => e.code === "FORBIDDEN");
+    // Bulk delete: one typed confirmation, audited per person, accountant forbidden.
+    {
+      const before = await store.readState();
+      const nos = before.people.filter((p) => p.deviceId === "hikvision-main").slice(0, 2).map((p) => p.employeeNo);
+      assert.equal(nos.length, 2);
+      await assert.rejects(service.prepareOperation(accountant, { kind: "deletePeople", deviceId: "hikvision-main", employeeNos: nos }), (e) => e.code === "FORBIDDEN");
+      await assert.rejects(service.prepareOperation(actor, { kind: "deletePeople", deviceId: "hikvision-main", employeeNos: [nos[0], nos[0]] }), (e) => e.code === "DUPLICATE");
+      const bulk = await service.prepareOperation(actor, { kind: "deletePeople", deviceId: "hikvision-main", employeeNos: nos });
+      assert.equal(bulk.affected, 2);
+      assert.equal(bulk.phrase, "تأكيد حذف 2 مستخدم");
+      await assert.rejects(service.commitOperation(actor, bulk.token, "wrong"));
+      const again = await service.prepareOperation(actor, { kind: "deletePeople", deviceId: "hikvision-main", employeeNos: nos });
+      await service.commitOperation(actor, again.token, again.phrase);
+      const after = await store.readState();
+      assert.ok(!after.people.some((p) => p.deviceId === "hikvision-main" && nos.includes(p.employeeNo)));
+      for (const no of nos) assert.ok(after.audit.some((a) => a.action === "delete.person" && a.target === `hikvision-main:${no}` && a.result === "success"));
+    }
     await assert.rejects(service.prepareOperation(accountant, { kind: "door", deviceId: "hikvision-main", doorNo: 1, command: "open" }), (e) => e.code === "FORBIDDEN");
     // Optional read-only lock (SPEED_DEVICE_WRITES=0): every device write is refused before reaching the device.
     process.env.SPEED_DEVICE_WRITES = "0";

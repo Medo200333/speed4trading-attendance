@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { importPhotosFn, savePhotoThumbFn } from "@/lib/biometric.functions";
-import { Button, useCenter, primePhotos } from "./access-ui";
+import { Button, useCenter, primePhotos, ProgressBar } from "./access-ui";
 
 /** Downscale a JPEG data URL in the browser (thumbnail kept next to the original on the server). */
 async function thumbnail(dataUrl: string, max = 160): Promise<string> {
@@ -22,6 +22,7 @@ export function PhotoImportButton({ deviceId, people }: { deviceId: string; peop
   const run = useServerFn(importPhotosFn), save = useServerFn(savePhotoThumbFn);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const start = async () => {
     const numbers = [...new Set(people.map((p) => p.employeeNo))];
     if (!numbers.length) return setMessage("لا يوجد موظفون. اقرأ الموظفين من الجهاز أولاً.");
@@ -30,6 +31,7 @@ export function PhotoImportButton({ deviceId, people }: { deviceId: string; peop
     try {
       for (let k = 0; k < numbers.length; k += 10) {
         setMessage(`جارٍ استيراد الصور… ${done} / ${numbers.length}`);
+        setProgress({ done, total: numbers.length });
         const res = await run({ data: { companyId: data.companyId, deviceId, employeeNos: numbers.slice(k, k + 10) } });
         if (!res.ok) { setMessage(`توقف الاستيراد: ${res.error}`); return; }
         const got: Record<string, string> = {};
@@ -56,6 +58,7 @@ export function PhotoImportButton({ deviceId, people }: { deviceId: string; peop
       <Button disabled={busy || working || !deviceId} onClick={start}>
         {working ? "جارٍ الاستيراد…" : "استيراد صور الموظفين من الجهاز"}
       </Button>
+      {working ? <ProgressBar value={progress.done} max={progress.total} label={`استيراد الصور ${progress.done} / ${progress.total}`} /> : null}
       {message ? <span role="status" className="ac-muted">{message}</span> : null}
     </>
   );

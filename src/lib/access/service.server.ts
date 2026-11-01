@@ -408,7 +408,7 @@ export async function synchronize(
         };
       }
       row.error = row.sync.lastError;
-      if (row.sync.lastErrorCode === "DEVICE_NETWORK") row.status = "offline";
+      if (["DEVICE_NETWORK", "DEVICE_OFFLINE", "DEVICE_TIMEOUT"].includes(row.sync.lastErrorCode || "")) row.status = "offline";
       const authFailed =
         error instanceof AccessError &&
         ["DEVICE_AUTH", "CREDENTIAL_REQUIRED"].includes(error.code);
@@ -787,6 +787,7 @@ function validateOperation(state: AccessState, operation: Operation) {
     editPerson: "users.edit",
     disablePerson: "users.edit",
     deletePerson: "users.delete",
+    deletePeople: "users.delete",
     addCard: "cards.add",
     deleteCard: "cards.delete",
     door: "door.control",
@@ -811,6 +812,11 @@ function validateOperation(state: AccessState, operation: Operation) {
   }
   if ("employeeNo" in operation)
     getPerson(state, device.id, operation.employeeNo);
+  if (operation.kind === "deletePeople") {
+    if (new Set(operation.employeeNos).size !== operation.employeeNos.length)
+      throw new AccessError("DUPLICATE", "أرقام موظفين مكررة في التحديد.");
+    for (const employeeNo of operation.employeeNos) getPerson(state, device.id, employeeNo);
+  }
   if (operation.kind === "door") {
     if (
       !device.physicalDoorIds.includes(operation.doorNo) ||
@@ -936,6 +942,7 @@ export async function prepareOperation(
     editPerson: "تعديل بيانات المستخدم",
     disablePerson: "إنهاء صلاحية المستخدم",
     deletePerson: "حذف المستخدم ووسائله",
+    deletePeople: "حذف مجموعة مستخدمين ووسائلهم",
     addCard: "ربط كارت بالمستخدم",
     deleteCard: "إلغاء كارت",
     door: "إرسال أمر للباب الفعلي",
@@ -950,6 +957,8 @@ export async function prepareOperation(
       ? `تأكيد الباب ${operation.doorNo}`
       : operation.kind === "importPeople"
         ? `تأكيد ${operation.people.length} مستخدم`
+        : operation.kind === "deletePeople"
+          ? `تأكيد حذف ${operation.employeeNos.length} مستخدم`
         : `تأكيد المستخدم ${employee}`;
   const warnings = [
     "هذا تغيير حقيقي على جهاز Hikvision. لا يتم إرساله قبل كتابة عبارة التأكيد والضغط على التنفيذ.",
@@ -969,6 +978,11 @@ export async function prepareOperation(
   if (operation.kind === "addPerson" || operation.kind === "editPerson")
     warnings.push(
       `المستخدم: ${operation.person.name} · ${operation.person.permanent ? "صلاحية دائمة" : `الصلاحية: ${operation.person.begin} — ${operation.person.end}`}.`,
+    );
+  if (operation.kind === "deletePeople")
+    warnings.push(
+      `سيُحذف ${operation.employeeNos.length} مستخدم من الجهاز: ${operation.employeeNos.join(", ")}.`,
+      "الحذف يزيل الكروت والبصمات وصور الوجه المرتبطة بهم؛ السجلات التاريخية في البرنامج ستظل محفوظة.",
     );
   if (operation.kind === "deletePerson")
     warnings.push(
@@ -1015,7 +1029,7 @@ export async function prepareOperation(
     description: `${device.name} · ${device.host}${employee ? ` · رقم ${employee}` : ""}`,
     warnings,
     expiresAt: new Date(until).toISOString(),
-    affected: operation.kind === "importPeople" ? operation.people.length : 1,
+    affected: operation.kind === "importPeople" ? operation.people.length : operation.kind === "deletePeople" ? operation.employeeNos.length : 1,
   };
 }
 async function executeOperation(
@@ -1132,6 +1146,41 @@ async function executeOperation(
       throw new AccessError(
         "READBACK",
         "لم تتأكد فترة الصلاحية المنتهية بعد الكتابة.",
+      );
+  } else if (operation.kind === "deletePeople") {
+    await send(
+      "/ISAPI/AccessControl/UserInfoDetail/Delete?format=json",
+      "PUT",
+      {
+        UserInfoDetail: {
+          mode: "byEmployeeNo",
+          EmployeeNoList: operation.employeeNos.map((employeeNo) => ({ employeeNo })),
+        },
+      },
+    );
+    let remaining = [...operation.employeeNos];
+    for (let attempt = 0; attempt < 12 && remaining.length; attempt += 1) {
+      checkResponse(
+        await client.request("/ISAPI/AccessControl/UserInfoDetail/DeleteProcess"),
+      );
+      const still: string[] = [];
+      for (const employeeNo of remaining)
+        if (await exactPerson(device, employeeNo)) still.push(employeeNo);
+      remaining = still;
+      if (remaining.length) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const removed = operation.employeeNos.filter((no) => !remaining.includes(no));
+    await updateState((state) => {
+      state.people = state.people.filter(
+        (person) => !(person.deviceId === device.id && removed.includes(person.employeeNo)),
+      );
+      for (const employeeNo of removed)
+        audit(state, actor, "delete.person", `${device.id}:${employeeNo}`, "success");
+    });
+    if (remaining.length)
+      throw new AccessError(
+        "READBACK",
+        `اتحذف ${removed.length} ولم يتأكد حذف: ${remaining.join(", ")}. لا تُعد الطلب تلقائياً.`,
       );
   } else if (operation.kind === "deletePerson") {
     await send(
@@ -1300,7 +1349,7 @@ export async function commitOperation(
   jobs().confirmations.delete(token);
   jobs().busy.add(device.id);
   const operation = prepared.operation;
-  const target = `${device.id}:${operation.kind === "door" ? `door:${operation.doorNo}:${operation.command}` : operation.kind === "applyWeek" ? `plan:${operation.planId}` : operation.kind === "importPeople" ? `batch:${operation.people.length}` : `employee:${"employeeNo" in operation ? operation.employeeNo : operation.person.employeeNo}${"cardNo" in operation ? `:card:${operation.cardNo}` : ""}`}`;
+  const target = `${device.id}:${operation.kind === "door" ? `door:${operation.doorNo}:${operation.command}` : operation.kind === "applyWeek" ? `plan:${operation.planId}` : operation.kind === "importPeople" ? `batch:${operation.people.length}` : operation.kind === "deletePeople" ? `delete-batch:${operation.employeeNos.length}` : `employee:${"employeeNo" in operation ? operation.employeeNo : operation.person.employeeNo}${"cardNo" in operation ? `:card:${operation.cardNo}` : ""}`}`;
   try {
     await updateState((state) =>
       audit(
@@ -1336,6 +1385,7 @@ export async function commitOperation(
         editPerson: "users.edit",
         disablePerson: "users.edit",
         deletePerson: "users.delete",
+        deletePeople: "users.delete",
         addCard: "cards.add",
         deleteCard: "cards.delete",
         permission: "permissions",
