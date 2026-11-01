@@ -2,6 +2,7 @@ import type { AttendanceRow, Person } from "./access/domain";
 import { englishNameOf } from "./access/domain";
 import { BRAND } from "./brand";
 import { buildXlsx } from "./xlsx-io";
+import type { Punch } from "./attendance";
 import { concat, jpegBytes, jpegSize, logoJpeg, pdfText, pdfUnicode } from "./sheet-pdf";
 
 /** One line per employee per day: English name, photo, first/last punch and worked time (Cairo local). */
@@ -58,6 +59,55 @@ export function dailyRows(report: AttendanceRow[], people: Pick<Person, "id" | "
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name) || a.employeeNo.localeCompare(b.employeeNo));
+}
+
+export type DailySource = "devices" | "teams" | "both";
+const sec = (t: string) => seconds(t.length === 5 ? `${t}:00` : t);
+const hhmm = (n: number) => `${String(Math.floor(n / 3600)).padStart(2, "0")}:${String(Math.floor((n % 3600) / 60)).padStart(2, "0")}`;
+/**
+ * Merge device rows with Hik-Connect Team punches for the same period. Rows meet on employeeNo + date;
+ * all times are pooled and punches within 45 s of each other count once (the same swipe seen by the
+ * device and by the cloud), then first/last/worked are recomputed. Shift markers 00:00/23:59 are ignored.
+ */
+export function mergeDailySources(
+  device: DailyRow[],
+  team: { punches: Punch[]; people: { employeeNo: string; name: string; photo: string }[] } | null,
+  source: DailySource,
+  start: string,
+  end: string,
+): DailyRow[] {
+  const out = new Map<string, DailyRow & { times: number[] }>();
+  const key = (no: string, date: string) => `${no}|${date}`;
+  if (source !== "teams")
+    for (const row of device) {
+      const times = row.absent ? [] : [row.first, row.last].filter(Boolean).map(sec);
+      out.set(key(row.employeeNo, row.date), { ...row, times });
+    }
+  if (source !== "devices" && team) {
+    const people = new Map(team.people.map((p) => [p.employeeNo, p]));
+    for (const p of team.punches) {
+      if (!p.date || !p.time || p.date < start || p.date > end || /^(00:00|23:59)/.test(p.time)) continue;
+      const no = p.employeeNo || p.name;
+      const k = key(no, p.date);
+      let row = out.get(k);
+      if (!row) {
+        const person = people.get(no);
+        row = { personId: `team:${no}`, employeeNo: no, name: person?.name || p.name || no, date: p.date, first: "", last: "", worked: "", status: "", absent: false, photo: person?.photo || null, times: [] };
+        out.set(k, row);
+      }
+      row.times.push(sec(p.time));
+    }
+    for (const row of out.values()) if (!row.photo) row.photo = people.get(row.employeeNo)?.photo || row.photo;
+  }
+  const rows: DailyRow[] = [];
+  for (const { times, ...row } of out.values()) {
+    if (!times.length) { rows.push(row); continue; }
+    const kept: number[] = [];
+    for (const t of [...times].sort((a, b) => a - b)) if (!kept.length || t - kept[kept.length - 1] > 45) kept.push(t);
+    const first = hhmm(kept[0]), last = kept.length > 1 ? hhmm(kept[kept.length - 1]) : "";
+    rows.push({ ...row, first, last, worked: workedTime(first, last, kept.length), status: kept.length > 1 ? "Present" : "One punch only", absent: false });
+  }
+  return rows.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name) || a.employeeNo.localeCompare(b.employeeNo));
 }
 
 const PT = 2.83465;

@@ -14,6 +14,7 @@ import {
   type DayRow,
   type Punch,
 } from "@/lib/attendance";
+import { publishTeamsPull } from "@/lib/teams-pull-store";
 import { hcTeamPullFn, hcTeamStatusFn } from "@/lib/hcteam.functions";
 import { pullChunkFn, devicePhotosFn, testDeviceFn, hikLoginFn, hikPullFn, openGateFn, gateSessionFn } from "@/lib/hikvision.functions";
 import { DeviceDesk, seedDevices, type DeskDevice } from "@/components/device-desk";
@@ -378,17 +379,19 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
     const id = runRef.current + 1; runRef.current = id;
     setBusy("pull"); setProgress(0); setBoard("list");
     const collected: Punch[] = [];
+    let lastPeople: { employeeNo: string; name: string; photo: string }[] = [];
     try {
       let pageIndex = 1, done = false, guard = 0;
       while (!done && guard++ < 50) {
         const r = await hcPull({ data: { from, to, pageIndex } });
         if (runRef.current !== id) return;
         if (!r.ok) { report(r.error); break; }
-        if (r.people?.length) setRoster(r.people);
+        if (r.people?.length) { setRoster(r.people); lastPeople = r.people; }
         collected.push(...r.punches); pageIndex = r.pageIndex; done = r.done;
         setProgress(collected.length); setPunches([...collected]); setSource("device");
       }
       setDeviceLabel("Hik-Connect Team (OpenAPI)");
+      publishTeamsPull({ punches: collected, people: lastPeople, from, to, label: "Hik-Connect Team (OpenAPI)", at: Date.now() });
       if (done) say(collected.length ? `اتسحب ${collected.length} بصمة من Hik-Connect Team.` : "مفيش بصمات في الفترة دي على Hik-Connect Team.");
     } catch { report("تعذر سحب الحضور من Hik-Connect Team."); }
     finally { if (runRef.current === id) setBusy(null); }
@@ -440,6 +443,7 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
       let done = false;
       let guard = 0;
       let rosterCount = 0;
+      let teamPeople: { employeeNo: string; name: string; photo: string }[] = [];
       let reportNote = "";
       while (!done && guard < 30) {
         if (runRef.current !== id) return;
@@ -473,6 +477,7 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
         if (result.people?.length) {
           rosterCount = result.people.length;
           setRoster(result.people);
+          teamPeople = result.people;
         }
         const batch = directory ? applyNames(result.punches, directory) : result.punches;
         if (directory && collected.length) {
@@ -485,6 +490,7 @@ export function AttendanceBoard({ embedded = false }: { embedded?: boolean }) {
         setProgress(collected.length);
         setPunches(collected);
         setSource("device");
+        publishTeamsPull({ punches: [...collected], people: teamPeople, from, to, label: "Hik-Connect Team", at: Date.now() });
       }
       if (!collected.length) {
         say(reportNote || (rosterCount ? `اتسحب ${rosterCount} شخص من Person، ومفيش وقت بصمة غير الشيفت.` : "مفيش وقت بصمة. 00:00 و 23:59 دول الشيفت واتسابوا."));

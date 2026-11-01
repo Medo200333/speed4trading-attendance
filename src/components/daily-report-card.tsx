@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceRow } from "@/lib/access/domain";
-import { dailyRows } from "@/lib/daily-report";
+import { dailyRows, mergeDailySources, type DailySource } from "@/lib/daily-report";
+import { useTeamsPull } from "@/lib/teams-pull-store";
 import { profileFrom } from "@/lib/company-profile";
 import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } from "./access-ui";
 
@@ -8,7 +9,10 @@ import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } fr
 export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; start: string; end: string }) {
   const { data, read } = useCenter();
   const profile = profileFrom(data.company);
-  const base = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
+  const team = useTeamsPull();
+  const [source, setSource] = useState<DailySource>("devices");
+  const deviceRows = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
+  const base = useMemo(() => mergeDailySources(deviceRows, team, source, start, end), [deviceRows, team, source, start, end]);
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const version = usePhotoVersion();
   useEffect(() => {
@@ -23,7 +27,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       live = false;
     };
   }, [rows, data.people, version]);
-  const shown = base.map((row) => ({ ...row, photo: photos[row.personId] ?? null }));
+  const shown = base.map((row) => ({ ...row, photo: photos[row.personId] ?? row.photo ?? null }));
   const missing = data.people.filter((p) => rows.some((r) => r.personId === p.id) && !/^[A-Za-z0-9 .'-]+$/.test(p.name)).length;
   return (
     <Card>
@@ -43,6 +47,23 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
           {missing} موظف بلا اسم إنجليزي؛ يظهر في التقرير كـ «English name missing» حتى تحفظ اسمه الإنجليزي من «الموظفون».
         </p>
       ) : null}
+      <div className="ac-actions ac-no-print" role="group" aria-label="مصدر البصمات">
+        <label>
+          مصدر البصمات:{" "}
+          <select value={source} onChange={(e) => setSource(e.target.value as DailySource)}>
+            <option value="devices">الأجهزة</option>
+            <option value="teams">Hik-Connect Team</option>
+            <option value="both">الاثنين (دمج بدون تكرار)</option>
+          </select>
+        </label>
+        {source !== "devices" ? (
+          <span className="ac-muted">
+            {team
+              ? `Team: ${team.punches.length} بصمة · ${team.people.length} شخص (${team.from} → ${team.to})`
+              : "اسحب الحضور من Hik-Connect Team من شاشة الحضور أولاً، وبعدين ارجع هنا."}
+          </span>
+        ) : null}
+      </div>
       <div className="ac-actions ac-no-print">
         <Button
           disabled={!shown.length}
