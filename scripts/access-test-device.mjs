@@ -23,7 +23,10 @@ export async function createAccessFixture() {
     eventErrorXml: false,
     rejectEventTimeFilters: false,
     capability401: false,
+    // Real terminals answer /ISAPI/System/time in XML; `clock.zone` is the zone they report.
+    timeXml: false,
   };
+  const clock = { zone: "CST-3:00:00", iana: "Asia/Shanghai" };
   const weekPlans = new Map([
     [
       1,
@@ -202,6 +205,20 @@ export async function createAccessFixture() {
         return json({
           Capability: { supportFunction: "get,put", maxRecordNum: 16 },
         });
+      if (faults.timeXml && path === "/ISAPI/System/time") {
+        res.setHeader("Content-Type", "application/xml");
+        if (req.method === "PUT") {
+          mutations.push({ path, method: req.method, body });
+          const zone = /<timeZone>([^<]*)<\/timeZone>/.exec(body.xml || "")?.[1];
+          if (!zone) { res.statusCode = 400; res.end("<ResponseStatus><statusCode>4</statusCode></ResponseStatus>"); return true; }
+          clock.zone = zone;
+          clock.iana = /<IANA>([^<]*)<\/IANA>/.exec(body.xml)?.[1] || "";
+          res.end('<?xml version="1.0" encoding="UTF-8"?>\n<ResponseStatus version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><requestURL>/ISAPI/System/time</requestURL><statusCode>1</statusCode><statusString>OK</statusString><subStatusCode>ok</subStatusCode></ResponseStatus>');
+          return true;
+        }
+        res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<Time version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema">\n<timeMode>manual</timeMode>\n<localTime>2026-11-01T15:03:33+03:00</localTime>\n<timeZone>${clock.zone}</timeZone>\n${clock.iana ? `<IANA>${clock.iana}</IANA>\n` : ""}</Time>\n`);
+        return true;
+      }
       if (req.method === "GET" && path === "/ISAPI/System/time")
         return json({
           Time: {
@@ -460,5 +477,5 @@ export async function createAccessFixture() {
       return false;
     },
   });
-  return { ...device, mutations, cards, weekPlans, faults };
+  return { ...device, mutations, cards, weekPlans, faults, clock };
 }

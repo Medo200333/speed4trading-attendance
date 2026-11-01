@@ -78,6 +78,32 @@ test("capability-gated center persists original events and requires role, sessio
     });
     assert.equal((await store.readState()).devices[0].status, "online");
     fixture.faults.capability401 = false;
+    // Time zone guard (real pattern 2026-11-01: terminal on CST-3 while Egypt is UTC+2).
+    fixture.faults.timeXml = true;
+    await service.actionCenter(actor, { action: "probe", deviceId: "hikvision-main" });
+    const tz = await vite.ssrLoadModule("/src/lib/access/timezone.ts");
+    assert.equal((await store.readState()).devices[0].clock?.zone, "CST-3:00:00");
+    const egypt = tz.cairoOffsetMinutes();
+    assert.equal(Boolean(tz.zoneMismatch("CST-3:00:00")), egypt !== 180);
+    await assert.rejects(
+      service.actionCenter({ ...actor, role: "operator", username: "op" }, { action: "time.zone.set", deviceId: "hikvision-main" }),
+      (e) => e.code === "FORBIDDEN",
+    );
+    const zoneResult = await service.actionCenter(actor, { action: "time.zone.set", deviceId: "hikvision-main" });
+    assert.match(zoneResult.notice, /CST-/);
+    assert.equal(fixture.clock.zone, tz.hikZoneFor(egypt));
+    const put = fixture.mutations.filter((m) => m.path === "/ISAPI/System/time");
+    assert.equal(put.length, egypt === 180 ? 0 : 1);
+    if (put.length) {
+      assert.match(put[0].body.xml, /<timeMode>manual<\/timeMode>/);
+      assert.doesNotMatch(put[0].body.xml, /IANA|localTime/);
+    }
+    const tzState = await store.readState();
+    assert.equal(tzState.devices[0].clock?.zone, tz.hikZoneFor(egypt));
+    assert.ok(tzState.audit.some((a) => a.action === "time.zone.set"));
+    fixture.faults.timeXml = false;
+    // The approved zone write is checked above; later assertions count only sync/user writes.
+    fixture.mutations.splice(0, fixture.mutations.length, ...fixture.mutations.filter((m) => m.path !== "/ISAPI/System/time"));
     await assert.rejects(
       service.actionCenter(actor, {
         action: "connect",

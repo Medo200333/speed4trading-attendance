@@ -4,6 +4,8 @@ export const EN: Record<string, string> = {
  "جارٍ تسجيل الدخول…": "Signing in…",
  "إضافة بصمة": "Add fingerprint",
  "مسح البصمات": "Delete fingerprints",
+ "ضبط المنطقة الزمنية": "Set time zone",
+ "اطلب من المسؤول ضبط المنطقة الزمنية.": "Ask an admin to set the time zone.",
  "مسح بصمات الموظف": "Delete employee fingerprints",
  "إضافة بصمة (التقاط من حساس الجهاز)": "Add fingerprint (capture on device sensor)",
  "HTTPS بشهادة موثوقة": "HTTPS with a trusted certificate",

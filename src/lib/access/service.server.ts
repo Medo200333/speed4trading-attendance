@@ -1484,6 +1484,35 @@ export async function actionCenter(
     });
     return { notice: `سُجلت البصمة وأعيدت قراءتها: ${result.count} بصمة للموظف.` };
   }
+  if (input.action === "time.zone.set") {
+    requireRole(actor, "admin");
+    requireDeviceWrites();
+    const device = getDevice(await readState(), input.deviceId);
+    const { cairoOffsetMinutes, hikZoneFor, withZone, hikZoneOffsetMinutes } = await import("./timezone");
+    const zone = hikZoneFor(cairoOffsetMinutes());
+    const { before, after } = await withDeviceLock(device.id, async () => {
+      const client = await isapi(device);
+      const current = await client.request("/ISAPI/System/time");
+      if (current.status !== 200 || !/<timeZone>/.test(current.text))
+        throw new AccessError("CAPABILITY", "تعذر قراءة إعدادات الوقت من الجهاز (/ISAPI/System/time).");
+      const before = /<timeZone>([^<]*)<\/timeZone>/.exec(current.text)?.[1] || "";
+      if (hikZoneOffsetMinutes(before) === cairoOffsetMinutes()) return { before, after: before };
+      const put = await client.request("/ISAPI/System/time", "PUT", withZone(current.text, zone), "application/xml");
+      if (put.status !== 200 || /<statusCode>(?!1<)/.test(put.text))
+        throw new AccessError("DEVICE_REJECTED", "رفض الجهاز تغيير المنطقة الزمنية.");
+      const check = await client.request("/ISAPI/System/time");
+      const after = /<timeZone>([^<]*)<\/timeZone>/.exec(check.text)?.[1] || "";
+      if (hikZoneOffsetMinutes(after) !== cairoOffsetMinutes())
+        throw new AccessError("BIO_READBACK", `الجهاز ما زال على ${after || "منطقة غير معروفة"} بعد التعديل.`);
+      return { before, after };
+    });
+    const scanned = await scanDevice(device).catch(() => null);
+    await updateState((state) => {
+      if (scanned) state.devices = state.devices.map((row) => (row.id === device.id ? scanned : row));
+      audit(state, actor, "time.zone.set", device.id, "success", `${before} → ${after}؛ لم يتغير وضع الوقت ولا أي إعداد آخر.`);
+    });
+    return { notice: before === after ? `المنطقة الزمنية مضبوطة بالفعل (${after}).` : `اتضبطت المنطقة الزمنية: ${before} → ${after}.` };
+  }
   if (input.action === "fingerprint.delete") {
     requireRole(actor, "admin");
     const device = getDevice(await readState(), input.deviceId);

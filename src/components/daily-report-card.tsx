@@ -12,7 +12,11 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const team = useTeamsPull();
   const [source, setSource] = useState<DailySource>("devices");
   const deviceRows = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
-  const base = useMemo(() => mergeDailySources(deviceRows, team, source, start, end), [deviceRows, team, source, start, end]);
+  const { base, warnings } = useMemo(() => {
+    const warnings: string[] = [];
+    const base = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, source, start, end, warnings);
+    return { base, warnings };
+  }, [deviceRows, team, source, start, end]);
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const version = usePhotoVersion();
   useEffect(() => {
@@ -64,6 +68,11 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
           </span>
         ) : null}
       </div>
+      {warnings.map((w) => (
+        <p key={w} role="alert" className="ac-message error">
+          {w}
+        </p>
+      ))}
       <div className="ac-actions ac-no-print">
         <Button
           disabled={!shown.length}

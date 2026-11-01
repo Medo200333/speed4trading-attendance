@@ -71,13 +71,77 @@ const hhmm = (n: number) => `${String(Math.floor(n / 3600)).padStart(2, "0")}:${
  * all times are pooled and punches within 45 s of each other count once (the same swipe seen by the
  * device and by the cloud), then first/last/worked are recomputed. Shift markers 00:00/23:59 are ignored.
  */
+/**
+ * Device events are already absolute (their +hh:mm stamps are converted to Cairo time), but Hik-Connect Team
+ * shows the wall clock the terminal had. When a terminal is set to the wrong zone (e.g. UTC+3 instead of Egypt's
+ * UTC+2), every Team punch from it is a whole number of hours off. Detect that per device/branch — device
+ * first/last punches of the same employee and day line up with Team punches only after a fixed ±N h shift, and
+ * never at 0 — and move those Team punches back before de-duplication. Each correction is reported in `warnings`.
+ */
+export function correctTeamShift(device: DailyRow[], punches: Punch[], start: string, end: string, warnings?: string[]): Punch[] {
+  const TOL = 120;
+  const byKey = new Map<string, { branch: string; times: number[] }[]>();
+  for (const row of device) {
+    if (row.absent || row.date < start || row.date > end) continue;
+    const times = [row.first, row.last].filter(Boolean).map(sec);
+    if (!times.length) continue;
+    const k = `${row.employeeNo}|${row.date}`;
+    byKey.set(k, [...(byKey.get(k) || []), { branch: row.branch || "", times }]);
+  }
+  const teamBy = new Map<string, number[]>();
+  for (const p of punches) if (p.time) { const k = `${p.employeeNo || p.name}|${p.date}`; teamBy.set(k, [...(teamBy.get(k) || []), sec(p.time)]); }
+  const votes = new Map<string, Map<number, number>>();
+  for (const [k, rows] of byKey) {
+    const team = teamBy.get(k);
+    if (!team) continue;
+    for (const { branch, times } of rows)
+      for (const y of times)
+        for (let h = -3; h <= 3; h += 1)
+          if (team.some((x) => Math.abs(x - y - h * 3600) <= TOL)) {
+            const v = votes.get(branch) || new Map<number, number>();
+            v.set(h, (v.get(h) || 0) + 1);
+            votes.set(branch, v);
+            break;
+          }
+  }
+  const shift = new Map<string, number>();
+  for (const [branch, v] of votes) {
+    const best = [...v.entries()].filter(([h]) => h !== 0).sort((a, b) => b[1] - a[1])[0];
+    if (best && best[1] >= 1 && !(v.get(0) || 0)) shift.set(branch, best[0]);
+  }
+  if (!shift.size) return punches;
+  let moved = 0;
+  const outPunches = punches.map((p) => {
+    const k = `${p.employeeNo || p.name}|${p.date}`;
+    const rows = byKey.get(k);
+    if (!rows || !p.time) return p;
+    const hours = new Set(rows.map((r) => shift.get(r.branch) ?? 0));
+    if (hours.size !== 1) return p;
+    const h = [...hours][0];
+    if (!h) return p;
+    const x = sec(p.time);
+    if (rows.some((r) => r.times.some((y) => Math.abs(x - y) <= TOL && !r.times.some((y2) => Math.abs(x - h * 3600 - y2) <= TOL)))) return p;
+    const fixed = x - h * 3600;
+    if (fixed < 0 || fixed >= 86400) return p;
+    moved += 1;
+    return { ...p, time: `${hhmm(fixed)}:${String(fixed % 60).padStart(2, "0")}` };
+  });
+  if (warnings)
+    for (const [branch, h] of shift)
+      warnings.push(`بصمات Hik-Connect Team لجهاز «${branch || "الجهاز"}» متقدمة ${h > 0 ? "+" : ""}${h} ساعة عن وقت الجهاز الفعلي (غالباً المنطقة الزمنية للجهاز غلط) — اتصححت تلقائياً قبل الدمج.`);
+  if (warnings && moved) warnings.push(`اتصحح ${moved} بصمة من Team.`);
+  return outPunches;
+}
+
 export function mergeDailySources(
   device: DailyRow[],
   team: { punches: Punch[]; people: { employeeNo: string; name: string; photo: string }[] } | null,
   source: DailySource,
   start: string,
   end: string,
+  warnings?: string[],
 ): DailyRow[] {
+  if (team && source !== "devices") team = { ...team, punches: correctTeamShift(device, team.punches, start, end, warnings) };
   type Acc = DailyRow & { times: number[]; from: string[] };
   const out = new Map<string, Acc>();
   const key = (no: string, date: string) => `${no}|${date}`;

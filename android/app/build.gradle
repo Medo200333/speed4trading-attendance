@@ -3,7 +3,7 @@ def releaseStore = System.getenv('ZUBAYD_ANDROID_KEYSTORE')
 android {
   namespace 'com.zubayd.accesscontrol'
   compileSdk { version = release(36) { minorApiLevel = 1 } }
-  defaultConfig { applicationId 'com.zubayd.accesscontrol'; minSdk 26; targetSdk 35; versionCode 24; versionName '1.2.7' }
+  defaultConfig { applicationId 'com.zubayd.accesscontrol'; minSdk 26; targetSdk 35; versionCode 25; versionName '1.2.8' }
   signingConfigs {
     if (releaseStore) {
       release {
