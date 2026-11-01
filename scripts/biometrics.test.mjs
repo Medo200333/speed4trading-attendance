@@ -20,6 +20,7 @@ async function setup() {
   const directory = mkdtempSync(join(tmpdir(), "skyline-bio-test-"));
   process.env.SKYLINE_ACCESS_DATA_DIR = directory;
   process.env.SKYLINE_DISABLE_SCHEDULER = "1";
+  process.env.SPEED_DEVICE_WRITES = "1";
   delete process.env.SKYLINE_VAULT_KEY;
   const vite = await createServer({
     configFile: false,

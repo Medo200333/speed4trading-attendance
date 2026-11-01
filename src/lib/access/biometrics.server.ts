@@ -1,3 +1,4 @@
+import { deviceWritesEnabled, READ_ONLY_MESSAGE } from "./device-writes";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   readState,
@@ -415,6 +416,7 @@ export async function prepareBiometric(
     replaceExisting: boolean;
   },
 ) {
+  if (!deviceWritesEnabled()) throw new AccessError("READ_ONLY", READ_ONLY_MESSAGE);
   requireRole(actor, "admin");
   return withDeviceLock(input.deviceId, async () => {
     for (const [token, p] of memory().pending)
@@ -715,6 +717,7 @@ export async function commitBiometric(
   token: string,
   phrase: string,
 ) {
+  if (!deviceWritesEnabled()) throw new AccessError("READ_ONLY", READ_ONLY_MESSAGE);
   requireRole(actor, "admin");
   const p = memory().pending.get(token);
   if (
@@ -973,6 +976,7 @@ export async function fingerprintStatus(device: Device, employeeNo: string) {
 
 /** Remote capture + download of one finger (Hikvision CaptureFingerPrint → FingerPrintDownload → FingerPrintProgress). */
 export async function enrollFingerprint(device: Device, employeeNo: string, fingerNo: number) {
+  if (!deviceWritesEnabled()) throw new AccessError("READ_ONLY", READ_ONLY_MESSAGE);
   const status = await fingerprintStatus(device, employeeNo);
   if (!status.supported) throw new AccessError("CAPABILITY", status.reason);
   const client = await isapi(device);

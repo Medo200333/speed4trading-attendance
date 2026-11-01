@@ -38,7 +38,7 @@ export function AccessPanels({
   if (tab === "dashboard") return <HomePage />;
   if (tab === "people") return <EmployeesPage />;
   if (tab === "devices") return <DevicesPage />;
-  if (tab === "doors") return <Doors />;
+  if (tab === "doors") return data.deviceWrites === true ? <Doors /> : <HomePage />;
   if (tab === "attendance") return <AttendancePanel />;
   if (tab === "reports") return <ReportsPage />;
   if (tab === "guide")

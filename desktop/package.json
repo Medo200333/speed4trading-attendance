@@ -1,7 +1,7 @@
 {
   "name": "zubayd-desktop",
-  "version": "1.2.0",
-  "description": "ط²ط¨ظٹط¯ ظ„ط¥ط¯ط§ط±ط© ط§ظ„ط´ط±ظƒط§طھ ظˆط£ط¬ظ‡ط²ط© Hikvision",
+  "version": "1.2.1",
+  "description": "Speed for Training - attendance and Hikvision access control",
   "author": "Speed for Training",
   "private": true,
   "main": "main.cjs",

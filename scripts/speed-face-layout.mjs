@@ -63,6 +63,6 @@ panel=panel.slice(0,selectorStart)+`      <div className="ac-tabs" role="group" 
 panel=panel.replace('{device && (','{device && section === "face" && (').replace('              device={device}\n',`              device={device}
               selection={${selectors}}
 `);
-panel=panel.replace('<Card title={\`4. كروت \${person.name}\`}>','{section === "cards" && <Card title={\`كروت \${person.name}\`}>').replace('          <Card title="5. صلاحيات الأبواب">','          }\n          {section === "permissions" && <Card title="صلاحيات الأبواب">').replace('          <div className="ac-grid">\n            <Card title="الرقم السري PIN">', '          }\n          {section === "advanced" && <div className="ac-grid">\n            <Card title="الرقم السري PIN">');
+panel=panel.replace('<Card title={`4. كروت ${person.name}`}>','{section === "cards" && <Card title={`كروت ${person.name}`}>').replace('          <Card title="5. صلاحيات الأبواب">','          }\n          {section === "permissions" && <Card title="صلاحيات الأبواب">').replace('          <div className="ac-grid">\n            <Card title="الرقم السري PIN">', '          }\n          {section === "advanced" && <div className="ac-grid">\n            <Card title="الرقم السري PIN">');
 panel=panel.replace('          </div>\n        </>', '          </div>}\n        </>');
 source=source.slice(0,credentials)+panel+source.slice(boundary);writeFileSync(workflow,source);

@@ -221,6 +221,7 @@ function safeSearchResponse(
         /((?:password|passwd|pwd|token|secret|nonce|cookie|authorization|username|employeeNoString|employeeNo|cardNo|serialNumber)\s*[=:]\s*)[^,;\s<]+/gi,
         "$1[محجوب]",
       )
+      // eslint-disable-next-line no-control-regex -- strips control characters on purpose
       .replace(/[\x00-\x1f]/g, " ")
       .slice(0, 350);
   };

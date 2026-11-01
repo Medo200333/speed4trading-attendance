@@ -288,7 +288,7 @@ ipcMain.handle("zubayd:backup", async (event, input) => {
   administrator(input);
   const result = await dialog.showSaveDialog(maintenance || window, {
     defaultPath: "SpeedForTraining-backup.zubayd",
-    filters: [{ name: "Zubayd encrypted backup", extensions: ["zubayd"] }],
+    filters: [{ name: "Speed for Training encrypted backup", extensions: ["zubayd"] }],
   });
   if (result.canceled) return { cancelled: true };
   const backupRoot=resolve(configuration.dataDirectory),backupTarget=resolve(result.filePath);
@@ -327,7 +327,7 @@ ipcMain.handle("zubayd:restore", async (event, input) => {
   if (input.phase !== "inspect") throw new Error("RESTORE_PHASE");
   const result = await dialog.showOpenDialog(maintenance || window, {
     properties: ["openFile"],
-    filters: [{ name: "Zubayd encrypted backup", extensions: ["zubayd"] }],
+    filters: [{ name: "Speed for Training encrypted backup", extensions: ["zubayd"] }],
   });
   if (result.canceled) return { cancelled: true };
   const data = await decodeBackup(

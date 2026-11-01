@@ -15,7 +15,10 @@ const run = (code: string | null, extra: Partial<Parameters<typeof evaluate>[0]>
 test("valid license on any NIC, case-insensitive name", () => assert.equal(run(issue({})).mode, "licensed"));
 test("tampered / foreign-key license is invalid", () => {
   const code = issue({});
-  assert.equal(verifyLicense(code.replace(/.$/, code.endsWith("A") ? "B" : "A"), machine, now, pub).ok, false);
+  // Flip the FIRST signature character: the last base64url char carries padding bits and may decode identically.
+  const dot = code.indexOf(".") + 1;
+  const tampered = code.slice(0, dot) + (code[dot] === "A" ? "B" : "A") + code.slice(dot + 1);
+  assert.equal(verifyLicense(tampered, machine, now, pub).ok, false);
   assert.equal(run(issue({}, generateKeyPairSync("ed25519").privateKey)).reason, "SIGNATURE");
   assert.equal(run("garbage").mode, "trial");
 });

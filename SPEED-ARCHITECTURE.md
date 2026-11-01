@@ -1,8 +1,8 @@
 # Speed for Training — معمارية البرنامج والزراير والأكواد
 
-النسخة الأصلية المسترجعة. اسم الحزمة على سطح المكتب: `zubayd-desktop` إصدار `1.2.0`. اسم المنتج الظاهر: Speed for Training. معرّف التطبيق: `com.zubayd.accesscontrol`.
+النسخة الأصلية المسترجعة. اسم الحزمة على سطح المكتب: `zubayd-desktop` إصدار `1.2.1`. اسم المنتج الظاهر: Speed for Training. معرّف التطبيق: `com.zubayd.accesscontrol`.
 
-السورس على جيت هب: `Medo200333/speed4trading-attendance` فرع `main`. البناء: `BUILD-USB.ps1` ثم المثبّت في `releases/windows/SpeedForTraining-Setup-1.2.0.exe`.
+السورس على جيت هب: `Medo200333/speed4trading-attendance` فرع `main`. البناء: `BUILD-USB.ps1` ثم المثبّت في `releases/windows/SpeedForTraining-Setup-1.2.1.exe`.
 
 الملف ده خريطة التشغيل. مش نسخة ملصوقة من كل سطر سورس. السورس نفسه حوالي 374 ملف.
 

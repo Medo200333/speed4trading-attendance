@@ -1,3 +1,4 @@
+import { deviceWritesEnabled, READ_ONLY_MESSAGE } from "./device-writes";
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   newDevice,
@@ -175,6 +176,7 @@ export type Snapshot = {
   };
   credentialMode: string;
   storage: string;
+  deviceWrites: boolean;
 };
 export async function snapshot(actor: Actor): Promise<Snapshot> {
   const state = await readState();
@@ -189,6 +191,7 @@ export async function snapshot(actor: Actor): Promise<Snapshot> {
     })),
     people: state.people,
     doors: state.doors,
+    deviceWrites: deviceWritesEnabled(),
     plans: state.plans,
     rules: state.rules,
     audit: state.audit.slice(-200).reverse(),
@@ -469,6 +472,9 @@ export function ensureScheduler() {
   }, 10000);
   timer.unref?.();
   jobs().timer = timer;
+}
+function requireDeviceWrites() {
+  if (!deviceWritesEnabled()) throw new AccessError("READ_ONLY", READ_ONLY_MESSAGE);
 }
 export async function queryCenter(actor: Actor, input: QueryInput) {
   ensureScheduler();
@@ -854,6 +860,7 @@ export async function prepareOperation(
   raw: Operation,
 ): Promise<Confirmation> {
   requireRole(actor, "admin");
+  requireDeviceWrites();
   const operation = operationSchema.parse(raw);
   const state = await readState();
   const device = validateOperation(state, operation);
@@ -1261,6 +1268,7 @@ export async function commitOperation(
   phrase: string,
 ) {
   requireRole(actor, "admin");
+  requireDeviceWrites();
   const prepared = jobs().confirmations.get(token);
   if (
     !prepared ||

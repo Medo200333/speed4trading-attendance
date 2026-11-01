@@ -325,8 +325,11 @@ export function AccessCenter() {
       </main>
     );
   const device = data.devices.find((device) => device.id === selected);
+  // Device read-only mode (default): hide door control and device write forms.
+  const deviceWrites = data.deviceWrites === true;
+  const shownTabs = deviceWrites ? tabs : tabs.filter((item) => item.id !== "doors");
   const activeTab =
-    [...tabs, ...extraTabs].find((item) => item.id === tab) || tabs[0];
+    [...shownTabs, ...extraTabs].find((item) => item.id === tab) || shownTabs[0];
   return (
     <CenterContext.Provider
       value={{
@@ -352,7 +355,13 @@ export function AccessCenter() {
         act,
         read,
         refresh,
-        modal: setModal,
+        modal: (next: ModalData) => {
+          if (!deviceWrites && next && ["person", "door", "import"].includes(next.kind)) {
+            tell("البرنامج في وضع القراءة فقط: إضافة أو تعديل المستخدمين على الجهاز وفتح الأبواب مقفولين.", true);
+            return;
+          }
+          setModal(next);
+        },
         tell,
         navigate,
         setup,
@@ -367,7 +376,7 @@ export function AccessCenter() {
         {menu && (
           <AppNavigation
             drawer
-            tabs={tabs}
+            tabs={shownTabs}
             active={tab}
             navigate={navigate}
             help={() => help("start")}
@@ -376,7 +385,7 @@ export function AccessCenter() {
         )}
         <div className="ac-layout">
           <AppNavigation
-            tabs={tabs}
+            tabs={shownTabs}
             active={tab}
             navigate={navigate}
             help={() => help("start")}
@@ -540,7 +549,7 @@ export function AccessCenter() {
           </main>
         </div>
         <nav className="ac-bottom" aria-label="التنقل السريع للموبايل">
-          {tabs
+          {shownTabs
             .filter((item) =>
               ["dashboard", "people", "credentials", "attendance"].includes(
                 item.id,

@@ -634,14 +634,17 @@ export function normalizeEvent(
             : "unknown";
   const serialNo = text(record.serialNo ?? record.eventSerialNo);
   const doorNo = Number(record.doorNo ?? record.doorNumber);
-  const parsedTime = stamp ? Date.parse(`${stamp.date}T${stamp.time}Z`) : NaN;
+  // Validate the device's own calendar date (before any timezone shift) so 30 Feb is rejected.
+  const raw = splitStamp(originalTimestamp);
+  const parsedTime = raw ? Date.parse(`${raw.date}T${raw.time}Z`) : NaN;
   const validTime = Boolean(
     stamp &&
+    raw &&
     Number.isFinite(parsedTime) &&
-    new Date(parsedTime).toISOString().slice(0, 10) === stamp.date &&
-    Number(stamp.time.slice(0, 2)) < 24 &&
-    Number(stamp.time.slice(3, 5)) < 60 &&
-    Number(stamp.time.slice(6)) < 60,
+    new Date(parsedTime).toISOString().slice(0, 10) === raw.date &&
+    Number(raw.time.slice(0, 2)) < 24 &&
+    Number(raw.time.slice(3, 5)) < 60 &&
+    Number(raw.time.slice(6)) < 60,
   );
   const stable = serialNo
     ? `serial:${serialNo}|${originalTimestamp}`

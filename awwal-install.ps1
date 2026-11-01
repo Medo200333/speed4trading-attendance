@@ -1,7 +1,7 @@
 # Install Awwal Akher on Pc
 $ErrorActionPreference = "Stop"
 $Dest = "C:\awwal-akher"
-$Repo = "https://github.com/Medo200333/awwal-akher-pc.git"
+$Repo = "https://github.com/Medo200333/speed4trading-attendance.git"
 
 Write-Host ""
 Write-Host "Installing Awwal Akher on Pc"

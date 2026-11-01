@@ -2,6 +2,7 @@
 export const COMPANY_NAME_MAX = 120;
 /** Old product names that must not stay as the visible company identity. */
 export const LEGACY_BRAND = /sky\s*-?\s*line|سكاي\s*لاين/i;
+// eslint-disable-next-line no-control-regex -- strips control characters on purpose
 const INVISIBLE = /[\u0000-\u001f\u007f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
 /** NFC, drop invisible/bidi control chars (keyboards and copy-paste add them), collapse spaces, trim. */
 export function normalizeCompanyName(value: unknown) {

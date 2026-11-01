@@ -14,6 +14,7 @@ export function validate(b){
   const email=String(b?.email||'').trim().toLowerCase(),deviceName=String(b?.deviceName||'').trim(),deviceId=String(b?.deviceId||'').replace(/[^0-9a-f]/gi,'').toUpperCase();
   const platform=String(b?.platform||'').trim().slice(0,20),appVersion=String(b?.appVersion||'').trim().slice(0,20),company=String(b?.company||'').trim().slice(0,120);
   if(!/^[^\s@<>"']{1,64}@[^\s@<>"']{1,190}\.[a-z]{2,24}$/i.test(email)||email.length>254)throw Error('EMAIL');
+  // eslint-disable-next-line no-control-regex -- strips control characters on purpose
   if(!deviceName||deviceName.length>64||/[\u0000-\u001f]/.test(deviceName))throw Error('DEVICE');
   if(deviceId.length!==12)throw Error('DEVICE_ID');
   if(!/^(windows|android)$/.test(platform))throw Error('PLATFORM');

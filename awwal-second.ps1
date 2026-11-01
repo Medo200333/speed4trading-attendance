@@ -1,7 +1,7 @@
 # Install Awwal Akher on a second Windows PC, then keep it on Tailscale Funnel.
 $ErrorActionPreference = "Stop"
 $Dest = "C:\awwal-akher"
-$Repo = "https://github.com/Medo200333/awwal-akher-pc.git"
+$Repo = "https://github.com/Medo200333/speed4trading-attendance.git"
 $env:GIT_TERMINAL_PROMPT = "0"
 
 Write-Host ""

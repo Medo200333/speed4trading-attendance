@@ -10,6 +10,7 @@ test("capability-gated center persists original events and requires role, sessio
   const directory = mkdtempSync(join(tmpdir(), "skyline-access-unit-"));
   process.env.SKYLINE_ACCESS_DATA_DIR = directory;
   process.env.SKYLINE_DISABLE_SCHEDULER = "1";
+  process.env.SPEED_DEVICE_WRITES = "1";
   process.env.SKYLINE_VAULT_KEY = "fixture-vault-key-not-a-real-secret";
   const vite = await createServer({
     configFile: false,
@@ -118,7 +119,7 @@ test("capability-gated center persists original events and requires role, sessio
       deviceId: "hikvision-main",
       person: {
         employeeNo: "3",
-        name: "اختبار",
+        name: "Test User",
         begin: "2026-01-01",
         end: "2037-12-31",
         permanent: false,
@@ -337,7 +338,7 @@ test("capability-gated center persists original events and requires role, sessio
       (await store.credential("hikvision-main")).password,
       fixture.link.password,
     );
-    const batch = await service.prepareOperation(actor, { kind: "importPeople", deviceId: "hikvision-main", people: ["4", "5"].map((employeeNo) => ({ employeeNo, name: `موظف دفعة ${employeeNo}`, begin: "2026-01-01", end: "2037-12-31", permanent: false })) });
+    const batch = await service.prepareOperation(actor, { kind: "importPeople", deviceId: "hikvision-main", people: ["4", "5"].map((employeeNo) => ({ employeeNo, name: `Batch Employee ${employeeNo}`, begin: "2026-01-01", end: "2037-12-31", permanent: false })) });
     const beforeBatch = fixture.mutations.length;
     await service.commitOperation(actor, batch.token, batch.phrase);
     assert.equal(fixture.mutations.length, beforeBatch + 2);
@@ -462,7 +463,7 @@ test("attendance distinguishes overnight work, excessive spans and old timestamp
     const historical = event("2015-01-01T08:15:00+08:00", 5);
     assert.equal(event("2026-02-30T08:15:00+03:00", 99).validTime, false);
     assert.equal(historical.originalTimestamp, "2015-01-01T08:15:00+08:00");
-    assert.equal(historical.time, "08:15:00");
+    assert.equal(historical.time, "02:15:00", "device time is shown in Cairo time");
     const current = domain.attendanceReport(
       [historical],
       [person],
