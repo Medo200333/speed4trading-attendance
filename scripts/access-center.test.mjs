@@ -68,6 +68,16 @@ test("capability-gated center persists original events and requires role, sessio
       0,
       "GET capabilities must never write",
     );
+    // Regression (192.168.1.111): an optional capability path answering 401 must not fail connect.
+    fixture.faults.capability401 = true;
+    await service.actionCenter(actor, {
+      action: "connect",
+      deviceId: "hikvision-main",
+      username: fixture.link.username,
+      password: fixture.link.password,
+    });
+    assert.equal((await store.readState()).devices[0].status, "online");
+    fixture.faults.capability401 = false;
     await assert.rejects(
       service.actionCenter(actor, {
         action: "connect",

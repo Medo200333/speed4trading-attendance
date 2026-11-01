@@ -199,13 +199,24 @@ export class DigestSession {
       return { status: response.status, text, bytes, contentType: response.headers.get("content-type") || "", www: response.headers.get("www-authenticate") ?? "" };
     };
 
-    let result = await send(this.authorization(method, url));
+    const trace = (auth: string, status: number) => {
+      if (process.env.SKYLINE_DIGEST_DEBUG !== "1") return;
+      let path = url; try { path = new URL(url).pathname + new URL(url).search; } catch { /* keep */ }
+      // Never log the response hash or cnonce; field layout only.
+      const shape = auth.replace(/response="[^"]*"/, 'response="<h>"').replace(/cnonce="[^"]*"/, 'cnonce="<c>"').replace(/nonce="[^"]*"/, 'nonce="<n>"');
+      console.warn(`[digest] ${method} ${path} -> ${status}${auth ? ` auth: ${shape}` : " (no auth)"}`);
+    };
+    const firstAuth = this.authorization(method, url);
+    let result = await send(firstAuth);
+    trace(firstAuth, result.status);
     if (result.status !== 401) return result;
     const challenge = parseChallenge(result.www);
     if (challenge) {
       this.challenge = challenge;
       this.nc = 0;
-      result = await send(this.authorization(method, url));
+      const retryAuth = this.authorization(method, url);
+      result = await send(retryAuth);
+      trace(retryAuth, result.status);
       return result;
     }
     // Local Hikvision connections require Digest. Never downgrade to Basic over HTTP.

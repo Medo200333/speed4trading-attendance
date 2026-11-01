@@ -644,7 +644,8 @@ export async function scanDevice(device: Device): Promise<Device> {
   const probes: Probe[] = [];
   for (const endpoint of probePaths) {
     const response = await client.request(endpoint);
-    if (response.status === 401) checkResponse(response);
+    // deviceInfo already authenticated this session; some firmwares (DS-K1T 192.168.1.111) answer 401 on an
+    // optional capability path they do not expose. Record it as unsupported instead of failing the whole connect.
     const fields = flattened(response.text);
     const code = field(fields, "statusCode");
     const substantive = Object.keys(fields).some(

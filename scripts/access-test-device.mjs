@@ -22,6 +22,7 @@ export async function createAccessFixture() {
     eventFailLaterPage: false,
     eventErrorXml: false,
     rejectEventTimeFilters: false,
+    capability401: false,
   };
   const weekPlans = new Map([
     [
@@ -186,6 +187,11 @@ export async function createAccessFixture() {
             maxResults: { "@min": 1, "@max": 30 },
           },
         });
+      if (faults.capability401 && path === "/ISAPI/AccessControl/UserRightPlanTemplate/capabilities") {
+        // Real DS-K1T firmware: 401 without a new challenge on a path it does not expose.
+        res.statusCode = 401;
+        return res.end();
+      }
       if (
         req.method === "GET" &&
         [
