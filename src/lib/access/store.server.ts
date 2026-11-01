@@ -69,10 +69,15 @@ async function load(): Promise<AccessState> {
     if (value.companyId && value.companyId !== companyContext())
       throw new AccessError("COMPANY_STORAGE", "ملف البيانات لا يتبع الشركة المطلوبة. أُوقفت القراءة لحماية البيانات.");
     cache.state = value;
+    // Edition preset: the desktop setup writes an empty state.json; fill it once (marker file) if still empty.
+    if (!value.devices.length && !(value.people || []).length && applyEditionSeed(value))
+      await writeFile(join(privateDirectory(), "state.json"), JSON.stringify(value), { mode: 0o600 }).catch(() => {});
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     cache.state = initialState();
-    if(companyContext()!==LEGACY_COMPANY){cache.state.devices=[];cache.state.companyId=companyContext();if(applyEditionSeed(cache.state))await writeFile(join(companyDirectory(companyContext()),"state.json"),JSON.stringify(cache.state),{mode:0o600}).catch(()=>{});}
+    if(companyContext()!==LEGACY_COMPANY){cache.state.devices=[];cache.state.companyId=companyContext();}
+    // Edition preset (Sky Line build): fill the brand-new state once and persist it right away.
+    if (applyEditionSeed(cache.state)) { await mkdir(privateDirectory(), { recursive: true, mode: 0o700 }); await writeFile(join(privateDirectory(), "state.json"), JSON.stringify(cache.state), { mode: 0o600, flag: "wx" }).catch(() => {}); }
   }
   return cache.state;
 }
