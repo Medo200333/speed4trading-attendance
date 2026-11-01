@@ -685,61 +685,16 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
     setQuery("");
   }
 
-  function downloadExcel() {
-    const weeks = new Map<string, DayRow[]>();
-    for (const row of shown) {
-      const start = saturdayOf(row.date);
-      const list = weeks.get(start);
-      if (list) list.push(row);
-      else weeks.set(start, [row]);
-    }
+  async function downloadExcel() {
+    const { saveDailyXlsx, rowsForLayout } = await import("../lib/daily-report");
     const company = currentCompanyProfile();
-    const rows: string[][] = [...reportSheetHeader(company, "Attendance", `${from} - ${to}`)];
-    for (const start of [...weeks.keys()].sort()) {
-      const days = WEEK.map((_, index) => plusDays(start, index));
-      const inWeek = weeks.get(start) ?? [];
-      const people = new Map<string, { employeeNo: string; name: string }>();
-      for (const row of inWeek) people.set(row.employeeNo || row.name, { employeeNo: row.employeeNo, name: row.name });
-      rows.push(["First name", "Last name", ...days.map((date, index) => `${WEEK[index]}\n${dayMark(date)}`)]);
-      for (const person of [...people.values()].sort((a, b) => a.name.localeCompare(b.name))) {
-        const parts = splitName(person.name);
-        rows.push([
-          parts.first,
-          parts.last,
-          ...days.map((date) => {
-            const cell = inWeek.find((row) => row.date === date && (row.employeeNo === person.employeeNo || row.name === person.name));
-            if (!cell) return "—";
-            return [cell.first, cell.last || "—", formatMinutes(cell.minutes)].join("\n");
-          }),
-        ]);
-      }
-      rows.push([]);
-    }
-    const bytes = buildXlsx([
-      {
-        name: "Attendance",
-        ltr: true,
-        logo: currentCompanyProfile().logo,
-        widths: [18, 18, 16, 16, 16, 16, 16, 16, 16],
-        rows,
-      },
-    ]);
-    const copy = new Uint8Array(bytes.byteLength);
-    copy.set(bytes);
-    const blob = new Blob([copy], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = reportFileName(currentCompanyProfile(), `attendance-${from}_${to}`, "xlsx");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveDailyXlsx(from, to, rowsForLayout(shown, roster, from), company.name, company.logo);
   }
 
   async function downloadPdf() {
-    const { saveAttendancePdf } = await import("../lib/sheet-pdf");
-    saveAttendancePdf(from, to, shown, roster, currentCompanyProfile().name, currentCompanyProfile().logo);
+    const { saveDailyPdf, rowsForLayout } = await import("../lib/daily-report");
+    const company = currentCompanyProfile();
+    await saveDailyPdf(from, to, rowsForLayout(shown, roster, from), company.name, company.logo);
   }
 
   async function enterGate() {

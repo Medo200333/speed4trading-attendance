@@ -1,4 +1,5 @@
 import type { AttendanceRow, Person } from "./access/domain";
+import { buildLayout, layoutHtml, layoutXlsxBytes } from "./report-layout";
 import { englishNameOf } from "./access/domain";
 import { BRAND } from "./brand";
 import { buildXlsx } from "./xlsx-io";
@@ -418,18 +419,43 @@ function download(name: string, bytes: Uint8Array, type: string) {
 const fileBase = (company: string, from: string, to: string) =>
   `${(company || "Speed").replace(/[\\/:*?"<>|]+/g, "-")}-daily-${from}_${to}`;
 export const SPEED_LOGO_URL = "/speed-logo.png";
+/** 1.2.10 report layout: landscape summary matrix + one page per employee (src/lib/report-layout.ts).
+ * EXE: Electron printToPDF (A4 landscape, save dialog). APK: Android print service ("Save as PDF").
+ * Browser fallback: print dialog of a hidden frame. The old drawn PDF stays as a last resort. */
 export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "") {
-  await document.fonts.ready;
-  const bytes = dailyPdfBytes(from, to, rows, companyName, await logoJpeg(companyLogo), await logoJpeg(SPEED_LOGO_URL));
-  download(`${fileBase(companyName, from, to)}.pdf`, bytes, "application/pdf");
+  const html = layoutHtml(buildLayout(from, to, rows), companyName);
+  const name = `${fileBase(companyName, from, to)}.pdf`;
+  const w = window as unknown as { zubaydDesktop?: { savePdf?: (i: { html: string; name: string }) => Promise<unknown> }; ZubaydPrint?: { print: (html: string, name: string) => void } };
+  if (w.zubaydDesktop?.savePdf) { await w.zubaydDesktop.savePdf({ html, name }); return; }
+  if (w.ZubaydPrint?.print) { w.ZubaydPrint.print(html, name); return; }
+  try {
+    const frame = document.createElement("iframe");
+    frame.style.cssText = "position:fixed;width:0;height:0;border:0;left:-9999px";
+    document.body.appendChild(frame);
+    frame.contentDocument!.open(); frame.contentDocument!.write(html); frame.contentDocument!.close();
+    await new Promise((r) => setTimeout(r, 400));
+    frame.contentWindow!.focus(); frame.contentWindow!.print();
+    setTimeout(() => frame.remove(), 60_000);
+  } catch {
+    await document.fonts.ready;
+    const bytes = dailyPdfBytes(from, to, rows, companyName, await logoJpeg(companyLogo), await logoJpeg(SPEED_LOGO_URL));
+    download(name, bytes, "application/pdf");
+  }
 }
 export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "") {
-  const speed = await asDataUrl(SPEED_LOGO_URL);
   download(
     `${fileBase(companyName, from, to)}.xlsx`,
-    dailyXlsxBytes(from, to, rows, companyName, companyLogo, speed),
+    layoutXlsxBytes(from, to, rows, companyName, companyLogo),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
+}
+/** Teams/sheet rows (+ full roster so people without punches show as absent) -> DailyRow[] for the layout. */
+export function rowsForLayout(shown: { employeeNo: string; name: string; date: string; first: string; last: string; minutes: number | null }[], roster: { employeeNo: string; name: string; photo?: string }[], from: string): DailyRow[] {
+  const photo = new Map(roster.map((p) => [p.employeeNo, p.photo || null]));
+  const out: DailyRow[] = shown.map((r) => ({ personId: r.employeeNo || r.name, employeeNo: r.employeeNo, name: r.name, date: r.date, first: r.first, last: r.last, worked: r.last && r.minutes != null ? `${String(Math.floor(r.minutes / 60)).padStart(2, "0")}:${String(r.minutes % 60).padStart(2, "0")}` : "", status: "", absent: false, photo: photo.get(r.employeeNo) || null }));
+  const seen = new Set(out.map((r) => r.personId));
+  for (const p of roster) if (p.employeeNo && !seen.has(p.employeeNo)) out.push({ personId: p.employeeNo, employeeNo: p.employeeNo, name: p.name, date: from, first: "", last: "", worked: "", status: "", absent: true, photo: p.photo || null });
+  return out;
 }
 
 /** Manager "who came today" summary: حضر = one punch (still inside), خرج = has a last punch, غائب = no punch. */

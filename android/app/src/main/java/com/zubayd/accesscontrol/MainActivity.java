@@ -70,7 +70,7 @@ public final class MainActivity extends Activity {
   layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);layout.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);LinearLayout bar=new LinearLayout(this);if(!NodeRunner.ORIGIN.equals(server))bar.addView(button("speed4trading • الاتصال",v->new AlertDialog.Builder(this).setTitle("تغيير الخادم؟").setMessage("أكمل أو ألغ العملية الحالية أولاً. تغيير الخادم يغلق الشاشة الحالية.").setPositiveButton("تغيير الخادم",(d,w)->{CookieManager.getInstance().removeAllCookies(null);preferences.edit().remove("server").putString("mode","remote").apply();connectionScreen();}).setNegativeButton("البقاء",null).show()));if(bar.getChildCount()>0)layout.addView(bar);
   notice=text("جارٍ فتح خادم الشركة…",14);layout.addView(notice);web=new WebView(this);layout.addView(web,new LinearLayout.LayoutParams(-1,0,1));setContentView(layout);
   WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setAllowFileAccess(false);settings.setAllowContentAccess(true);settings.setAllowFileAccessFromFileURLs(false);settings.setAllowUniversalAccessFromFileURLs(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);settings.setSafeBrowsingEnabled(true);settings.setSupportZoom(true);settings.setBuiltInZoomControls(true);settings.setDisplayZoomControls(false);
-  web.addJavascriptInterface(new SadpBridge(this),"ZubaydSadp");CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
+  web.addJavascriptInterface(new SadpBridge(this),"ZubaydSadp");web.addJavascriptInterface(new PrintBridge(),"ZubaydPrint");CookieManager.getInstance().setAcceptCookie(true);CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
   web.setWebViewClient(new WebViewClient(){
    @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){if(downloadPort!=null){downloadPort.close();downloadPort=null;}}
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){String u=request.getUrl().toString();if(ownOrigin(u)&&!request.getUrl().getPath().toLowerCase().endsWith(".pdf"))return false;if(openOutside(request.getUrl()))return true;notice.setVisibility(View.VISIBLE);notice.setText("تم منع الانتقال خارج خادم الشركة المحدد.");return true;}
@@ -111,4 +111,17 @@ public final class MainActivity extends Activity {
  @Override public void onBackPressed(){if(web!=null&&web.canGoBack())web.goBack();else new AlertDialog.Builder(this).setTitle("إغلاق speed4trading؟").setMessage("أكمل أو ألغ العملية المفتوحة قبل الإغلاق.").setPositiveButton("إغلاق",(d,w)->finish()).setNegativeButton("البقاء",null).show();}
  @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);if(web!=null)web.saveState(state);}
  @Override protected void onDestroy(){if(chooser!=null)chooser.onReceiveValue(null);if(downloadPort!=null)downloadPort.close();if(pendingDownload!=null)java.util.Arrays.fill(pendingDownload,(byte)0);if(web!=null)web.destroy();super.onDestroy();}
+ /** 1.2.10: attendance report HTML -> Android print service (A4 landscape, "Save as PDF"). */
+ private final class PrintBridge{
+  @JavascriptInterface public void print(final String html,final String name){
+   if(html==null||html.length()>80*1024*1024)return;
+   runOnUiThread(()->{final WebView pv=new WebView(MainActivity.this);pv.getSettings().setJavaScriptEnabled(false);
+    pv.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView v,String u){
+     android.print.PrintManager pm=(android.print.PrintManager)getSystemService(PRINT_SERVICE);
+     String job=(name==null||name.isEmpty()?"report":name).replaceAll("[\\\\/:*?\"<>|]+","-");
+     android.print.PrintAttributes attrs=new android.print.PrintAttributes.Builder().setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4.asLandscape()).build();
+     pm.print(job,v.createPrintDocumentAdapter(job),attrs);}});
+    pv.loadDataWithBaseURL(null,html,"text/html","UTF-8",null);});
+  }
+ }
 }

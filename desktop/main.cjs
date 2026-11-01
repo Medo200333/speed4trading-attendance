@@ -292,6 +292,28 @@ ipcMain.handle("zubayd:connection",async(event,input)=>{
   await stopOwnedServer();configuration=previous;atomic(settings(),previous);await startServer();throw error;
  }finally{maintaining=false;}
 });
+// 1.2.10: attendance report -> PDF (A4 landscape) through Chromium's printer, then a save dialog.
+ipcMain.handle("zubayd:pdf", async (event, input) => {
+  checkSender(event);
+  const html = String(input && input.html || "");
+  if (!html || html.length > 80 * 1024 * 1024) throw new Error("BAD_REPORT");
+  const name = String(input && input.name || "report.pdf").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 150);
+  const tmp = join(app.getPath("temp"), "s4t-report-" + randomBytes(6).toString("hex") + ".html");
+  writeFileSync(tmp, html, { mode: 0o600 });
+  const { BrowserWindow: Win } = require("electron");
+  const view = new Win({ show: false, webPreferences: { javascript: false, sandbox: true } });
+  try {
+    await view.loadFile(tmp);
+    const pdf = await view.webContents.printToPDF({ landscape: true, pageSize: "A4", printBackground: true, margins: { marginType: "none" } });
+    const target = await dialog.showSaveDialog(window || undefined, { defaultPath: join(app.getPath("documents"), name), filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (target.canceled || !target.filePath) return { ok: false, canceled: true };
+    writeFileSync(target.filePath, pdf);
+    return { ok: true, path: target.filePath };
+  } finally {
+    view.destroy();
+    try { require("node:fs").unlinkSync(tmp); } catch { /* ignore */ }
+  }
+});
 ipcMain.handle("zubayd:backup", async (event, input) => {
   checkSender(event);
   administrator(input);

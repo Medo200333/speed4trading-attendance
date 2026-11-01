@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('zubaydDesktop',{
  backup:input=>ipcRenderer.invoke('zubayd:backup',input),
  restore:input=>ipcRenderer.invoke('zubayd:restore',input),
  connection:input=>ipcRenderer.invoke('zubayd:connection',input),
+ savePdf:input=>ipcRenderer.invoke('zubayd:pdf',input),
 });
