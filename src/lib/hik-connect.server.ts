@@ -326,7 +326,8 @@ export async function hikLogin(account: string, password: string, imageCode = ""
       sessionId: gate.sessionId,
       featureCode: feature,
       teams: gate.teams,
-      teamName: gate.teams[0]?.name ?? "",
+      // The team (systemName), not the first attendance device.
+      teamName: gate.teamName || gate.teams[0]?.name || "",
       notice: gate.notice,
     };
   } catch (error) {
@@ -343,7 +344,7 @@ async function enterAttendance(
   feature: string,
   smsCode: string,
 ): Promise<
-  | { ok: true; apiBase: string; sessionId: string; teams: PortalTeam[]; notice: string }
+  | { ok: true; apiBase: string; sessionId: string; teams: PortalTeam[]; notice: string; teamName: string }
   | { ok: false; error: string; needSms?: boolean }
 > {
   if (smsCode) {
@@ -434,7 +435,7 @@ async function enterAttendance(
   const notice = teams.length
     ? `اتفتح فريق ${teamName}. أجهزة الحضور: ${teams.map((team) => team.name).join("، ")}.`
     : `اتفتح فريق ${teamName}.`;
-  return { ok: true, apiBase: TEAM_API, sessionId: nextSession, teams, notice };
+  return { ok: true, apiBase: TEAM_API, sessionId: nextSession, teams, notice, teamName };
 }
 
 function zoneOffset(timeZone: string, day: string): string {
