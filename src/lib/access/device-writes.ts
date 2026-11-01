@@ -1,11 +1,13 @@
 /**
- * Device read-only mode. Writes to Hikvision devices (people, cards, permissions,
- * schedules, doors, faces, fingerprints) are OFF unless SPEED_DEVICE_WRITES=1.
- * Reading people, attendance and photo import are never affected.
+ * Device management (writes to Hikvision devices: people, cards, faces,
+ * fingerprints, schedules, doors) is ENABLED by default for admin accounts.
+ * Every write still needs a confirmation phrase and is written to the audit log.
+ * Set SPEED_DEVICE_WRITES=0 (or false/no/off) to lock the program to read-only.
+ * Accountant accounts are always read-only regardless of this switch.
  */
 export function deviceWritesEnabled(env: Record<string, string | undefined> = process.env) {
-  return ["1", "true", "yes"].includes(String(env.SPEED_DEVICE_WRITES || "").trim().toLowerCase());
+  return !["0", "false", "no", "off"].includes(String(env.SPEED_DEVICE_WRITES ?? "").trim().toLowerCase());
 }
 
 export const READ_ONLY_MESSAGE =
-  "البرنامج في وضع القراءة فقط: التعديل على أجهزة البصمة (إضافة/تعديل/حذف مستخدمين أو كروت، فتح الأبواب، الوجوه والبصمات) مقفول.";
+  "البرنامج مقفول على وضع القراءة فقط (SPEED_DEVICE_WRITES=0): التعديل على أجهزة البصمة مقفول.";

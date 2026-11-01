@@ -4,7 +4,7 @@
 import {existsSync,mkdirSync,readFileSync,writeFileSync,readdirSync,rmSync,cpSync,copyFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
-const VERSION_CODE='18',VERSION_NAME='1.2.1',ALL_ABIS={'arm64-v8a':'aarch64-linux-android','armeabi-v7a':'armv7a-linux-androideabi','x86_64':'x86_64-linux-android'};
+const VERSION_CODE='19',VERSION_NAME='1.2.2',ALL_ABIS={'arm64-v8a':'aarch64-linux-android','armeabi-v7a':'armv7a-linux-androideabi','x86_64':'x86_64-linux-android'};
 // Phones: arm64-v8a + armeabi-v7a. Add x86_64 (emulator tests) with SPEED_ANDROID_ABIS=arm64-v8a,armeabi-v7a,x86_64
 const ABIS=Object.fromEntries((process.env.SPEED_ANDROID_ABIS||'arm64-v8a,armeabi-v7a').split(',').map(a=>[a,ALL_ABIS[a]]));
 const release=process.env.SPEED_RELEASE_KEYSTORE||'';
