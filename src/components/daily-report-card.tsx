@@ -128,7 +128,7 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
       </div>
       <div className="ac-actions ac-no-print">
         <label title="الافتراضي: جدول واحد بسيط (الاسم · أول بصمة · آخر بصمة · عدد ساعات العمل)">
-          <input type="checkbox" checked={detailed} onChange={(e) => setDetailed(e.target.checked)} /> تقرير مفصّل (ملخص + صفحة لكل موظف)
+          <input type="checkbox" checked={detailed} onChange={(e) => setDetailed(e.target.checked)} /> تقرير مفصّل (ملخص + كارت لكل موظف)
         </label>
         <Button
           disabled={!shown.length}

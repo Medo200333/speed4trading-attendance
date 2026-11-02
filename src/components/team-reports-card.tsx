@@ -21,6 +21,7 @@ export function TeamReportsCard() {
   const pull = kind === "openapi" ? api ?? web : web ?? api;
   const [from, setFrom] = useState(() => today().slice(0, 8) + "01");
   const [to, setTo] = useState(today);
+  const [detailed, setDetailed] = useState(false);
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const rows = useMemo(() => (pull ? mergeDailySources([], pull, "teams", from, to) : []), [pull, from, to]);
   const layout = useMemo(() => buildLayout(from, to, rows), [from, to, rows]);
@@ -45,9 +46,10 @@ export function TeamReportsCard() {
           آخر سحب: {pull.from} → {pull.to} · {pull.punches.length} بصمة{outside ? " — الفترة المختارة أكبر من اللي اتسحب، اسحب الفترة كلها الأول." : ""}
         </p>
       )}
+      <label><input type="checkbox" checked={detailed} onChange={(e) => setDetailed(e.target.checked)} /> تقرير مفصّل (ملخص + كارت لكل موظف)</label>
       <div className="ac-actions">
-        <Button disabled={!rows.length} onClick={async () => { const { saveDailyPdf } = await import("@/lib/daily-report"); await saveDailyPdf(from, to, rows, profile.name, profile.logo); }}>PDF تقرير Team</Button>
-        <Button disabled={!rows.length} onClick={async () => { const { saveDailyXlsx } = await import("@/lib/daily-report"); await saveDailyXlsx(from, to, rows, profile.name, profile.logo); }}>Excel تقرير Team</Button>
+        <Button disabled={!rows.length} onClick={async () => { const { saveDailyPdf } = await import("@/lib/daily-report"); await saveDailyPdf(from, to, rows, profile.name, profile.logo, undefined, detailed); }}>PDF تقرير Team</Button>
+        <Button disabled={!rows.length} onClick={async () => { const { saveDailyXlsx } = await import("@/lib/daily-report"); await saveDailyXlsx(from, to, rows, profile.name, profile.logo, null, undefined, detailed); }}>Excel تقرير Team</Button>
       </div>
       {rows.length ? (
         <TableScroll label="تقرير Hik-Connect Team">

@@ -98,7 +98,7 @@ th{background:#1F3864;color:#fff;font-weight:600}.mx th{font-size:8px;line-heigh
 .mx img{width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle}.g{background:#E2F0D9}.a{background:#FDE2E1;color:#C00000}.s{background:#FFF4CE}.t{background:#EAF0F8;font-weight:700}
 .hd{display:flex;gap:16px;align-items:center;background:#EAF0F8;border-radius:10px;padding:6px 12px;margin-bottom:5px}.hd img{width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid #1F3864}
 .hd h2{margin:0;font-size:22px;color:#1F3864}.chips{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap}.chips b{background:#fff;border:1px solid #b8c3d6;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600}
-.dt td,.dt th{font-size:9px;height:13px;padding:0;line-height:1.1}.leg{font-size:9px;margin-top:4px;color:#555}.leg i{display:inline-block;width:10px;height:10px;border:1px solid #999;margin:0 3px -1px 2px}`;
+.dt td,.dt th{font-size:9px;height:13px;padding:0;line-height:1.1}.leg{font-size:9px;margin-top:4px;color:#555}.leg i{display:inline-block;width:10px;height:10px;border:1px solid #999;margin:0 3px -1px 2px}\n.card{border:1.5px solid #b8c3d6;border-radius:10px;padding:6px;margin:0 0 14px;break-inside:avoid;page-break-inside:avoid}.card.long{break-inside:auto;page-break-inside:auto}.card .hd{break-after:avoid;page-break-after:avoid}.card .hd img{width:56px;height:56px}.card h2{font-size:17px}.dt thead{display:table-header-group}.dt tr{page-break-inside:avoid;break-inside:avoid}`;
 
 /** Full RTL HTML document (A4 landscape) — print with Electron webContents.printToPDF or window.print(). */
 export function layoutHtml(layout: ReportLayout, companyName = "", perPage = 19, colsPerPage = 16): string {
@@ -119,12 +119,14 @@ export function layoutHtml(layout: ReportLayout, companyName = "", perPage = 19,
       pages.push(`<div class=pg>${bar(`الملخص (${pi + 1}/${parts.length})`)}<table class=mx><tr><th style="width:34px">الصورة</th><th style="width:110px">الاسم</th>${th}${last ? `<th style="width:42px">أيام<br>الحضور</th><th style="width:46px">إجمالي<br>الساعات</th>` : ""}</tr>${rows}</table><div class=leg><i class=g></i>حضور (أول/آخر بصمة) <i class=s></i>${SINGLE} <i class=a></i>${ABSENT}</div></div>`);
     }
   });
-  for (const e of employees) {
+  // Per-employee cards stacked on shared pages (never split a card; only very long ranges may break, header repeats).
+  const cards = employees.map((e) => {
     const img = safeImg(e.photo);
     const trs = e.days.map((d) => { const base = `<td>${d.dayName}</td><td>${longDate(d.date)}</td>`;
       return d.state === "absent" ? `<tr class=a>${base}<td colspan=4>${ABSENT}</td></tr>` : `<tr${d.state === "single" ? " class=s" : ""}>${base}<td>${d.first}</td><td>${d.last || "—"}</td><td><b>${d.worked}</b></td><td>${esc(d.branch)}</td></tr>`; }).join("");
-    pages.push(`<div class=pg>${bar("تقرير موظف")}<div class=hd>${img ? `<img src="${img}">` : ""}<div><h2>${esc(e.name)}</h2><div class=chips><b>الكود: ${esc(e.employeeNo)}</b><b>الفرع: ${esc(e.branch)}</b><b>أيام الحضور: ${e.present}</b><b>الغياب: ${e.absent}</b><b>إجمالي الساعات: ${fmtMinutes(e.totalMinutes)}</b></div></div></div><table class=dt><tr><th>اليوم</th><th>التاريخ</th><th>أول بصمة</th><th>آخر بصمة</th><th>المدة</th><th>الفرع</th></tr>${trs}<tr class=t><td colspan=2>الإجمالي</td><td colspan=2>${e.present} يوم حضور · ${e.absent} ${ABSENT}</td><td>${fmtMinutes(e.totalMinutes)}</td><td></td></tr></table></div>`);
-  }
+    return `<div class="card${e.days.length > 40 ? " long" : ""}"><div class=hd>${img ? `<img src="${img}">` : ""}<div><h2>${esc(e.name)}</h2><div class=chips><b>الكود: ${esc(e.employeeNo)}</b><b>الفرع: ${esc(e.branch)}</b><b>أيام الحضور: ${e.present}</b><b>الغياب: ${e.absent}</b><b>إجمالي الساعات: ${fmtMinutes(e.totalMinutes)}</b></div></div></div><table class=dt><thead><tr><th>اليوم</th><th>التاريخ</th><th>أول بصمة</th><th>آخر بصمة</th><th>المدة</th><th>الفرع</th></tr></thead><tbody>${trs}<tr class=t><td colspan=2>الإجمالي</td><td colspan=2>${e.present} يوم حضور · ${e.absent} ${ABSENT}</td><td>${fmtMinutes(e.totalMinutes)}</td><td></td></tr></tbody></table></div>`;
+  }).join("");
+  if (employees.length) pages.push(`<div class=pg>${bar("تقارير الموظفين")}${cards}</div>`);
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${LAYOUT_CSS}</style></head><body>${pages.join("")}</body></html>`;
 }
 
