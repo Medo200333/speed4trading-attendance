@@ -92,7 +92,7 @@ export async function activateDevice(target: ActivateTarget, password: string, c
 /** Reads <Salt>/<Encrypt> for one MAC from a fresh inquiry (Sadp.dll keeps them from discovery). */
 export async function sadpSecurityFor(mac: string): Promise<SadpSecurity | undefined> {
   const row = (await sadpDiscover()).find((d) => d.mac === mac.toLowerCase());
-  return row ? { salt: row.salt, encrypt: row.encrypt } : undefined;
+  return row ? { salt: row.salt, encrypt: row.encrypt, current: row.current } : undefined;
 }
 export async function modifyDeviceNetwork(mac: string, password: string, net: NetworkChange, request: SadpRequest = sadpRequest, security: (mac: string) => Promise<SadpSecurity | undefined> = sadpSecurityFor): Promise<PasswordCheck> {
   if (!mac) return { ok: false, error: "عنوان MAC للجهاز غير معروف، ما ينفعش نغيّر الشبكة." };

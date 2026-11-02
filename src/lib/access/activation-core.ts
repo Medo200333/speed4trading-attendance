@@ -97,7 +97,13 @@ export function sadpActivateXml(mac: string, encryptedPassword: string, uuid = r
   return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><MAC>${esc(mac.toLowerCase())}</MAC><Types>activate</Types><Password>${esc(encryptedPassword)}</Password></Probe>`;
 }
 /** Device security info from the inquiry reply (<Salt>, <Encrypt>), needed for the "update" password. */
-export type SadpSecurity = { salt?: string; encrypt?: boolean; username?: string };
+/** Current values from the inquiry. SADPTool's "enable DHCP" (0x48a350) fills SADP_DEVICE_NET_PARAM from the cached device
+ *  info via 0x42a220 — IPv4 (+0xa0), mask (+0xb0), gateway (+0x1bc), IPv6, IPv6 gw, CommandPort (+0xc4→0x130), IPv6MaskLen
+ *  (+0x228→0x132), DHCP (+0x22a→0x133), HttpPort (+0x22c→0x134), SDKOverTLSPort (+0x26c→0x138) — then only sets DHCP=1
+ *  (0x48a593 mov byte [ebp-0x95],1). PackageUpdateData prints them as-is ("::" only when IPv6 is empty, 0x100436ab) and appends
+ *  <HttpPort>/<SDKOverTLSPort> only when non-zero (0x1004377d / 0x100437f2). */
+export type SadpCurrentNet = { ip: string; mask: string; gateway: string; ipv6: string; ipv6Gateway: string; ipv6MaskLen: number; commandPort: number; httpPort: number; sdkOverTlsPort: number };
+export type SadpSecurity = { salt?: string; encrypt?: boolean; username?: string; current?: SadpCurrentNet };
 /** Sadp.dll PackageUpdateData @0x10043400 (+ helper @0x1003f2f0):
  *  digest = salt ? MD5(lowercase-hex SHA256(username + salt + password)) : MD5(password)
  *  Encrypt=true → base64(AES-128-ECB(key = digest, pad64(digest + ";" + Uuid)))   else → base64(digest).
@@ -125,11 +131,19 @@ export function checkNetwork(net: NetworkChange): PasswordCheck {
 /** SADP "update" (modify network parameters), field order exactly as Sadp.dll's format string. Needs the admin password.
  * With DHCP the current/any IP fields are still sent (the device ignores them). */
 export function sadpModifyXml(mac: string, password: string, net: NetworkChange & { commandPort?: number }, uuid = randomUUID().toUpperCase(), sec?: SadpSecurity) {
-  const port = net.httpPort && net.httpPort > 0 && net.httpPort < 65536 ? `<HttpPort>${net.httpPort}</HttpPort>` : "";
   // Devices that report <Salt>/<Encrypt> get the Sadp.dll PackageUpdateData password (bSalt="true" when a salt exists); others the legacy plain form.
   const secure = Boolean(sec && (sec.salt || sec.encrypt));
   const pw = secure ? sadpUpdatePassword(password, sec!, uuid) : password;
-  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>${esc(mac.toLowerCase())}</MAC><Password${secure && sec!.salt ? ' bSalt="true"' : ""}>${esc(pw)}</Password><IPv4Address>${net.ip || "0.0.0.0"}</IPv4Address><CommandPort>${net.commandPort || 8000}</CommandPort><IPv4SubnetMask>${net.mask || "255.255.255.0"}</IPv4SubnetMask><IPv4Gateway>${net.gateway || "0.0.0.0"}</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><DHCP>${net.dhcp ? "true" : "false"}</DHCP>${port}</Probe>`;
+  const cur = sec?.current;
+  // DHCP: send the device's current values unchanged (SADPTool does), static: the new ones; IPv6/ports always the current ones.
+  const ip = net.dhcp ? cur?.ip || net.ip || "0.0.0.0" : net.ip;
+  const mask = net.dhcp ? cur?.mask || net.mask || "255.255.255.0" : net.mask || "255.255.255.0";
+  const gateway = net.dhcp ? cur?.gateway || net.gateway || "0.0.0.0" : net.gateway || "0.0.0.0";
+  const commandPort = net.commandPort || cur?.commandPort || 8000;
+  const maskLen = cur ? cur.ipv6MaskLen : 64;
+  const httpPort = net.httpPort && net.httpPort > 0 && net.httpPort < 65536 ? net.httpPort : cur?.httpPort || 0;
+  const tail = (httpPort ? `<HttpPort>${httpPort}</HttpPort>` : "") + (cur?.sdkOverTlsPort ? `<SDKOverTLSPort>${cur.sdkOverTlsPort}</SDKOverTLSPort>` : "");
+  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>${esc(mac.toLowerCase())}</MAC><Password${secure && sec!.salt ? ' bSalt="true"' : ""}>${esc(pw)}</Password><IPv4Address>${esc(ip)}</IPv4Address><CommandPort>${commandPort}</CommandPort><IPv4SubnetMask>${esc(mask)}</IPv4SubnetMask><IPv4Gateway>${esc(gateway)}</IPv4Gateway><IPv6Address>${esc(cur?.ipv6 || "::")}</IPv6Address><IPv6Gateway>${esc(cur?.ipv6Gateway || "::")}</IPv6Gateway><IPv6MaskLen>${maskLen}</IPv6MaskLen><DHCP>${net.dhcp ? "true" : "false"}</DHCP>${tail}</Probe>`;
 }
 /** Parses a SADP reply to activate/update: <ProbeMatch>…<Result>success|failed</Result>. */
 export function sadpReplyResult(xml: string, mac: string, types?: string): PasswordCheck | null {

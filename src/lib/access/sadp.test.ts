@@ -8,7 +8,9 @@ test("probe xml is an inquiry", () => {
   assert.match(xml, /<Probe><Uuid>ABC<\/Uuid><Types>inquiry<\/Types><ResponseMode>2<\/ResponseMode><\/Probe>/);
 });
 test("parses ProbeMatch", () => {
-  assert.deepEqual(parseProbeMatch(reply, "192.168.1.21"), { source: "sadp", model: "DS-K1A340WX", ip: "192.168.1.21", httpPort: 80, mac: "60-1d-9d-9f-3a-57", serial: "DS-K1A340WX2024SN", firmware: "V1.2.7build 240228", activated: true });
+  const { current, ...row } = parseProbeMatch(reply, "192.168.1.21")!;
+  assert.equal(current?.ip ?? "192.168.1.21", "192.168.1.21");
+  assert.deepEqual(row, { source: "sadp", model: "DS-K1A340WX", ip: "192.168.1.21", httpPort: 80, mac: "60-1d-9d-9f-3a-57", serial: "DS-K1A340WX2024SN", firmware: "V1.2.7build 240228", activated: true });
 });
 test("ignores probes, public IPs and inactive flags parse", () => {
   assert.equal(parseProbeMatch(probeXml()), null);

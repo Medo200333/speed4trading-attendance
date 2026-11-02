@@ -26,3 +26,11 @@ Real-device evidence (DS-K1T673DGX-E1, V4.41.20 build 250719, 2026-11-02): an ex
   - Encrypt branch (0x100434a4): buffer = digest(16) + ';' (0x100434ce) + **strlen/memcpy of [ebp+8] = the Uuid** (0x100434be..0x100434ef), zero-padded to 0x40; `AesEcbEncrypt(buf, 0x40, out, 0x40, key = digest, 0x10)` (0x1004352c); base64.
   - Our first implementation put the password after ';' → device silently dropped the packet.
   - Template 0x1013db40 (bSalt) chosen by strlen(devinfo+0x40e) (cmovne 0x10043669); `<DHCP>` from net+0x133; `<HttpPort>` appended only when net+0x134 ≠ 0.
+
+## Update XML fields (SADPTool.exe, image base 0x400000)
+
+- Imports `SADP_ModifyDeviceNetParam_V40` (IAT 0x591ea8) → wrapper 0x433af0 ← thunk 0x401622 ← 12 call sites (0x48a60d …).
+- "Enable DHCP" handler 0x48a350: zeroes the 0x1b8-byte SADP_DEVICE_NET_PARAM (0x48a51c), fills it from the cached device row via 0x42a220, then sets only DHCP=1 (0x48a593 `mov byte [ebp-0x95],1`) and optional port overrides (0x48a56f/0x48a590).
+- 0x42a220 copies from the device row: IPv4 +0xa0→0x00, mask +0xb0→0x10, gateway +0x1bc→0x20, IPv6 +0x1cc→0x30, IPv6 gw +0x1fa→0xb0, CommandPort +0xc4→0x130, IPv6MaskLen +0x228→0x132, DHCP +0x22a→0x133, HttpPort +0x22c→0x134, SDKOverTLSPort +0x26c→0x138.
+- So with DHCP the packet carries the **current** IPv4/mask/gateway (not 0.0.0.0), current IPv6MaskLen, and `<HttpPort>`/`<SDKOverTLSPort>` when non-zero.
+- Uuid: 0x100545b0 → `UuidCreate` (RPCRT4) + `%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X` (0x10178830) — upper-case dashed, same as ours.

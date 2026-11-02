@@ -187,3 +187,13 @@ test("modifyDeviceNetwork: Encrypt device → exchangecode first, then update wi
   assert.deepEqual(sent, ["exchangecode", "update"]);
   assert.match(updateXml, /bSalt="true"/);
 });
+
+test("SADPTool DHCP update keeps the device's current values (0x42a220) and appends HttpPort/SDKOverTLSPort when non-zero", async () => {
+  const { parseProbeMatch } = await import("./sadp.server.ts");
+  const inq = "<ProbeMatch><MAC>a4-d5-c2-7a-ce-2e</MAC><IPv4Address>192.0.0.64</IPv4Address><IPv4SubnetMask>255.255.255.0</IPv4SubnetMask><IPv4Gateway>0.0.0.0</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><CommandPort>8000</CommandPort><HttpPort>80</HttpPort><SDKOverTLSPort>8443</SDKOverTLSPort><Activated>true</Activated></ProbeMatch>";
+  const cur = parseProbeMatch(inq)!.current!;
+  const xml = sadpModifyXml("a4-d5-c2-7a-ce-2e", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, "U", { salt: "s", encrypt: true, current: cur });
+  assert.match(xml, /<IPv4Address>192\.0\.0\.64<\/IPv4Address><CommandPort>8000<\/CommandPort><IPv4SubnetMask>255\.255\.255\.0<\/IPv4SubnetMask><IPv4Gateway>0\.0\.0\.0<\/IPv4Gateway><IPv6Address>::<\/IPv6Address><IPv6Gateway>::<\/IPv6Gateway><IPv6MaskLen>64<\/IPv6MaskLen><DHCP>true<\/DHCP><HttpPort>80<\/HttpPort><SDKOverTLSPort>8443<\/SDKOverTLSPort><\/Probe>$/);
+  const st = sadpModifyXml("aa", "x", { dhcp: false, ip: "10.20.0.50", mask: "255.255.255.0", gateway: "10.20.0.1" }, "U", { current: { ...cur, sdkOverTlsPort: 0, ipv6MaskLen: 0 } });
+  assert.match(st, /<IPv4Address>10\.20\.0\.50<\/IPv4Address>.*<IPv4Gateway>10\.20\.0\.1<\/IPv4Gateway>.*<IPv6MaskLen>0<\/IPv6MaskLen><DHCP>false<\/DHCP><HttpPort>80<\/HttpPort><\/Probe>$/);
+});

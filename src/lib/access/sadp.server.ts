@@ -16,6 +16,8 @@ export type FoundDevice = {
   /** From the inquiry reply; needed for the SADP "update" password (see sadpUpdatePassword). */
   salt?: string;
   encrypt?: boolean;
+  /** Raw current network values from the inquiry; SADPTool sends these back unchanged in "update" (see sadpModifyXml). */
+  current?: import("./activation-core.ts").SadpCurrentNet;
 };
 export const SADP_GROUP = "239.255.255.250";
 export const SADP_PORT = 37020;
@@ -47,6 +49,11 @@ export function parseProbeMatch(xml: string, from = ""): FoundDevice | null {
     activated: activated === "true" ? true : activated === "false" ? false : null,
     ...(tag(xml, "Salt") ? { salt: tag(xml, "Salt") } : {}),
     ...(tag(xml, "Encrypt") ? { encrypt: tag(xml, "Encrypt").toLowerCase() === "true" } : {}),
+    ...(tag(xml, "IPv4SubnetMask") || tag(xml, "CommandPort") ? { current: {
+      ip: tag(xml, "IPv4Address"), mask: tag(xml, "IPv4SubnetMask"), gateway: tag(xml, "IPv4Gateway"),
+      ipv6: tag(xml, "IPv6Address"), ipv6Gateway: tag(xml, "IPv6Gateway"), ipv6MaskLen: Number(tag(xml, "IPv6MaskLen")) || 0,
+      commandPort: Number(tag(xml, "CommandPort")) || 0, httpPort: Number(tag(xml, "HttpPort")) || 0, sdkOverTlsPort: Number(tag(xml, "SDKOverTLSPort")) || 0,
+    } } : {}),
   };
 }
 export function localIPv4() {
