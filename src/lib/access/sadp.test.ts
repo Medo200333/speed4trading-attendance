@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseProbeMatch, probeXml, isapiFingerprint, subnetHosts } from "./sadp.server.ts";
+import { inLocalSubnet, suggestNetwork, parseProbeMatch, probeXml, isapiFingerprint, subnetHosts } from "./sadp.server.ts";
 
 const reply = `<?xml version="1.0" encoding="UTF-8"?><ProbeMatch><Uuid>X</Uuid><Types>inquiry</Types><DeviceType>852085</DeviceType><DeviceDescription>DS-K1A340WX</DeviceDescription><DeviceSN>DS-K1A340WX2024SN</DeviceSN><CommandPort>8000</CommandPort><HttpPort>80</HttpPort><MAC>60-1D-9D-9F-3A-57</MAC><IPv4Address>192.168.1.21</IPv4Address><SoftwareVersion>V1.2.7build 240228</SoftwareVersion><Activated>true</Activated></ProbeMatch>`;
 test("probe xml is an inquiry", () => {
@@ -26,4 +26,12 @@ test("subnet hosts", () => {
   assert.equal(hosts.length, 253);
   assert.ok(!hosts.includes("192.168.1.9") && hosts.includes("192.168.1.21"));
   assert.deepEqual(subnetHosts("10.0.0.1", "255.0.0.0"), []);
+});
+
+test("factory IPs parse; subnet + free IP suggestion", () => {
+  assert.equal(parseProbeMatch(reply.replace("192.168.1.21", "192.0.0.64"))?.ip, "192.0.0.64");
+  const lan = [{ address: "10.0.5.9", netmask: "255.255.255.0" }];
+  assert.equal(inLocalSubnet("192.168.1.64", lan), false);
+  assert.equal(inLocalSubnet("10.0.5.77", lan), true);
+  assert.deepEqual(suggestNetwork(["10.0.5.200"], lan), { ip: "10.0.5.201", mask: "255.255.255.0", gateway: "10.0.5.1" });
 });
