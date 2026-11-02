@@ -100,14 +100,18 @@ export function sadpActivateXml(mac: string, encryptedPassword: string, uuid = r
 export type SadpSecurity = { salt?: string; encrypt?: boolean; username?: string };
 /** Sadp.dll PackageUpdateData @0x10043400 (+ helper @0x1003f2f0):
  *  digest = salt ? MD5(lowercase-hex SHA256(username + salt + password)) : MD5(password)
- *  Encrypt=true → base64(AES-128-ECB(key = digest, pad64(digest + ";" + password)))   else → base64(digest). */
-export function sadpUpdatePassword(password: string, sec: SadpSecurity) {
+ *  Encrypt=true → base64(AES-128-ECB(key = digest, pad64(digest + ";" + Uuid)))   else → base64(digest).
+ *  The text after ";" is PackageUpdateData's 1st argument ([ebp+8] → [ebp-0xa2c]), the same string printed as <Uuid> in the
+ *  sprintf at 0x1004376e; the caller 0x10034f20 fills it from the UUID generator 0x100545b0 — NOT the password (the password
+ *  only enters through the digest). Encrypt is chosen by devinfo+0x490 (inquiry <Encrypt>, set at 0x1002f0b2); the path is
+ *  only taken when devinfo+0x491 == 1, which the XML inquiry handler sets for every XML-protocol device (0x10037319..0x10037334). */
+export function sadpUpdatePassword(password: string, sec: SadpSecurity, uuid = "") {
   const user = sec.username || "admin";
   const digest = sec.salt
     ? createHash("md5").update(createHash("sha256").update(user + sec.salt + password).digest("hex")).digest()
     : createHash("md5").update(password).digest();
   if (!sec.encrypt) return digest.toString("base64");
-  return aesEcb(digest, zeroPad(Buffer.concat([digest, Buffer.from(";" + password, "latin1")]), 64)).toString("base64");
+  return aesEcb(digest, zeroPad(Buffer.concat([digest, Buffer.from(";" + uuid, "latin1")]), 64)).toString("base64");
 }
 export type NetworkChange = { dhcp: boolean; ip: string; mask: string; gateway: string; httpPort?: number };
 export function checkNetwork(net: NetworkChange): PasswordCheck {
@@ -124,7 +128,7 @@ export function sadpModifyXml(mac: string, password: string, net: NetworkChange 
   const port = net.httpPort && net.httpPort > 0 && net.httpPort < 65536 ? `<HttpPort>${net.httpPort}</HttpPort>` : "";
   // Devices that report <Salt>/<Encrypt> get the Sadp.dll PackageUpdateData password (bSalt="true" when a salt exists); others the legacy plain form.
   const secure = Boolean(sec && (sec.salt || sec.encrypt));
-  const pw = secure ? sadpUpdatePassword(password, sec!) : password;
+  const pw = secure ? sadpUpdatePassword(password, sec!, uuid) : password;
   return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>${esc(mac.toLowerCase())}</MAC><Password${secure && sec!.salt ? ' bSalt="true"' : ""}>${esc(pw)}</Password><IPv4Address>${net.ip || "0.0.0.0"}</IPv4Address><CommandPort>${net.commandPort || 8000}</CommandPort><IPv4SubnetMask>${net.mask || "255.255.255.0"}</IPv4SubnetMask><IPv4Gateway>${net.gateway || "0.0.0.0"}</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><DHCP>${net.dhcp ? "true" : "false"}</DHCP>${port}</Probe>`;
 }
 /** Parses a SADP reply to activate/update: <ProbeMatch>…<Result>success|failed</Result>. */

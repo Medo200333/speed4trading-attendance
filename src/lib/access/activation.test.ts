@@ -162,14 +162,18 @@ test("Sadp.dll PackageUpdateData password: salted MD5(sha256hex(user+salt+pw)), 
   const digest = createHash("md5").update(createHash("sha256").update("admin" + salt + "Speed2026").digest("hex")).digest();
   assert.equal(sadpUpdatePassword("Speed2026", { salt }), digest.toString("base64"));
   assert.equal(sadpUpdatePassword("Speed2026", {}), createHash("md5").update("Speed2026").digest("base64"));
-  const enc = Buffer.from(sadpUpdatePassword("Speed2026", { salt, encrypt: true }), "base64");
+  const enc = Buffer.from(sadpUpdatePassword("Speed2026", { salt, encrypt: true }, "7B4BA858-E07F-434F-AEF9-C046AE262241"), "base64");
   assert.equal(enc.length, 64);
   const d = createDecipheriv("aes-128-ecb", digest, null); d.setAutoPadding(false);
   const plain = Buffer.concat([d.update(enc), d.final()]);
   assert.deepEqual(plain.subarray(0, 16), digest);
-  assert.equal(plain.subarray(16).toString("latin1").replace(/\0+$/, ""), ";Speed2026");
+  assert.equal(plain.subarray(16).toString("latin1").replace(/\0+$/, ""), ";7B4BA858-E07F-434F-AEF9-C046AE262241"); // Uuid, not the password (0x100434be..0x100434ef)
   const xml = sadpModifyXml("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, "U", { salt, encrypt: true });
   assert.match(xml, /<Password bSalt="true">[A-Za-z0-9+\/=]{88}<\/Password>/);
+  const u = xml.match(/<Uuid>([^<]+)<\/Uuid>/)![1]; assert.equal(u, "U");
+  const d2 = createDecipheriv("aes-128-ecb", digest, null); d2.setAutoPadding(false);
+  const p2 = Buffer.concat([d2.update(Buffer.from(xml.match(/bSalt="true">([^<]+)</)![1], "base64")), d2.final()]);
+  assert.equal(p2.subarray(16).toString("latin1").replace(/\0+$/, ""), ";U");
   assert.doesNotMatch(xml, /Speed2026/);
 });
 test("modifyDeviceNetwork: Encrypt device → exchangecode first, then update with the salted password", async () => {

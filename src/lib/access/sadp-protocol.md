@@ -15,3 +15,14 @@ Source: `C:\Program Files (x86)\SADP\SADP\Sadp.dll` (1,678,848 bytes), disassemb
 | sending | `CSADPGlobalCtrl::GetExchangecode` 0x1002b780 | sends on the NIC the device was found on (mode 2) or on every NIC (loop over +0x75f8), then polls every 100 ms (Sleep 0x64) until the reply state changes or timeout. |
 
 Real-device evidence (DS-K1T673DGX-E1, V4.41.20 build 250719, 2026-11-02): an exchangecode with `<Code>` = base64(hex modulus) (ISAPI style) was answered `<Result>failed</Result><Code></Code>`. Inquiry fields: `<Encrypt>true</Encrypt>`, `<Salt>` (64 hex), no `<SecurityMode>`.
+
+## Update password, corrected after the 2026-11-02 real test (update got no reply)
+
+- `ModifyNetParamV40` (0x1002d0c5): if devinfo byte [-0xc0]==1 (XML device) → `0x10034f20`, else binary 0x9c02 packet `0x10035180` (old, password ≤16 plain/MD5).
+- `0x10034f20` (0x10034f99): devinfo+0x491 == 1 → `PackageUpdateData` 0x10043400; &2 → v31 `0x1004ae10`.
+- +0x491 is written only at 0x1002f436 (AddDevice copy, arg [ebp+0x18]); the XML inquiry handler 0x100355f0 passes 1 when its mode arg is 1 or 2 (0x10037319..0x10037334); the binary handler passes 0 (0x10034c68).
+- `PackageUpdateData` args: [ebp+8] = Uuid string (0x100545b0 generator in the caller), [ebp+0xc] = username, [ebp+0x10] = password, [ebp+0x14] = devinfo, [ebp+0x18] = net params.
+  - digest helper 0x1003f2f0(user, password, devinfo+0x40e = Salt, devinfo+0x44f, out).
+  - Encrypt branch (0x100434a4): buffer = digest(16) + ';' (0x100434ce) + **strlen/memcpy of [ebp+8] = the Uuid** (0x100434be..0x100434ef), zero-padded to 0x40; `AesEcbEncrypt(buf, 0x40, out, 0x40, key = digest, 0x10)` (0x1004352c); base64.
+  - Our first implementation put the password after ';' → device silently dropped the packet.
+  - Template 0x1013db40 (bSalt) chosen by strlen(devinfo+0x40e) (cmovne 0x10043669); `<DHCP>` from net+0x133; `<HttpPort>` appended only when net+0x134 ≠ 0.
