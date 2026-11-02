@@ -1057,6 +1057,27 @@ async function executeOperation(
     );
     checkResponse(response);
   };
+  /** Newer firmware: UserInfoDetail/Delete (+ DeleteProcess). Older DS-K1T firmware only has UserInfo/Delete
+   * (synchronous). Returns true when the legacy path was used. Only the employees passed are ever targeted. */
+  const startDelete = async (employeeNos: string[]) => {
+    const response = await client.request(
+      "/ISAPI/AccessControl/UserInfoDetail/Delete?format=json",
+      "PUT",
+      JSON.stringify({ UserInfoDetail: { mode: "byEmployeeNo", EmployeeNoList: employeeNos.map((employeeNo) => ({ employeeNo })) } }),
+    );
+    if (response.status === 404 || /notSupport|invalidOperation/i.test(response.text || "")) {
+      await send("/ISAPI/AccessControl/UserInfo/Delete?format=json", "PUT", {
+        UserInfoDelCond: { EmployeeNoList: employeeNos.map((employeeNo) => ({ employeeNo })) },
+      });
+      return true;
+    }
+    checkResponse(response);
+    return false;
+  };
+  const deleteProgress = async () => {
+    const r = await client.request("/ISAPI/AccessControl/UserInfoDetail/DeleteProcess");
+    if (r.status !== 404 && !/notSupport/i.test(r.text || "")) checkResponse(r);
+  };
   const upsert = async (employeeNo: string) => {
     const record = await exactPerson(device, employeeNo);
     if (!record)
@@ -1152,21 +1173,10 @@ async function executeOperation(
         "لم تتأكد فترة الصلاحية المنتهية بعد الكتابة.",
       );
   } else if (operation.kind === "deletePeople") {
-    await send(
-      "/ISAPI/AccessControl/UserInfoDetail/Delete?format=json",
-      "PUT",
-      {
-        UserInfoDetail: {
-          mode: "byEmployeeNo",
-          EmployeeNoList: operation.employeeNos.map((employeeNo) => ({ employeeNo })),
-        },
-      },
-    );
+    const legacy = await startDelete(operation.employeeNos);
     let remaining = [...operation.employeeNos];
     for (let attempt = 0; attempt < 12 && remaining.length; attempt += 1) {
-      checkResponse(
-        await client.request("/ISAPI/AccessControl/UserInfoDetail/DeleteProcess"),
-      );
+      if (!legacy) await deleteProgress();
       const still: string[] = [];
       for (const employeeNo of remaining)
         if (await exactPerson(device, employeeNo)) still.push(employeeNo);
@@ -1181,29 +1191,17 @@ async function executeOperation(
       for (const employeeNo of removed)
         audit(state, actor, "delete.person", `${device.id}:${employeeNo}`, "success");
     });
+    await (await import("./biometrics.server")).forgetPhotos(device.id, removed);
     if (remaining.length)
       throw new AccessError(
         "READBACK",
         `اتحذف ${removed.length} ولم يتأكد حذف: ${remaining.join(", ")}. لا تُعد الطلب تلقائياً.`,
       );
   } else if (operation.kind === "deletePerson") {
-    await send(
-      "/ISAPI/AccessControl/UserInfoDetail/Delete?format=json",
-      "PUT",
-      {
-        UserInfoDetail: {
-          mode: "byEmployeeNo",
-          EmployeeNoList: [{ employeeNo: operation.employeeNo }],
-        },
-      },
-    );
+    const legacy = await startDelete([operation.employeeNo]);
     let remains = true;
     for (let attempt = 0; attempt < 8 && remains; attempt += 1) {
-      checkResponse(
-        await client.request(
-          "/ISAPI/AccessControl/UserInfoDetail/DeleteProcess",
-        ),
-      );
+      if (!legacy) await deleteProgress();
       remains = Boolean(await exactPerson(device, operation.employeeNo));
       if (remains) await new Promise((resolve) => setTimeout(resolve, 500));
     }
@@ -1221,6 +1219,7 @@ async function executeOperation(
           ),
       );
     });
+    await (await import("./biometrics.server")).forgetPhotos(device.id, [operation.employeeNo]);
   } else if (operation.kind === "permission") {
     await send("/ISAPI/AccessControl/UserInfo/Modify?format=json", "PUT", {
       UserInfo: {

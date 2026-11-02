@@ -958,7 +958,9 @@ export async function deleteFingerprints(device: Device, employeeNo: string, fin
   if (fingerNo) detail.fingerPrintID = [fingerNo];
   const response = await client.request("/ISAPI/AccessControl/FingerPrint/Delete?format=json", "PUT",
     JSON.stringify({ FingerPrintDelete: { mode: "byEmployeeNo", EmployeeNoDetail: detail } }));
-  if (response.status === 401 || response.status === 404)
+  if (response.status === 401)
+    throw new AccessError("AUTH", "الجهاز رفض بيانات الدخول (401). راجع اسم المستخدم وكلمة السر للجهاز قبل أي محاولة تانية.");
+  if (response.status === 404)
     throw new AccessError("CAPABILITY", "الجهاز لا يدعم حذف البصمات عن بُعد (FingerPrint/Delete). احذفها من شاشة الجهاز.");
   checkResponse(response);
   for (let i = 0; i < 15; i += 1) {
@@ -971,6 +973,9 @@ export async function deleteFingerprints(device: Device, employeeNo: string, fin
   }
   const after = await fingerprintStatus(device, employeeNo);
   if (!fingerNo && after.count) throw new AccessError("BIO_READBACK", `ما زالت ${after.count} بصمة مسجلة بعد الحذف.`);
+  // One finger: the count must drop, otherwise the device accepted the request but kept the template.
+  if (fingerNo && status.count != null && after.count != null && status.count > 0 && after.count >= status.count)
+    throw new AccessError("BIO_READBACK", `الجهاز قبل الطلب لكن عدد البصمات لسه ${after.count}؛ إصبع رقم ${fingerNo} غالباً مش متسجل بالرقم ده.`);
   return after;
 }
 
@@ -1084,4 +1089,15 @@ export async function savePhotoThumb(actor: Actor, deviceId: string, employeeNo:
   await writeFile(join(folder, `${key}.jpg`), bytes);
   await rm(join(folder, `${key}.none`), { force: true });
   return { saved: true };
+}
+
+/** Drop the cached photo files of a deleted employee so a new person reusing the number never shows the old face. */
+export async function forgetPhotos(deviceId: string, employeeNos: string[]) {
+  const { rm } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const folder = await photoFolder();
+  for (const no of employeeNos) {
+    const key = photoKey(deviceId, no);
+    for (const ext of [".jpg", ".orig.jpg", ".none"]) await rm(join(folder, key + ext), { force: true }).catch(() => undefined);
+  }
 }

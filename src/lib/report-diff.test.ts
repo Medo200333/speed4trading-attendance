@@ -19,3 +19,16 @@ test("diff states", () => {
   const bytes = reportXlsxBytes("2026-11-01", "2026-11-01", dev, rows, "Sky");
   assert.ok(bytes.length > 1000);
 });
+import { buildLayout } from "./report-layout.ts";
+test("layout groups one employee across devices/Teams", () => {
+  const rows = [r("7", "2026-11-01", "08:00", "17:00", { personId: "devA|s|7" }), r("7", "2026-11-02", "08:00", "17:00", { personId: "team:7" })];
+  const l = buildLayout("2026-11-01", "2026-11-02", rows);
+  assert.equal(l.employees.length, 1); assert.equal(l.employees[0].present, 2);
+});
+import { parseDateTime } from "./attendance.ts";
+test("parseDateTime: M/D/Y fallback and 12h clocks", () => {
+  assert.deepEqual(parseDateTime("05/13/2026 8:05 PM"), { date: "2026-05-13", time: "20:05:00" });
+  assert.deepEqual(parseDateTime("13/05/2026 08:05"), { date: "2026-05-13", time: "08:05:00" });
+  assert.deepEqual(parseDateTime("02/11/2026 9:00 م"), { date: "2026-11-02", time: "21:00:00" });
+  assert.deepEqual(parseDateTime("03/04/2026 12:10 AM"), { date: "2026-04-03", time: "00:10:00" });
+});

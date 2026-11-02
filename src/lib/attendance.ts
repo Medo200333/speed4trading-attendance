@@ -160,7 +160,13 @@ function excelSerial(value: number): { date: string; time: string } | null {
 }
 
 export function parseDateTime(raw: string): { date: string; time: string } | null {
-  const text = raw.trim().replace(/\s+/g, " ");
+  let text = raw.trim().replace(/\s+/g, " ");
+  // 12-hour clocks ("8:05 PM", "08:05:10 ص/م"): convert to 24h before matching.
+  text = text.replace(/(\d{1,2})(:\d{2}(?::\d{2})?)\s*(AM|PM|ص|م)(?![A-Za-z\u0600-\u06FF])/i, (_m, h: string, rest: string, ap: string) => {
+    let hour = Number(h) % 12;
+    if (/PM|م/i.test(ap)) hour += 12;
+    return `${hour}${rest}`;
+  });
   if (!text) return null;
   if (/^\d+(\.\d+)?$/.test(text)) {
     const serial = excelSerial(Number(text));
@@ -176,8 +182,9 @@ export function parseDateTime(raw: string): { date: string; time: string } | nul
   if (dmy) {
     const a = Number(dmy[1]);
     const b = Number(dmy[2]);
-    const day = a > 12 ? a : b > 12 ? a : a;
-    const month = a > 12 ? b : b > 12 ? b : b;
+    // D/M/Y by default (Egypt); switch to M/D/Y only when the second part cannot be a month.
+    const day = b > 12 && a <= 12 ? b : a;
+    const month = b > 12 && a <= 12 ? a : b;
     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
     const date = `${dmy[3]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const time = dmy[4] ? padTime(`${dmy[4]}:${dmy[5]}:${dmy[6] ?? "0"}`) : "00:00:00";
