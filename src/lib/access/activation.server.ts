@@ -1,5 +1,5 @@
 import dgram from "node:dgram";
-import { activateResult, activateXml, checkActivationPassword, checkNetwork, decryptChallenge, makeChallengeKeys, sadpActivateXml, sadpModifyXml, sadpReplyResult, type NetworkChange, type PasswordCheck } from "./activation-core.ts";
+import { activateResult, activateXml, checkActivationPassword, checkNetwork, decryptChallenge, decryptExchangeReply, encryptPasswordByRandom, makeChallengeKeys, publicKeyCode, sadpActivateXml, sadpExchangeXml, sadpModifyXml, sadpReplyResult, type NetworkChange, type PasswordCheck } from "./activation-core.ts";
 import { inLocalSubnet, localIPv4, sadpGroupListener, SADP_GROUP, SADP_PORT } from "./sadp.server.ts";
 
 type Fetch = (url: string, init: RequestInit) => Promise<{ status: number; text(): Promise<string> }>;
@@ -22,17 +22,22 @@ export async function isapiActivate(target: ActivateTarget, password: string, fe
   return activateResult(response.status, await response.text());
 }
 
-/** Sends one SADP packet on every LAN interface and waits for the matching reply. */
-export async function sadpSend(xml: string, mac: string, timeoutMs = 5000): Promise<PasswordCheck | null> {
+const replyMac = (xml: string) => ((xml.match(/<MAC>([^<]*)<\/MAC>/) || [])[1] || "").trim().toLowerCase();
+const replyTypes = (xml: string) => ((xml.match(/<Types>([^<]*)<\/Types>/) || [])[1] || "").trim().toLowerCase();
+/** Sends one SADP packet on every NIC (UDP; then raw L2 via WinPcap/Npcap if nothing came back) and returns the
+ * first ProbeMatch from that MAC answering the same <Types>. */
+export async function sadpRequest(xml: string, mac: string, types: string, timeoutMs = 5000): Promise<string | null> {
   const message = Buffer.from(xml);
-  let groupResult: PasswordCheck | null = null;
-  const stop = sadpGroupListener((buffer) => { groupResult ||= sadpReplyResult(buffer.toString("utf8"), mac); });
-  const results = await Promise.all(localIPv4().map(({ address }) => new Promise<PasswordCheck | null>((done) => {
+  const want = (text: string) => /<ProbeMatch[\s>]/.test(text) && replyMac(text) === mac.toLowerCase() && (!replyTypes(text) || replyTypes(text) === types.toLowerCase());
+  let groupReply: string | null = null;
+  const stop = sadpGroupListener((buffer) => { const t = buffer.toString("utf8"); if (!groupReply && want(t)) groupReply = t; });
+  const results = await Promise.all(localIPv4().map(({ address }) => new Promise<string | null>((done) => {
     const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
     let settled = false;
-    const finish = (value: PasswordCheck | null) => { if (settled) return; settled = true; try { socket.close(); } catch { /* closed */ } done(value); };
+    const finish = (value: string | null) => { if (settled) return; settled = true; clearInterval(poll); try { socket.close(); } catch { /* closed */ } done(value); };
+    const poll = setInterval(() => { if (groupReply) finish(groupReply); }, 100);
     socket.on("error", () => finish(null));
-    socket.on("message", (buffer) => { const r = sadpReplyResult(buffer.toString("utf8"), mac); if (r) finish(r); });
+    socket.on("message", (buffer) => { const t = buffer.toString("utf8"); if (want(t)) finish(t); });
     socket.bind(0, address, () => {
       try { socket.setMulticastInterface(address); } catch { /* default */ }
       socket.send(message, SADP_PORT, SADP_GROUP, () => {});
@@ -40,21 +45,32 @@ export async function sadpSend(xml: string, mac: string, timeoutMs = 5000): Prom
     });
   })));
   stop();
-  if (!results.some(Boolean) && !groupResult) {
-    const { pcapExchange } = await import("./pcap.server.ts");
-    for (const reply of await pcapExchange(message, 3000)) { const r = sadpReplyResult(reply, mac); if (r) return r; }
-  }
-  return results.find((r) => r?.ok) || groupResult || results.find(Boolean) || null;
+  const hit = results.find(Boolean) || groupReply;
+  if (hit) return hit;
+  const { pcapExchange } = await import("./pcap.server.ts");
+  return (await pcapExchange(message, 3000)).find(want) || null;
+}
+export type SadpRequest = typeof sadpRequest;
+
+/** SADP activation exactly like SADPTool: exchangecode (our RSA key) → decrypt device random → activate with encrypted password. */
+export async function sadpActivate(mac: string, password: string, request: SadpRequest = sadpRequest): Promise<PasswordCheck | null> {
+  const keys = makeChallengeKeys();
+  const reply = await request(sadpExchangeXml(mac, publicKeyCode(keys)), mac, "exchangecode");
+  if (!reply) return null;
+  let random: string;
+  try { random = decryptExchangeReply(reply, keys.privateKey); } catch { return { ok: false, error: "الجهاز رد بصيغة تشفير مش مدعومة. فعّله من برنامج SADP أو شاشة الجهاز وقولنا الموديل." }; }
+  const result = await request(sadpActivateXml(mac, encryptPasswordByRandom(random, password)), mac, "activate");
+  return result ? sadpReplyResult(result, mac) || { ok: false, error: "رد الجهاز على التفعيل مش مفهوم." } : null;
 }
 
 /** Like SADP: when the device IP is outside this PC's subnet (e.g. factory 192.168.1.64 / 192.0.0.64)
  * HTTP cannot reach it, so the multicast SADP activate packet is tried first (needs only the MAC). */
-export async function activateDevice(target: ActivateTarget, password: string, confirm: string, deps: { fetchImpl?: Fetch; sadp?: typeof sadpSend; reachable?: boolean } = {}): Promise<ActivateOutcome> {
+export async function activateDevice(target: ActivateTarget, password: string, confirm: string, deps: { fetchImpl?: Fetch; sadp?: SadpRequest; reachable?: boolean } = {}): Promise<ActivateOutcome> {
   const check = checkActivationPassword(password, confirm);
   if (!check.ok) return { ...check, method: "" };
   const reachable = deps.reachable ?? inLocalSubnet(target.ip);
   if (!reachable && target.mac) {
-    const r = await (deps.sadp || sadpSend)(sadpActivateXml(target.mac, password), target.mac);
+    const r = await sadpActivate(target.mac, password, deps.sadp);
     if (r) return { ...r, method: "sadp" };
   }
   let isapiError = "";
@@ -64,17 +80,18 @@ export async function activateDevice(target: ActivateTarget, password: string, c
     if (r.error !== "unsupported") return { ...r, method: "isapi" };
   } catch { isapiError = "timeout"; }
   if (!target.mac) return { ok: false, error: isapiError ? "الجهاز مش بيرد. تأكد إنه شغال وعلى نفس الشبكة." : "الجهاز ده مش بيدعم التفعيل من البرنامج. فعّله من شاشة الجهاز.", method: "" };
-  const r = await (deps.sadp || sadpSend)(sadpActivateXml(target.mac, password), target.mac);
+  const r = await sadpActivate(target.mac, password, deps.sadp);
   if (r) return { ...r, method: "sadp" };
   return { ok: false, error: "الجهاز ما ردش على طلب التفعيل. تأكد إن البرنامج والجهاز على نفس الشبكة (نفس الراوتر)، أو فعّله من شاشة الجهاز.", method: "" };
 }
 
-export async function modifyDeviceNetwork(mac: string, password: string, net: NetworkChange, sadp: typeof sadpSend = sadpSend): Promise<PasswordCheck> {
+export async function modifyDeviceNetwork(mac: string, password: string, net: NetworkChange, request: SadpRequest = sadpRequest): Promise<PasswordCheck> {
   if (!mac) return { ok: false, error: "عنوان MAC للجهاز غير معروف، ما ينفعش نغيّر الشبكة." };
   if (!password) return { ok: false, error: "اكتب كلمة مرور الجهاز." };
   const check = checkNetwork(net);
   if (!check.ok) return check;
-  return (await sadp(sadpModifyXml(mac, password, net), mac)) || { ok: false, error: "الجهاز ما ردش على تغيير الشبكة. تأكد إنك على نفس الراوتر." };
+  const reply = await request(sadpModifyXml(mac, password, net), mac, "update");
+  return (reply && sadpReplyResult(reply, mac)) || { ok: false, error: "الجهاز ما ردش على تغيير الشبكة. تأكد إنك على نفس الراوتر." };
 }
 
 /** Sets Wi-Fi via ISAPI (digest auth with the admin password) then switches the wireless interface to DHCP. */

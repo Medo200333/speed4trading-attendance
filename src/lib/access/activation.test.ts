@@ -43,10 +43,11 @@ test("activate result mapping", () => {
 });
 
 test("sadp packets and replies", () => {
-  assert.match(sadpActivateXml("AA-BB-CC-00-11-22", "Sp<d2026", "U"), /<MAC>aa-bb-cc-00-11-22<\/MAC><Types>activate<\/Types><Password>Sp&#60;d2026<\/Password>/);
+  assert.equal(sadpActivateXml("AA-BB-CC-00-11-22", "ZW5j", "U"), '<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>U</Uuid><MAC>aa-bb-cc-00-11-22</MAC><Types>activate</Types><Password>ZW5j</Password></Probe>');
   const m = sadpModifyXml("aa-bb", "Speed2026", { dhcp: false, ip: "192.168.1.50", mask: "255.255.255.0", gateway: "192.168.1.1" }, "U");
-  assert.match(m, /<Types>update<\/Types>.*<DHCP>false<\/DHCP><IPv4Address>192.168.1.50<\/IPv4Address>/);
-  assert.doesNotMatch(sadpModifyXml("aa", "p", { dhcp: true, ip: "", mask: "", gateway: "" }), /IPv4Address/);
+  assert.equal(m, '<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>U</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>aa-bb</MAC><Password>Speed2026</Password><IPv4Address>192.168.1.50</IPv4Address><CommandPort>8000</CommandPort><IPv4SubnetMask>255.255.255.0</IPv4SubnetMask><IPv4Gateway>192.168.1.1</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><DHCP>false</DHCP></Probe>');
+  assert.match(sadpModifyXml("aa", "p", { dhcp: true, ip: "", mask: "", gateway: "" }), /<DHCP>true<\/DHCP>/);
+  assert.match(sadpReplyResult("<ProbeMatch><MAC>aa</MAC><Result>failed</Result><Description>PasswordError</Description></ProbeMatch>", "aa")!.error, /غلط/);
   assert.deepEqual(sadpReplyResult("<ProbeMatch><MAC>AA-BB</MAC><Result>success</Result></ProbeMatch>", "aa-bb"), { ok: true, error: "" });
   assert.equal(sadpReplyResult("<ProbeMatch><MAC>cc</MAC><Result>success</Result></ProbeMatch>", "aa-bb"), null);
   assert.equal(sadpReplyResult("<ProbeMatch><MAC>aa-bb</MAC><Result>failed</Result></ProbeMatch>", "aa-bb")?.ok, false);
@@ -66,26 +67,42 @@ test("activateDevice via mocked ISAPI", async () => {
   assert.deepEqual(calls, ["POST http://192.168.1.24:80/ISAPI/Security/challenge", "PUT http://192.168.1.24:80/ISAPI/System/activate"]);
 });
 
-test("activateDevice falls back to SADP when ISAPI is unsupported", async () => {
+/** Simulated SADP device: answers exchangecode with base64 RSA(random), checks the encrypted activate password. */
+function fakeSadpDevice(expectPassword: string) {
+  const sent: string[] = [];
+  return { sent, request: async (xml: string, mac: string, types: string) => {
+    sent.push(types);
+    if (types === "exchangecode") {
+      const keyB64 = xml.match(/<Code>([^<]+)<\/Code>/)![1];
+      const n = Buffer.from(Buffer.from(keyB64, "base64").toString(), "hex").toString("base64url");
+      const key = createPublicKey({ key: { kty: "RSA", n, e: "AQAB" }, format: "jwk" });
+      return `<ProbeMatch><MAC>${mac}</MAC><Types>exchangecode</Types><Code>${publicEncrypt({ key, padding: constants.RSA_PKCS1_PADDING }, Buffer.from(RANDOM)).toString("base64")}</Code></ProbeMatch>`;
+    }
+    const pw = xml.match(/<Password>([^<]+)<\/Password>/)![1];
+    const d = createDecipheriv("aes-128-ecb", Buffer.from(RANDOM, "hex"), null); d.setAutoPadding(false);
+    const plain = Buffer.concat([d.update(Buffer.from(Buffer.from(pw, "base64").toString(), "hex")), d.final()]).toString("latin1").replace(/\0+$/, "");
+    return `<ProbeMatch><MAC>${mac}</MAC><Types>${types}</Types><Result>${plain === RANDOM.slice(0, 16) + expectPassword ? "success" : "failed"}</Result></ProbeMatch>`;
+  } };
+}
+test("activateDevice falls back to SADP exchangecode+activate when ISAPI is unsupported", async () => {
   const fetchImpl = async () => ({ status: 404, text: async () => "" });
-  let sent = "";
-  const r = await activateDevice({ ip: "192.168.1.24", httpPort: 80, mac: "aa-bb" }, "Speed2026", "Speed2026", { fetchImpl, reachable: true, sadp: async (xml) => { sent = xml; return { ok: true, error: "" }; } });
-  assert.equal(r.method, "sadp");
-  assert.match(sent, /<Types>activate<\/Types>/);
+  const dev = fakeSadpDevice("Speed2026");
+  const r = await activateDevice({ ip: "192.168.1.24", httpPort: 80, mac: "aa-bb" }, "Speed2026", "Speed2026", { fetchImpl, reachable: true, sadp: dev.request });
+  assert.deepEqual(r, { ok: true, error: "", method: "sadp" });
+  assert.deepEqual(dev.sent, ["exchangecode", "activate"]);
   const weak = await activateDevice({ ip: "1", httpPort: 80, mac: "" }, "weak", "weak", { fetchImpl });
   assert.equal(weak.ok, false);
-  const none = await activateDevice({ ip: "1", httpPort: 80, mac: "aa" }, "Speed2026", "Speed2026", { fetchImpl, sadp: async () => null });
+  const none = await activateDevice({ ip: "1", httpPort: 80, mac: "aa" }, "Speed2026", "Speed2026", { fetchImpl, reachable: true, sadp: async () => null });
   assert.match(none.error, /ما ردش/);
 });
-
 test("modify network needs password and valid IP", async () => {
   assert.equal((await modifyDeviceNetwork("aa", "", { dhcp: true, ip: "", mask: "", gateway: "" })).ok, false);
-  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: false, ip: "x", mask: "", gateway: "" }, async () => assert.fail())).ok, false);
-  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, async () => ({ ok: true, error: "" }))).ok, true);
+  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: false, ip: "x", mask: "", gateway: "" }, async () => assert.fail("no send"))).ok, false);
+  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, async (_x, mac) => `<ProbeMatch><MAC>${mac}</MAC><Types>update</Types><Result>success</Result></ProbeMatch>`)).ok, true);
 });
 
 test("outside-subnet device is activated via SADP without HTTP", async () => {
-  const r = await activateDevice({ ip: "192.0.0.64", httpPort: 80, mac: "aa" }, "Speed2026", "Speed2026", { reachable: false, fetchImpl: async () => assert.fail("no http"), sadp: async () => ({ ok: true, error: "" }) });
+  const r = await activateDevice({ ip: "192.0.0.64", httpPort: 80, mac: "aa" }, "Speed2026", "Speed2026", { reachable: false, fetchImpl: async () => assert.fail("no http"), sadp: fakeSadpDevice("Speed2026").request });
   assert.equal(r.method, "sadp");
 });
 

@@ -2,7 +2,7 @@ import dgram from "node:dgram";
 import { networkInterfaces } from "node:os";
 import { randomUUID } from "node:crypto";
 
-/** Read-only Hikvision discovery (SADP-compatible multicast probe + optional ISAPI fingerprint).
+/** Hikvision discovery; packet formats taken from the installed SADPTool Sadp.dll (inquiry with ResponseMode 2 = multicast reply) (SADP-compatible multicast probe + optional ISAPI fingerprint).
  * Activation / network changes live in activation.server.ts. */
 export type FoundDevice = {
   source: "sadp" | "isapi";
@@ -17,7 +17,7 @@ export type FoundDevice = {
 export const SADP_GROUP = "239.255.255.250";
 export const SADP_PORT = 37020;
 export function probeXml(uuid = randomUUID().toUpperCase()) {
-  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>inquiry</Types></Probe>`;
+  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>inquiry</Types><ResponseMode>2</ResponseMode></Probe>`;
 }
 const tag = (xml: string, name: string) =>
   (xml.match(new RegExp(`<${name}>([^<]*)</${name}>`)) || [])[1]?.trim() || "";

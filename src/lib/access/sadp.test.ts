@@ -5,7 +5,7 @@ import { inLocalSubnet, suggestNetwork, parseProbeMatch, probeXml, isapiFingerpr
 const reply = `<?xml version="1.0" encoding="UTF-8"?><ProbeMatch><Uuid>X</Uuid><Types>inquiry</Types><DeviceType>852085</DeviceType><DeviceDescription>DS-K1A340WX</DeviceDescription><DeviceSN>DS-K1A340WX2024SN</DeviceSN><CommandPort>8000</CommandPort><HttpPort>80</HttpPort><MAC>60-1D-9D-9F-3A-57</MAC><IPv4Address>192.168.1.21</IPv4Address><SoftwareVersion>V1.2.7build 240228</SoftwareVersion><Activated>true</Activated></ProbeMatch>`;
 test("probe xml is an inquiry", () => {
   const xml = probeXml("ABC");
-  assert.match(xml, /<Probe><Uuid>ABC<\/Uuid><Types>inquiry<\/Types><\/Probe>/);
+  assert.match(xml, /<Probe><Uuid>ABC<\/Uuid><Types>inquiry<\/Types><ResponseMode>2<\/ResponseMode><\/Probe>/);
 });
 test("parses ProbeMatch", () => {
   assert.deepEqual(parseProbeMatch(reply, "192.168.1.21"), { source: "sadp", model: "DS-K1A340WX", ip: "192.168.1.21", httpPort: 80, mac: "60-1d-9d-9f-3a-57", serial: "DS-K1A340WX2024SN", firmware: "V1.2.7build 240228", activated: true });
