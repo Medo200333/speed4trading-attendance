@@ -85,3 +85,47 @@ export function sadpReplyResult(xml: string, mac: string): PasswordCheck | null 
   if (result === "success" || result === "true") return { ok: true, error: "" };
   return { ok: false, error: /deny|password/i.test(xml) ? "الجهاز رفض كلمة المرور." : "الجهاز رفض الطلب." };
 }
+
+export type WifiConfig = { ssid: string; password: string; security: "WPA2-personal" | "WPA-personal" | "WPA3-personal" | "disable" };
+export function checkWifi(w: WifiConfig): PasswordCheck {
+  if (!w.ssid.trim() || Buffer.byteLength(w.ssid) > 32) return { ok: false, error: "اكتب اسم شبكة الواي فاي (SSID) بالظبط زي ما هو، لحد 32 حرف." };
+  if (w.security !== "disable" && (w.password.length < 8 || w.password.length > 63)) return { ok: false, error: "باسورد الواي فاي لازم يكون من 8 لـ 63 حرف." };
+  return { ok: true, error: "" };
+}
+/** ISAPI Wireless body (PUT /ISAPI/System/Network/interfaces/<id>/wireless). Network mode DHCP is set separately via ipAddress. */
+export function wirelessXml(w: WifiConfig) {
+  const sec = w.security === "disable" ? "<WirelessSecurity><securityMode>disable</securityMode></WirelessSecurity>"
+    : `<WirelessSecurity><securityMode>${w.security}</securityMode><WPA><algorithmType>AES</algorithmType><sharedKey>${esc(w.password)}</sharedKey><wpaKeyLength>${Buffer.byteLength(w.password)}</wpaKeyLength></WPA></WirelessSecurity>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><Wireless version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><enabled>true</enabled><wirelessNetworkMode>infrastructure</wirelessNetworkMode><ssid>${esc(w.ssid)}</ssid>${sec}</Wireless>`;
+}
+/** Picks the wireless interface id from GET /ISAPI/System/Network/interfaces (falls back to 2, the usual Wi-Fi id). */
+export function wirelessInterfaceId(xml: string) {
+  const blocks = xml.split(/<NetworkInterface[\s>]/).slice(1);
+  for (const b of blocks) if (/<Wireless[\s>]/.test(b) || /wlan|wireless/i.test(b)) return (b.match(/<id>(\d+)<\/id>/) || [])[1] || "2";
+  return blocks.length > 1 ? "2" : "";
+}
+
+/** Raw Ethernet SADP (what SADP does via Npcap): multicast frame to 01:00:5e:7f:ff:fa carrying the UDP inquiry. */
+export function sadpEthernetFrame(srcMac: string, payload: Buffer, srcIp = "0.0.0.0") {
+  const mac = (m: string) => Buffer.from(m.split(/[:-]/).map((h) => parseInt(h, 16)));
+  const ip = (v: string) => Buffer.from(v.split(".").map(Number));
+  const udpLen = 8 + payload.length, ipLen = 20 + udpLen;
+  const ipH = Buffer.alloc(20);
+  ipH.writeUInt8(0x45, 0); ipH.writeUInt16BE(ipLen, 2); ipH.writeUInt8(1, 8); ipH.writeUInt8(17, 9);
+  ip(srcIp).copy(ipH, 12); ip("239.255.255.250").copy(ipH, 16);
+  let sum = 0; for (let i = 0; i < 20; i += 2) sum += ipH.readUInt16BE(i);
+  while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
+  ipH.writeUInt16BE(~sum & 0xffff, 10);
+  const udp = Buffer.alloc(8);
+  udp.writeUInt16BE(37020, 0); udp.writeUInt16BE(37020, 2); udp.writeUInt16BE(udpLen, 4);
+  return Buffer.concat([mac("01:00:5e:7f:ff:fa"), mac(srcMac), Buffer.from([0x08, 0x00]), ipH, udp, payload]);
+}
+/** Extracts the UDP payload of a captured IPv4/UDP frame from/to port 37020, else null. */
+export function sadpPayloadFromFrame(frame: Buffer): Buffer | null {
+  if (frame.length < 42 || frame.readUInt16BE(12) !== 0x0800) return null;
+  const ihl = (frame[14] & 15) * 4;
+  if (frame[23] !== 17) return null;
+  const u = 14 + ihl;
+  if (frame.readUInt16BE(u) !== 37020 && frame.readUInt16BE(u + 2) !== 37020) return null;
+  return frame.subarray(u + 8, Math.min(frame.length, u + frame.readUInt16BE(u + 4)));
+}

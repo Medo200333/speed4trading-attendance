@@ -157,8 +157,16 @@ export function suggestNetwork(used: string[], ifaces = localIPv4()) {
 }
 export async function discoverDevices(options: { deepScan?: boolean } = {}) {
   const sadp = await sadpDiscover();
+  // Raw L2 fallback (Npcap) for devices whose replies don't reach the UDP socket.
+  const { pcapExchange, pcapStatus } = await import("./pcap.server.ts");
+  const pcap = pcapStatus();
+  if (pcap === "ready")
+    for (const xml of await pcapExchange(Buffer.from(probeXml()))) {
+      const row = parseProbeMatch(xml);
+      if (row && !sadp.some((s) => (s.mac && s.mac === row.mac) || s.ip === row.ip)) sadp.push(row);
+    }
   const extra = options.deepScan || sadp.length === 0 ? await isapiScan() : [];
   const devices = [...sadp, ...extra.filter((row) => !sadp.some((s) => s.ip === row.ip))];
   const suggestion = suggestNetwork(devices.map((d) => d.ip));
-  return { devices: devices.map((d) => ({ ...d, reachable: inLocalSubnet(d.ip) })), suggestion, interfaces: localIPv4().map((i) => i.address), sadp: sadp.length, scanned: options.deepScan || sadp.length === 0 };
+  return { devices: devices.map((d) => ({ ...d, reachable: inLocalSubnet(d.ip) })), suggestion, pcap, interfaces: localIPv4().map((i) => i.address), sadp: sadp.length, scanned: options.deepScan || sadp.length === 0 };
 }

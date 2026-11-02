@@ -88,3 +88,28 @@ test("outside-subnet device is activated via SADP without HTTP", async () => {
   const r = await activateDevice({ ip: "192.0.0.64", httpPort: 80, mac: "aa" }, "Speed2026", "Speed2026", { reachable: false, fetchImpl: async () => assert.fail("no http"), sadp: async () => ({ ok: true, error: "" }) });
   assert.equal(r.method, "sadp");
 });
+
+import { checkWifi, wirelessXml, wirelessInterfaceId, sadpEthernetFrame, sadpPayloadFromFrame } from "./activation-core.ts";
+import { configureWifi } from "./activation.server.ts";
+test("wifi xml + interface id", () => {
+  assert.equal(checkWifi({ ssid: "", password: "12345678", security: "WPA2-personal" }).ok, false);
+  assert.equal(checkWifi({ ssid: "Omar", password: "123", security: "WPA2-personal" }).ok, false);
+  assert.match(wirelessXml({ ssid: "Omar & Co", password: "pass1234", security: "WPA2-personal" }), /<ssid>Omar &#38; Co<\/ssid>.*<sharedKey>pass1234<\/sharedKey>/);
+  assert.equal(wirelessInterfaceId("<NetworkInterfaceList><NetworkInterface><id>1</id></NetworkInterface><NetworkInterface><id>2</id><Wireless/></NetworkInterface></NetworkInterfaceList>"), "2");
+});
+test("configureWifi with mocked digest session", async () => {
+  const calls: string[] = [];
+  const session = { request: async (url: string, method: string) => { calls.push(`${method} ${url.replace(/^http:\/\/[^/]+/, "")}`); return { status: 200, text: "<NetworkInterface><id>1</id></NetworkInterface><NetworkInterface><id>3</id><Wireless/></NetworkInterface>" }; } };
+  const r = await configureWifi({ ip: "192.168.1.24", httpPort: 80 }, "Speed2026", { ssid: "Omar", password: "pass1234", security: "WPA2-personal" }, session);
+  assert.equal(r.ok, true);
+  assert.deepEqual(calls, ["GET /ISAPI/System/Network/interfaces", "PUT /ISAPI/System/Network/interfaces/3/wireless", "PUT /ISAPI/System/Network/interfaces/3/ipAddress"]);
+  const bad = await configureWifi({ ip: "x", httpPort: 80 }, "p", { ssid: "Omar", password: "pass1234", security: "WPA2-personal" }, { request: async () => ({ status: 401, text: "" }) });
+  assert.match(bad.error, /غلط/);
+});
+test("raw ethernet SADP frame round trip", () => {
+  const payload = Buffer.from("<ProbeMatch><MAC>aa</MAC></ProbeMatch>");
+  const frame = sadpEthernetFrame("aa:bb:cc:dd:ee:ff", payload, "192.168.1.9");
+  assert.equal(frame.subarray(0, 6).toString("hex"), "01005e7ffffa");
+  assert.equal(sadpPayloadFromFrame(frame)?.toString(), payload.toString());
+  assert.equal(sadpPayloadFromFrame(Buffer.alloc(60)), null);
+});

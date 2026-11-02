@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { discoverDevicesFn, activateDeviceFn, modifyDeviceNetworkFn } from "@/lib/discovery.functions";
+import { discoverDevicesFn, activateDeviceFn, modifyDeviceNetworkFn, configureWifiFn } from "@/lib/discovery.functions";
 import type { FoundDevice } from "@/lib/access/sadp.server";
 import { Button } from "./access-ui";
 
@@ -17,7 +17,8 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
     [note, setNote] = useState({ text: "", error: false }),
     [picked, setPicked] = useState(""),
     [suggestion, setSuggestion] = useState<Suggestion>(null),
-    [flow, setFlow] = useState<Row | null>(null);
+    [flow, setFlow] = useState<Row | null>(null),
+    [pcap, setPcap] = useState("");
   async function scan(deepScan: boolean): Promise<Row[]> {
     setLoading(deepScan ? "جارٍ الفحص العميق للشبكة (قد يستغرق حتى دقيقة)…" : "جارٍ البحث عن أجهزة Hikvision على الشبكة…");
     setNote({ text: "", error: false });
@@ -28,6 +29,7 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
       if (result.ok) {
         found.push(...result.data.devices.map((row) => ({ ...row, via: "server" as const })));
         setSuggestion(result.data.suggestion);
+        setPcap(result.data.pcap);
       }
       else serverError = result.error;
     } catch {
@@ -58,6 +60,13 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
       </div>
       {loading ? <p role="status" className="ac-message"><span className="ac-loading-line" aria-hidden="true" /> {loading}</p> : null}
       {note.text && !loading ? <p role={note.error ? "alert" : "status"} className={`ac-message${note.error ? " error" : ""}`}>{note.text}</p> : null}
+      {rows && (pcap === "npcap-missing" || pcap === "module-missing") ? (
+        <p className="ac-message">
+          💡 لو الجهاز مش ظاهر وهو على شبكة تانية خالص، نزّل برنامج Npcap المجاني (نفس اللي برنامج SADP بيستخدمه) وسطّبه وبعدين أعد الفحص:{" "}
+          <a href="https://npcap.com/#download" target="_blank" rel="noreferrer">تحميل Npcap</a>
+          {pcap === "module-missing" ? " (Npcap متسطب، بس مكوّن الفحص العميق مش موجود في النسخة دي)" : ""}
+        </p>
+      ) : null}
       {rows?.length ? (
         <ul className="ac-list" style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
           {rows.map((row) => {
@@ -112,7 +121,24 @@ function ActivationFlow({ row, suggestion, onCancel, onDone, rescan }: { row: Ro
     [mask, setMask] = useState(suggestion?.mask || "255.255.255.0"),
     [gateway, setGateway] = useState(suggestion?.gateway || ""),
     [busy, setBusy] = useState(""),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [useWifi, setUseWifi] = useState(false),
+    [ssid, setSsid] = useState(""),
+    [wifiPassword, setWifiPassword] = useState(""),
+    [security, setSecurity] = useState<"WPA2-personal" | "WPA-personal" | "WPA3-personal" | "disable">("WPA2-personal");
+  const wifi = useServerFn(configureWifiFn);
+  async function finish(found: Row) {
+    if (useWifi) {
+      setBusy("جارٍ ضبط الواي فاي على الجهاز…");
+      const w = await wifi({ data: { ip: found.ip, httpPort: found.httpPort, password: adminPassword, ssid, wifiPassword, security } }).catch(() => ({ ok: false as const, error: "انقطع الاتصال بالخادم." }));
+      setBusy("");
+      if (!w.ok) return setError(`العنوان اتضبط، بس الواي فاي لأ: ${w.error}`);
+      setBusy("");
+      setError("✅ الواي فاي اتحفظ. شيل كابل الشبكة من الجهاز، استنى دقيقة ودوس «إعادة الفحص» واختاره.");
+      return;
+    }
+    onDone({ ...found, password: adminPassword });
+  }
   async function doActivate() {
     setError(""); setBusy("جارٍ تفعيل الجهاز…");
     const r = await activate({ data: { ip: row.ip, httpPort: row.httpPort, mac: row.mac, password, confirm } }).catch(() => ({ ok: false as const, error: "انقطع الاتصال بالخادم." }));
@@ -128,10 +154,10 @@ function ActivationFlow({ row, suggestion, onCancel, onDone, rescan }: { row: Ro
     for (let i = 0; i < 4; i++) {
       await new Promise((ok) => setTimeout(ok, 6000));
       const found = (await rescan()).find((d) => d.mac === row.mac && d.reachable !== false);
-      if (found) { setBusy(""); return onDone({ ...found, password: adminPassword }); }
+      if (found) { setBusy(""); return finish(found); }
     }
     setBusy("");
-    if (!dhcp) return onDone({ ...row, ip, reachable: true, activated: true, password: adminPassword });
+    if (!dhcp) return finish({ ...row, ip, reachable: true, activated: true });
     setError("الجهاز اتضبط بس لسه مش ظاهر. استنى دقيقة ودوس «إعادة الفحص».");
   }
   const field = { display: "grid", gap: 4 } as const;
@@ -155,6 +181,15 @@ function ActivationFlow({ row, suggestion, onCancel, onDone, rescan }: { row: Ro
               <label style={field}>عنوان IP<input dir="ltr" value={ip} onChange={(e) => setIp(e.target.value)} /></label>
               <label style={field}>قناع الشبكة (Subnet)<input dir="ltr" value={mask} onChange={(e) => setMask(e.target.value)} /></label>
               <label style={field}>البوابة (Gateway)<input dir="ltr" value={gateway} onChange={(e) => setGateway(e.target.value)} /></label>
+            </>
+          ) : null}
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={useWifi} onChange={(e) => setUseWifi(e.target.checked)} />📶 الجهاز هيشتغل على الواي فاي</label>
+          {useWifi ? (
+            <>
+              <small>وصّل الجهاز بكابل الأول. اكتب اسم الشبكة بإيدك بالظبط (حروف كبيرة وصغيرة زي ما هي).</small>
+              <label style={field}>اسم الواي فاي (SSID)<input dir="ltr" value={ssid} onChange={(e) => setSsid(e.target.value)} /></label>
+              <label style={field}>باسورد الواي فاي<input type="password" dir="ltr" autoComplete="off" value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} /></label>
+              <label style={field}>نوع الحماية<select value={security} onChange={(e) => setSecurity(e.target.value as typeof security)}><option value="WPA2-personal">WPA2 (الأشهر)</option><option value="WPA-personal">WPA</option><option value="WPA3-personal">WPA3</option><option value="disable">بدون باسورد</option></select></label>
             </>
           ) : null}
           <label style={field}>كلمة مرور الأدمن للجهاز (مطلوبة للحفظ)<input type="password" dir="ltr" autoComplete="current-password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} /></label>

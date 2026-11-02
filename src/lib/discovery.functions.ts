@@ -57,3 +57,23 @@ export const modifyDeviceNetworkFn = createServerFn({ method: "POST" })
       return { ok: false as const, error: "تعذر تغيير إعدادات الشبكة." };
     }
   });
+
+type WifiInput = { ip: string; httpPort: number; password: string; ssid: string; wifiPassword: string; security: "WPA2-personal" | "WPA-personal" | "WPA3-personal" | "disable" };
+export const configureWifiFn = createServerFn({ method: "POST" })
+  .validator((d: WifiInput) => ({ ip: String(d?.ip || ""), httpPort: Number(d?.httpPort) || 80, password: String(d?.password || ""), ssid: String(d?.ssid || ""), wifiPassword: String(d?.wifiPassword || ""), security: (["WPA2-personal", "WPA-personal", "WPA3-personal", "disable"].includes(d?.security) ? d.security : "WPA2-personal") as WifiInput["security"] }))
+  .handler(async ({ data }) => {
+    const { requireActor } = await import("./access/auth.server");
+    const { AccessError, requireRole } = await import("./access/store.server");
+    try {
+      requireRole(await requireActor(), "admin");
+      const { deviceWritesEnabled, READ_ONLY_MESSAGE } = await import("./access/device-writes");
+      if (!deviceWritesEnabled()) return { ok: false as const, error: READ_ONLY_MESSAGE };
+      if (!/^(10|172|192|100|169)\.[\d.]+$/.test(data.ip)) return { ok: false as const, error: "عنوان الجهاز مش داخل الشبكة المحلية." };
+      const { configureWifi } = await import("./access/activation.server");
+      const r = await configureWifi(data, data.password, { ssid: data.ssid, password: data.wifiPassword, security: data.security });
+      return r.ok ? { ok: true as const, data: null } : { ok: false as const, error: r.error };
+    } catch (error) {
+      if (error instanceof AccessError) return { ok: false as const, error: error.message };
+      return { ok: false as const, error: "تعذر الوصول للجهاز لضبط الواي فاي. لازم يكون الجهاز في نفس شبكة الكمبيوتر الأول (بالكابل)." };
+    }
+  });
