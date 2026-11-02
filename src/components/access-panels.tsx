@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { AttendanceBoard } from "./attendance-board";
+import { TeamReportsCard } from "./team-reports-card";
 import {
   AttendancePanel,
   EventsPanel,
@@ -194,6 +195,7 @@ function TeamsPage() {
         </p>
       </Card>
       <AttendanceBoard embedded teamsOnly />
+      <TeamReportsCard />
     </div>
   );
 }

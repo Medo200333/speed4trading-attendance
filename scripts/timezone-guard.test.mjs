@@ -67,3 +67,40 @@ test("Team punches shifted a whole hour by a mis-zoned terminal are corrected be
     assert.equal(extra.find((r) => r.employeeNo === "999").first, "08:00");
   } finally { await vite.close(); }
 });
+
+test("zone fixed mid-range: only the mis-zoned days shift, old history is one quiet line, device shown by name", async () => {
+  const vite = await createServer({ configFile: false, logLevel: "silent", server: { middlewareMode: true, watch: null }, appType: "custom" });
+  try {
+    const { mergeDailySources } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
+    const id = "76ad6d6b-1111-2222-3333-444455556666";
+    const row = (date, first, last) => ({ personId: `${id}|S|7`, employeeNo: "7", name: "Emp", date, first, last, worked: "", status: "Present", absent: false });
+    const p = (date, time) => ({ employeeNo: "7", name: "", date, time, method: "t" });
+    const device = [row("2026-10-05", "09:00", "17:00"), row("2026-11-01", "09:10", "17:05"), row("2026-11-02", "09:20", "17:10")];
+    const team = { people: [], punches: [p("2026-10-05", "10:00:00"), p("2026-10-05", "18:00:00"), p("2026-11-01", "09:10:00"), p("2026-11-01", "17:05:00"), p("2026-11-02", "10:20:00"), p("2026-11-02", "18:10:00")] };
+    const w = [];
+    const rows = mergeDailySources(device, team, "teams", "2026-10-01", "2026-11-02", w, { deviceNames: new Map([[id, "Masr el gdeda"]]) });
+    const by = Object.fromEntries(rows.filter((r) => !r.absent).map((r) => [r.date, `${r.first}-${r.last}`]));
+    assert.equal(by["2026-10-05"], "09:00-17:00");
+    assert.equal(by["2026-11-01"], "09:10-17:05"); // already correct day is not moved
+    assert.equal(by["2026-11-02"], "09:20-17:10");
+    assert.ok(!w.some((x) => x.includes(id)));
+    assert.equal(w.filter((x) => x.includes("«Masr el gdeda»") && x.includes("2026-11-02")).length, 1);
+    assert.equal(w.filter((x) => x.startsWith("ℹ️") && x.includes("1 يوم")).length, 1);
+  } finally { await vite.close(); }
+});
+
+test("Team-only report rows (no device rows) feed the simple layout over a range", async () => {
+  const vite = await createServer({ configFile: false, logLevel: "silent", server: { middlewareMode: true, watch: null }, appType: "custom" });
+  try {
+    const { mergeDailySources } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
+    const { buildLayout, simpleRows, simpleHeader } = await vite.ssrLoadModule("/src/lib/report-layout.ts");
+    const p = (no, name, date, time) => ({ employeeNo: no, name, date, time, method: "t" });
+    const team = { people: [], punches: [p("1", "Ali", "2026-11-01", "09:00:00"), p("1", "Ali", "2026-11-01", "17:00:00"), p("2", "Mona", "2026-11-02", "10:00:00")] };
+    const rows = mergeDailySources([], team, "teams", "2026-11-01", "2026-11-02");
+    const l = buildLayout("2026-11-01", "2026-11-02", rows);
+    assert.deepEqual(simpleHeader(l), ["الاسم", "التاريخ", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"]);
+    const r = simpleRows(l);
+    assert.deepEqual(r.find((x) => x[0] === "Ali" && x[1] === "01/11/2026"), ["Ali", "01/11/2026", "09:00", "17:00", "08:00"]);
+    assert.deepEqual(r.find((x) => x[0] === "Mona" && x[1] === "02/11/2026"), ["Mona", "02/11/2026", "10:00", "—", "بصمة واحدة"]);
+  } finally { await vite.close(); }
+});

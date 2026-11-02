@@ -1,5 +1,6 @@
 import type { AttendanceRow, Person } from "./access/domain";
-import { buildLayout, layoutHtml, layoutXlsxBytes } from "./report-layout";
+import { buildLayout, layoutHtml, layoutXlsxBytes, simpleHtml, simpleSheets } from "./report-layout";
+import { buildXlsx as buildXlsxSimple } from "./xlsx-io";
 import { englishNameOf } from "./access/domain";
 import { BRAND } from "./brand";
 import { buildXlsx } from "./xlsx-io";
@@ -83,7 +84,7 @@ const hhmm = (n: number) => `${String(Math.floor(n / 3600)).padStart(2, "0")}:${
  * first/last punches of the same employee and day line up with Team punches only after a fixed ±N h shift, and
  * never at 0 — and move those Team punches back before de-duplication. Each correction is reported in `warnings`.
  */
-export function correctTeamShift(device: DailyRow[], punches: Punch[], start: string, end: string, warnings?: string[]): Punch[] {
+export function correctTeamShift(device: DailyRow[], punches: Punch[], start: string, end: string, warnings?: string[], deviceNames?: Map<string, string>): Punch[] {
   const TOL = 120;
   const byKey = new Map<string, { branch: string; times: number[] }[]>();
   for (const row of device) {
@@ -104,9 +105,11 @@ export function correctTeamShift(device: DailyRow[], punches: Punch[], start: st
       for (const y of times)
         for (let h = -3; h <= 3; h += 1)
           if (team.some((x) => Math.abs(x - y - h * 3600) <= TOL)) {
-            const v = votes.get(branch) || new Map<number, number>();
+            // Per device AND day: a terminal whose zone was fixed later must not shift its corrected days.
+            const bk = `${branch}|${k.slice(k.lastIndexOf("|") + 1)}`;
+            const v = votes.get(bk) || new Map<number, number>();
             v.set(h, (v.get(h) || 0) + 1);
-            votes.set(branch, v);
+            votes.set(bk, v);
             break;
           }
   }
@@ -121,7 +124,7 @@ export function correctTeamShift(device: DailyRow[], punches: Punch[], start: st
     const k = `${p.employeeNo || p.name}|${p.date}`;
     const rows = byKey.get(k);
     if (!rows || !p.time) return p;
-    const hours = new Set(rows.map((r) => shift.get(r.branch) ?? 0));
+    const hours = new Set(rows.map((r) => shift.get(`${r.branch}|${p.date}`) ?? 0));
     if (hours.size !== 1) return p;
     const h = [...hours][0];
     if (!h) return p;
@@ -132,10 +135,23 @@ export function correctTeamShift(device: DailyRow[], punches: Punch[], start: st
     moved += 1;
     return { ...p, time: `${hhmm(fixed)}:${String(fixed % 60).padStart(2, "0")}` };
   });
-  if (warnings)
-    for (const [branch, h] of shift)
-      warnings.push(`بصمات Hik-Connect Team لجهاز «${branch || "الجهاز"}» متقدمة ${h > 0 ? "+" : ""}${h} ساعة عن وقت الجهاز الفعلي (غالباً المنطقة الزمنية للجهاز غلط) — اتصححت تلقائياً قبل الدمج.`);
-  if (warnings && moved) warnings.push(`اتصحح ${moved} بصمة من Team.`);
+  if (warnings) {
+    // One line per device (by name, not id) and offset; only days in the last 3 days of the range are "live" warnings,
+    // older corrected history is summarised in a single quiet line.
+    const recentFrom = new Date(Date.parse(`${end}T00:00:00Z`) - 2 * 86400000).toISOString().slice(0, 10);
+    const live = new Map<string, { name: string; h: number; days: string[] }>();
+    let oldDays = 0;
+    for (const [bk, h] of shift) {
+      const cut = bk.lastIndexOf("|"), branch = bk.slice(0, cut), date = bk.slice(cut + 1);
+      if (date < recentFrom) { oldDays += 1; continue; }
+      const name = deviceNames?.get(branch) || (/^[0-9a-f-]{20,}/i.test(branch) ? "" : branch) || "الجهاز";
+      const g = live.get(`${name}|${h}`) || { name, h, days: [] };
+      g.days.push(date); live.set(`${name}|${h}`, g);
+    }
+    for (const g of live.values())
+      warnings.push(`بصمات Hik-Connect Team لجهاز «${g.name}» متقدمة ${g.h > 0 ? "+" : ""}${g.h} ساعة عن وقت الجهاز الفعلي (${g.days.sort().join("، ")}) — غالباً المنطقة الزمنية للجهاز غلط، واتصححت تلقائياً قبل الدمج.`);
+    if (oldDays) warnings.push(`ℹ️ اتصحح فرق ساعة قديم في ${oldDays} يوم/جهاز (قبل ضبط المنطقة الزمنية) — مفيش حاجة مطلوبة.`);
+  }
   return outPunches;
 }
 
@@ -146,9 +162,9 @@ export function mergeDailySources(
   start: string,
   end: string,
   warnings?: string[],
-  opts: { requireName?: boolean; label?: string } = {},
+  opts: { requireName?: boolean; label?: string; deviceNames?: Map<string, string> } = {},
 ): DailyRow[] {
-  if (team && source !== "devices") team = { ...team, punches: correctTeamShift(device, team.punches, start, end, warnings) };
+  if (team && source !== "devices") team = { ...team, punches: correctTeamShift(device, team.punches, start, end, warnings, opts.deviceNames) };
   type Acc = DailyRow & { times: number[]; from: string[] };
   const out = new Map<string, Acc>();
   const key = (no: string, date: string) => `${no}|${date}`;
@@ -440,8 +456,8 @@ export const SPEED_LOGO_URL = "/speed-logo.png";
 /** 1.2.10 report layout: landscape summary matrix + one page per employee (src/lib/report-layout.ts).
  * EXE: Electron printToPDF (A4 landscape, save dialog). APK: Android print service ("Save as PDF").
  * Browser fallback: print dialog of a hidden frame. The old drawn PDF stays as a last resort. */
-export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", htmlOverride?: string) {
-  const html = htmlOverride || layoutHtml(buildLayout(from, to, rows), companyName);
+export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", htmlOverride?: string, detailed = false) {
+  const html = htmlOverride || (detailed ? layoutHtml(buildLayout(from, to, rows), companyName) : simpleHtml(buildLayout(from, to, rows), companyName));
   const name = `${fileBase(companyName, from, to)}${htmlOverride ? "-diff" : ""}.pdf`;
   const w = window as unknown as { zubaydDesktop?: { savePdf?: (i: { html: string; name: string }) => Promise<unknown> }; ZubaydPrint?: { print: (html: string, name: string) => void } };
   if (w.zubaydDesktop?.savePdf) { await w.zubaydDesktop.savePdf({ html, name }); return; }
@@ -460,11 +476,11 @@ export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], c
     download(name, bytes, "application/pdf");
   }
 }
-export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", diff: import("./report-diff").DiffRow[] | null = null, src?: string) {
+export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", diff: import("./report-diff").DiffRow[] | null = null, src?: string, detailed = false) {
   const { reportXlsxBytes } = await import("./report-diff");
   download(
     `${fileBase(companyName, from, to)}.xlsx`,
-    diff ? reportXlsxBytes(from, to, rows, diff, companyName, companyLogo, src) : layoutXlsxBytes(from, to, rows, companyName, companyLogo),
+    diff ? reportXlsxBytes(from, to, rows, diff, companyName, companyLogo, src, detailed) : detailed ? layoutXlsxBytes(from, to, rows, companyName, companyLogo) : buildXlsxSimple(simpleSheets(buildLayout(from, to, rows), companyName, companyLogo)),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
 }

@@ -127,3 +127,33 @@ export function layoutHtml(layout: ReportLayout, companyName = "", perPage = 19,
   }
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${LAYOUT_CSS}</style></head><body>${pages.join("")}</body></html>`;
 }
+
+/** Default "simple" report: ONE table — names under each other, first punch, last punch, worked hours (Cairo time). A date column appears only for multi-day ranges (one row per employee per day). */
+export function simpleRows(layout: ReportLayout): string[][] {
+  const multi = layout.dates.length > 1;
+  const out: string[][] = [];
+  for (const e of layout.employees) for (const d of e.days) {
+    const cells = d.state === "absent" ? [ABSENT, "", ""] : [d.first, d.last || "—", d.state === "single" ? SINGLE : d.worked];
+    out.push(multi ? [e.name, longDate(d.date), ...cells] : [e.name, ...cells]);
+  }
+  return out;
+}
+export function simpleHeader(layout: ReportLayout): string[] {
+  return layout.dates.length > 1 ? ["الاسم", "التاريخ", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"] : ["الاسم", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"];
+}
+export function simpleSheets(layout: ReportLayout, companyName = "", companyLogo = ""): SheetSpec[] {
+  const period = layout.from === layout.to ? longDate(layout.from) : `${longDate(layout.from)} – ${longDate(layout.to)}`;
+  const multi = layout.dates.length > 1;
+  return [{ name: "التقرير", logo: companyLogo || undefined, widths: multi ? [26, 13, 12, 12, 16] : [26, 12, 12, 16], heights: { 0: 28, 1: 22 },
+    rows: [[`${companyName ? companyName + " — " : ""}تقرير الحضور والانصراف (${period}) · توقيت القاهرة`], simpleHeader(layout), ...simpleRows(layout)] }];
+}
+export const SIMPLE_CSS = `@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}body{font-family:'IBM Plex Sans Arabic','Cairo','Noto Sans Arabic',sans-serif;margin:0;color:#1d2433}
+.pg{page-break-after:always}.pg:last-child{page-break-after:auto}.bar{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1F3864;padding-bottom:4px;margin-bottom:8px}
+.bar h1{margin:0;font-size:18px;color:#1F3864}.bar span{font-size:11px;color:#555}table{width:100%;border-collapse:collapse}td,th{border:1px solid #b8c3d6;text-align:center;padding:5px 4px;font-size:12px}
+th{background:#1F3864;color:#fff;font-weight:600}thead{display:table-header-group}tr{page-break-inside:avoid}td.nm{text-align:right;font-weight:700}tr.a td{color:#C00000}tbody tr:nth-child(even){background:#f4f7fb}
+.dt td,.dt th{font-size:9px;padding:1px;line-height:1.1}.g{background:#E2F0D9}.a{background:#FDE2E1;color:#C00000}.s{background:#FFF4CE}`;
+export function simpleHtml(layout: ReportLayout, companyName = ""): string {
+  const period = layout.from === layout.to ? longDate(layout.from) : `${longDate(layout.from)} – ${longDate(layout.to)}`;
+  const trs = simpleRows(layout).map((r) => `<tr${r.includes(ABSENT) ? " class=a" : ""}>${r.map((c, i) => `<td${i === 0 ? " class=nm" : ""}>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${SIMPLE_CSS}</style></head><body><div class=pg><div class=bar><h1>${esc(companyName ? companyName + " — " : "")}تقرير الحضور والانصراف</h1><span>${period} · توقيت القاهرة</span></div><table><thead><tr>${simpleHeader(layout).map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${trs}</tbody></table></div></body></html>`;
+}

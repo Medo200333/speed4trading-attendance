@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceRow } from "@/lib/access/domain";
 import { dailyRows, mergeDailySources, type DailySource } from "@/lib/daily-report";
-import { buildLayout, layoutHtml } from "@/lib/report-layout";
+import { buildLayout, layoutHtml, simpleHtml } from "@/lib/report-layout";
 import { diffLabels, diffRows, diffSummary, fmtDiff, withDiffPages } from "@/lib/report-diff";
 import { useTeamsPull } from "@/lib/teams-pull-store";
 import { HC_FAILED_LABEL } from "@/lib/hcteam-shared";
@@ -32,13 +32,13 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
   const strip = (r: (typeof deviceRows)[number]) => (allDevices ? r : { ...r, branch: undefined });
   const { base, warnings } = useMemo(() => {
     const warnings: string[] = [];
-    const base = mergeDailySources(deviceRows.map(strip), team, source, start, end, warnings, { requireName: !!team && team === teamApi, label: team && team === teamApi ? "OpenAPI" : "Hik-Connect Team" });
+    const base = mergeDailySources(deviceRows.map(strip), team, source, start, end, warnings, { requireName: !!team && team === teamApi, label: team && team === teamApi ? "OpenAPI" : "Hik-Connect Team", deviceNames: new Map(data.devices.map((d) => [d.id, d.name])) });
     if (pick === "openapi" && teamApi) {
       for (const c of teamApi.clock ?? []) warnings.push(`⏰ ساعة جهاز «${c.device}» ${c.offsetMin > 0 ? "متقدمة" : "متأخرة"} ${Math.abs(c.offsetMin)} دقيقة عن وقت السحابة (OpenAPI).`);
       if (teamApi.attempts?.length) warnings.push(`${teamApi.attempts.length} ${HC_FAILED_LABEL} في OpenAPI — مش محسوبة حضور.`);
     }
     return { base, warnings };
-  }, [deviceRows, team, source, start, end, pick, teamApi]);
+  }, [deviceRows, team, source, start, end, pick, teamApi, data.devices]);
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const version = usePhotoVersion();
   useEffect(() => {
@@ -55,6 +55,7 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
   }, [rows, data.people, version]);
   const shown = base.map((row) => ({ ...row, photo: photos[row.personId] ?? row.photo ?? null }));
   const [view, setView] = useState<"table" | "report" | "diff">("table");
+  const [detailed, setDetailed] = useState(false);
   const diff = useMemo(() => {
     if (!cmp) return null;
     const dev = mergeDailySources(deviceRows.map(strip), cmp, "devices", start, end);
@@ -67,7 +68,7 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
     if (!cmp) return shown;
     return mergeDailySources(deviceRows.map(strip), cmp, "both", start, end, undefined, { requireName: cmpIsApi, label: cmpIsApi ? "OpenAPI" : "Hik-Connect Team" }).map((r) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null }));
   }, [deviceRows, cmp, cmpIsApi, start, end, photos, shown]);
-  const reportDoc = useMemo(() => (view === "report" ? layoutHtml(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name]);
+  const reportDoc = useMemo(() => (view === "report" ? (detailed ? layoutHtml : simpleHtml)(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name, detailed]);
   const diffCount = diff ? diffSummary(diff) : null;
   const missing = data.people.filter((p) => rows.some((r) => r.personId === p.id) && !/^[A-Za-z0-9 .'-]+$/.test(p.name)).length;
   return (
@@ -126,12 +127,15 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
         ) : null}
       </div>
       <div className="ac-actions ac-no-print">
+        <label title="الافتراضي: جدول واحد بسيط (الاسم · أول بصمة · آخر بصمة · عدد ساعات العمل)">
+          <input type="checkbox" checked={detailed} onChange={(e) => setDetailed(e.target.checked)} /> تقرير مفصّل (ملخص + صفحة لكل موظف)
+        </label>
         <Button
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyPdf } = await import("@/lib/daily-report");
-            if (view === "diff" && diff) await saveDailyPdf(start, end, bothRows, profile.name, profile.logo, withDiffPages(layoutHtml(buildLayout(start, end, bothRows), profile.name), diff, profile.name, start, end, cmpName));
-            else await saveDailyPdf(start, end, shown, profile.name, profile.logo);
+            if (view === "diff" && diff) await saveDailyPdf(start, end, bothRows, profile.name, profile.logo, withDiffPages((detailed ? layoutHtml : simpleHtml)(buildLayout(start, end, bothRows), profile.name), diff, profile.name, start, end, cmpName));
+            else await saveDailyPdf(start, end, shown, profile.name, profile.logo, undefined, detailed);
           }}
         >
           {view === "diff" ? "PDF التقرير + الفرق" : "PDF التقرير اليومي"}
@@ -140,8 +144,8 @@ export function DailyReportCard({ rows, start, end, allDevices = false }: { rows
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyXlsx } = await import("@/lib/daily-report");
-            if (view === "diff" && diff) await saveDailyXlsx(start, end, bothRows, profile.name, profile.logo, diff, cmpName);
-            else await saveDailyXlsx(start, end, shown, profile.name, profile.logo);
+            if (view === "diff" && diff) await saveDailyXlsx(start, end, bothRows, profile.name, profile.logo, diff, cmpName, detailed);
+            else await saveDailyXlsx(start, end, shown, profile.name, profile.logo, null, undefined, detailed);
           }}
         >
           {view === "diff" ? "Excel التقرير + الفرق" : "Excel التقرير اليومي"}

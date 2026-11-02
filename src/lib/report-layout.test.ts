@@ -27,3 +27,20 @@ test("html escapes names and drops non-image photos", () => {
   const html = layoutHtml(buildLayout("2026-10-03", "2026-10-05", [...rows, row({ personId: "p3", name: "Z", photo: "javascript:alert(1)" })]));
   assert.match(html, /dir="rtl"/); assert.match(html, /Ali &lt;x&gt;/); assert.doesNotMatch(html, /javascript:/);
 });
+import { simpleHtml, simpleSheets, simpleRows } from "./report-layout.ts";
+test("simple report: one table, name/first/last/hours; date column only for multi-day", () => {
+  const one = buildLayout("2026-10-03", "2026-10-03", rows);
+  const s1 = simpleSheets(one);
+  assert.equal(s1.length, 1);
+  assert.deepEqual(s1[0].rows[1], ["الاسم", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"]);
+  assert.deepEqual(simpleRows(one).find((r) => r[0] === "Mohamed"), ["Mohamed", "09:00", "17:30", "08:30"]);
+  const h1 = simpleHtml(one, "Co");
+  assert.equal((h1.match(/<table/g) || []).length, 1);
+  assert.ok(h1.includes("توقيت القاهرة") && !h1.includes("تقرير موظف") && !h1.includes("<img") && h1.includes("Ali &lt;x&gt;"));
+  const multi = buildLayout("2026-10-03", "2026-10-05", rows);
+  const r = simpleRows(multi);
+  assert.equal(r.length, 6);
+  assert.equal(simpleSheets(multi)[0].rows[1][1], "التاريخ");
+  assert.deepEqual(r.filter((x) => x[0] === "Mohamed").map((x) => x[4]), ["08:30", "بصمة واحدة", ""]);
+  assert.equal(r.filter((x) => x[0] === "Mohamed")[2][2], "غياب");
+});

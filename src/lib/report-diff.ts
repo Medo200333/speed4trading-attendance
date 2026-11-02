@@ -1,7 +1,7 @@
 import type { DailyRow } from "./daily-report.ts";
 import { sameName } from "./name-match.ts";
 import { buildXlsx, type SheetSpec } from "./xlsx-io.ts";
-import { dayName, longDate, LAYOUT_CSS, layoutSheets, buildLayout } from "./report-layout.ts";
+import { dayName, longDate, LAYOUT_CSS, layoutSheets, buildLayout, simpleSheets } from "./report-layout.ts";
 
 /** Devices vs Hik-Connect Team comparison, one line per employee per day. */
 export type DiffState = "match" | "time" | "device-only" | "teams-only" | "unmatched" | "absent";
@@ -72,8 +72,9 @@ export function diffSheet(rows: DiffRow[], src = DEFAULT_SRC): SheetSpec {
   ] };
 }
 /** Agreed layout workbook (+ optional "الفرق" sheet). */
-export function reportXlsxBytes(from: string, to: string, rows: DailyRow[], diff: DiffRow[] | null, companyName = "", companyLogo = "", src = DEFAULT_SRC) {
-  const sheets = layoutSheets(buildLayout(from, to, rows), companyName, companyLogo);
+export function reportXlsxBytes(from: string, to: string, rows: DailyRow[], diff: DiffRow[] | null, companyName = "", companyLogo = "", src = DEFAULT_SRC, detailed = true) {
+  const layout = buildLayout(from, to, rows);
+  const sheets = detailed ? layoutSheets(layout, companyName, companyLogo) : simpleSheets(layout, companyName, companyLogo);
   if (diff) sheets.splice(1, 0, diffSheet(diff, src));
   return buildXlsx(sheets);
 }
