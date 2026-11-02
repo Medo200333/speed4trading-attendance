@@ -688,13 +688,13 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
   async function downloadExcel() {
     const { saveDailyXlsx, rowsForLayout } = await import("../lib/daily-report");
     const company = currentCompanyProfile();
-    await saveDailyXlsx(from, to, rowsForLayout(shown, roster, from), company.name, company.logo);
+    await saveDailyXlsx(from, to, rowsForLayout(shown, problemsOnly || query.trim() ? roster.filter((p) => shown.some((r) => r.employeeNo === p.employeeNo)) : roster, from), company.name, company.logo);
   }
 
   async function downloadPdf() {
     const { saveDailyPdf, rowsForLayout } = await import("../lib/daily-report");
     const company = currentCompanyProfile();
-    await saveDailyPdf(from, to, rowsForLayout(shown, roster, from), company.name, company.logo);
+    await saveDailyPdf(from, to, rowsForLayout(shown, problemsOnly || query.trim() ? roster.filter((p) => shown.some((r) => r.employeeNo === p.employeeNo)) : roster, from), company.name, company.logo);
   }
 
   async function enterGate() {

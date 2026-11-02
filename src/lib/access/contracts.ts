@@ -3,7 +3,8 @@ const id = z.string().trim().min(1).max(100);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const clock = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/);
 export const personInput = z.object({
-  employeeNo: z.string().trim().min(1).max(32),
+  // Hikvision rejects spaces and symbols in employeeNo (badParameters); catch it before the device does.
+  employeeNo: z.string().trim().min(1).max(32).regex(/^[A-Za-z0-9_-]+$/, "رقم الموظف: أرقام وحروف لاتينية بس (من غير مسافات أو رموز)."),
   name: z
     .string()
     .trim()
@@ -16,7 +17,7 @@ export const personInput = z.object({
   end: day,
   permanent: z.boolean(),
   grantDoor: z.boolean().optional(),
-});
+}).refine((p) => p.permanent || p.begin <= p.end, { message: "تاريخ نهاية الصلاحية قبل تاريخ البداية.", path: ["end"] });
 export const operationSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("addPerson"), deviceId: id, person: personInput }),
   z.object({
