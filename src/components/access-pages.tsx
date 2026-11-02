@@ -28,6 +28,7 @@ import {
 import { DeviceInfo } from "./access-device-info";
 import { ClockBadge, TimeSyncPanel } from "./time-sync";
 import { DeviceDashboard } from "./device-dashboard";
+import { RemoveDeviceButton } from "./device-remove";
 import {
   Button,
   Badge,
@@ -235,6 +236,7 @@ export function DevicesPage() {
                   <RefreshCw size={16} />
                   إعادة فحص بالقراءة فقط
                 </Button>
+                <RemoveDeviceButton deviceId={device.id} />
               </div>
             </div>
             {device.error && (

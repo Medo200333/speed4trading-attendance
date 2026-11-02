@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rename, copyFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, copyFile, rm } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { homedir } from "node:os";
 import {companyDirectory,companyContext,LEGACY_COMPANY} from "./tenant-context.server";
@@ -271,6 +271,13 @@ export async function rememberCredential(
       ciphertext: ciphertext.toString("base64"),
     }),
     { mode: 0o600 },
+  );
+}
+export async function forgetCredential(deviceId: string) {
+  runtime().secrets.delete(deviceId);
+  await rm(
+    join(privateDirectory(), `credential-${createHash("sha256").update(deviceId).digest("hex")}.json`),
+    { force: true },
   );
 }
 export async function credential(deviceId: string) {

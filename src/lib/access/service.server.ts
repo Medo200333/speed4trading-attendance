@@ -1456,6 +1456,7 @@ export async function actionCenter(
   confirmation?: Confirmation;
   deviceId?: string;
   timeSync?: TimeSyncRow;
+  removal?: import("./device-remove-core").RemovalImpact;
 }> {
   ensureScheduler();
   if (actor.role === "accountant")
@@ -1527,6 +1528,25 @@ export async function actionCenter(
       audit(state, actor, "time.sync", device.id, row.ok ? "success" : "failed", `${row.before.zone} ${row.before.localTime} → ${row.after.zone} ${row.after.localTime} (المطلوب ${row.target})`);
     });
     return { notice: row.ok ? `اتضبط وقت «${device.name}»: ${row.after.localTime} (${row.after.zone}).` : `«${device.name}»: ${row.error}`, timeSync: row };
+  }
+  if (input.action === "device.remove") {
+    // App-only removal: never sends anything to the physical device.
+    requireRole(actor, "admin");
+    const { removalImpact, removeDeviceFromState } = await import("./device-remove-core");
+    const current = await readState();
+    const impact = removalImpact(current, input.deviceId);
+    if (!impact) throw new AccessError("DEVICE", "الجهاز غير موجود داخل البرنامج.");
+    if (input.dryRun) return { deviceId: impact.deviceId, removal: impact };
+    if (jobs().busy.has(impact.deviceId))
+      throw new AccessError("BUSY", "انتظر انتهاء عملية الجهاز قبل حذفه من البرنامج.");
+    await updateState((state) => {
+      removeDeviceFromState(state, impact.deviceId, input);
+      audit(state, actor, "device.remove", impact.deviceId, "success",
+        `${impact.name} ${impact.host}:${impact.port}؛ السجلات: ${input.removeEvents ? `حُذفت ${impact.events}` : `محفوظة ${impact.events}`}؛ الموظفون: ${input.removeEmployees ? `حُذف ${impact.employees}` : `محفوظ ${impact.employees}`}؛ من البرنامج فقط، لم يُرسل شيء للجهاز.`);
+    });
+    const { forgetCredential } = await import("./store.server");
+    await forgetCredential(impact.deviceId);
+    return { notice: `اتحذف الجهاز ${impact.name} من البرنامج فقط. الجهاز نفسه لم يتغير.` };
   }
   if (input.action === "time.zone.set") {
     requireRole(actor, "admin");

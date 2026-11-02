@@ -136,6 +136,13 @@ const legacyActionSchema = z.discriminatedUnion("action", [
     fingerNo: z.number().int().min(1).max(10),
   }),
   z.object({
+    action: z.literal("device.remove"),
+    deviceId: id,
+    dryRun: z.boolean().default(true),
+    removeEvents: z.boolean().default(false),
+    removeEmployees: z.boolean().default(false),
+  }),
+  z.object({
     action: z.literal("time.zone.set"),
     deviceId: id,
   }),
