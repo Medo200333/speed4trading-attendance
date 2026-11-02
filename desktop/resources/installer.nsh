@@ -25,9 +25,17 @@
 !macroend
 
 !macro customUnInstall
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="speed4trading SADP"'
   ; Remove everything the app created; owner wants reinstall = fresh 30-day demo (trial key removed too).
   ${ifNot} ${isUpdated}
     !insertmacro s4tWipe
     RMDir /r "$LOCALAPPDATA\speed4trading-updater"
   ${endIf}
+!macroend
+
+; SADP discovery/activation: allow Hikvision SADP replies (UDP from remote port 37020, multicast 239.255.255.250).
+; Needs admin; on a per-user install without elevation this silently fails and Windows shows its own firewall prompt instead.
+!macro customInstall
+  nsExec::Exec 'netsh advfirewall firewall delete rule name="speed4trading SADP"'
+  nsExec::Exec 'netsh advfirewall firewall add rule name="speed4trading SADP" dir=in action=allow protocol=UDP remoteport=37020 profile=any'
 !macroend

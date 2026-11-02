@@ -161,6 +161,7 @@ export function DeviceSetup({
                     setHttps(false);
                     setId("");
                     if (!name.trim()) setName(`${row.model || "بصمة"} ${row.ip}`.slice(0, 80));
+                    if (row.password) { setUsername("admin"); setPassword(row.password); }
                   }}
                 />
               ) : null}
