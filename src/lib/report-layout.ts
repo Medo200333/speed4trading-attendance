@@ -128,23 +128,21 @@ export function layoutHtml(layout: ReportLayout, companyName = "", perPage = 19,
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><style>${LAYOUT_CSS}</style></head><body>${pages.join("")}</body></html>`;
 }
 
-/** Default "simple" report: ONE table — names under each other, first punch, last punch, worked hours (Cairo time). A date column appears only for multi-day ranges (one row per employee per day). */
+/** Default "simple" report: ONE table — names under each other, first punch, last punch, worked hours (Cairo time). Always includes a date column (one row per employee per day). */
 export function simpleRows(layout: ReportLayout): string[][] {
-  const multi = layout.dates.length > 1;
   const out: string[][] = [];
   for (const e of layout.employees) for (const d of e.days) {
     const cells = d.state === "absent" ? [ABSENT, "", ""] : [d.first, d.last || "—", d.state === "single" ? SINGLE : d.worked];
-    out.push(multi ? [e.name, longDate(d.date), ...cells] : [e.name, ...cells]);
+    out.push([e.name, longDate(d.date), ...cells]);
   }
   return out;
 }
 export function simpleHeader(layout: ReportLayout): string[] {
-  return layout.dates.length > 1 ? ["الاسم", "التاريخ", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"] : ["الاسم", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"];
+  return ["الاسم", "التاريخ", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"];
 }
 export function simpleSheets(layout: ReportLayout, companyName = "", companyLogo = ""): SheetSpec[] {
   const period = layout.from === layout.to ? longDate(layout.from) : `${longDate(layout.from)} – ${longDate(layout.to)}`;
-  const multi = layout.dates.length > 1;
-  return [{ name: "التقرير", logo: companyLogo || undefined, widths: multi ? [26, 13, 12, 12, 16] : [26, 12, 12, 16], heights: { 0: 28, 1: 22 },
+  return [{ name: "التقرير", logo: companyLogo || undefined, widths: [26, 13, 12, 12, 16], heights: { 0: 28, 1: 22 },
     rows: [[`${companyName ? companyName + " — " : ""}تقرير الحضور والانصراف (${period}) · توقيت القاهرة`], simpleHeader(layout), ...simpleRows(layout)] }];
 }
 export const SIMPLE_CSS = `@page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}body{font-family:'IBM Plex Sans Arabic','Cairo','Noto Sans Arabic',sans-serif;margin:0;color:#1d2433}

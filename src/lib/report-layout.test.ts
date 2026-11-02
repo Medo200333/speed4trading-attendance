@@ -28,12 +28,12 @@ test("html escapes names and drops non-image photos", () => {
   assert.match(html, /dir="rtl"/); assert.match(html, /Ali &lt;x&gt;/); assert.doesNotMatch(html, /javascript:/);
 });
 import { simpleHtml, simpleSheets, simpleRows } from "./report-layout.ts";
-test("simple report: one table, name/first/last/hours; date column only for multi-day", () => {
+test("simple report: one table, name/first/last/hours; date column always", () => {
   const one = buildLayout("2026-10-03", "2026-10-03", rows);
   const s1 = simpleSheets(one);
   assert.equal(s1.length, 1);
-  assert.deepEqual(s1[0].rows[1], ["الاسم", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"]);
-  assert.deepEqual(simpleRows(one).find((r) => r[0] === "Mohamed"), ["Mohamed", "09:00", "17:30", "08:30"]);
+  assert.deepEqual(s1[0].rows[1], ["الاسم", "التاريخ", "أول بصمة", "آخر بصمة", "عدد ساعات العمل"]);
+  assert.deepEqual(simpleRows(one).find((r) => r[0] === "Mohamed")?.filter((_, i) => i !== 1), ["Mohamed", "09:00", "17:30", "08:30"]);
   const h1 = simpleHtml(one, "Co");
   assert.equal((h1.match(/<table/g) || []).length, 1);
   assert.ok(h1.includes("توقيت القاهرة") && !h1.includes("تقرير موظف") && !h1.includes("<img") && h1.includes("Ali &lt;x&gt;"));
