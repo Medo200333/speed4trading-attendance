@@ -1,6 +1,6 @@
 import dgram from "node:dgram";
-import { activateResult, activateXml, checkActivationPassword, checkNetwork, decryptChallenge, decryptExchangeReply, encryptPasswordByRandom, makeChallengeKeys, publicKeyCode, sadpActivateXml, sadpExchangeXml, sadpModifyXml, sadpReplyResult, type NetworkChange, type PasswordCheck } from "./activation-core.ts";
-import { inLocalSubnet, localIPv4, sadpGroupListener, SADP_GROUP, SADP_PORT } from "./sadp.server.ts";
+import { activateResult, activateXml, checkActivationPassword, checkNetwork, decryptChallenge, decryptExchangeReply, encryptPasswordByRandom, makeChallengeKeys, makeSadpKeys, publicKeyCode, type SadpSecurity, sadpActivateXml, sadpExchangeXml, sadpModifyXml, sadpReplyResult, type NetworkChange, type PasswordCheck } from "./activation-core.ts";
+import { inLocalSubnet, localIPv4, sadpDiscover, sadpGroupListener, SADP_GROUP, SADP_PORT } from "./sadp.server.ts";
 
 type Fetch = (url: string, init: RequestInit) => Promise<{ status: number; text(): Promise<string> }>;
 export type ActivateTarget = { ip: string; httpPort: number; mac: string };
@@ -31,6 +31,9 @@ export async function sadpRequest(xml: string, mac: string, types: string, timeo
   const want = (text: string) => /<ProbeMatch[\s>]/.test(text) && replyMac(text) === mac.toLowerCase() && (!replyTypes(text) || replyTypes(text) === types.toLowerCase());
   let groupReply: string | null = null;
   const stop = sadpGroupListener((buffer) => { const t = buffer.toString("utf8"); if (!groupReply && want(t)) groupReply = t; });
+  // Real-device test (DS-K1T673DGX-E1): the first exchangecode got no reply while the second answered in 120 ms, so wait for the
+  // group socket to be joined before sending, and resend the identical packet once if nothing came back after 1.5 s.
+  await stop.ready;
   const results = await Promise.all(localIPv4().map(({ address }) => new Promise<string | null>((done) => {
     const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
     let settled = false;
@@ -41,6 +44,7 @@ export async function sadpRequest(xml: string, mac: string, types: string, timeo
     socket.bind(0, address, () => {
       try { socket.setMulticastInterface(address); } catch { /* default */ }
       socket.send(message, SADP_PORT, SADP_GROUP, () => {});
+      setTimeout(() => { if (!settled) try { socket.send(message, SADP_PORT, SADP_GROUP, () => {}); } catch { /* closed */ } }, 1500);
       setTimeout(() => finish(null), timeoutMs);
     });
   })));
@@ -54,7 +58,7 @@ export type SadpRequest = typeof sadpRequest;
 
 /** SADP activation exactly like SADPTool: exchangecode (our RSA key) → decrypt device random → activate with encrypted password. */
 export async function sadpActivate(mac: string, password: string, request: SadpRequest = sadpRequest): Promise<PasswordCheck | null> {
-  const keys = makeChallengeKeys();
+  const keys = makeSadpKeys();
   const reply = await request(sadpExchangeXml(mac, publicKeyCode(keys)), mac, "exchangecode");
   if (!reply) return null;
   let random: string;
@@ -85,12 +89,20 @@ export async function activateDevice(target: ActivateTarget, password: string, c
   return { ok: false, error: "الجهاز ما ردش على طلب التفعيل. تأكد إن البرنامج والجهاز على نفس الشبكة (نفس الراوتر)، أو فعّله من شاشة الجهاز.", method: "" };
 }
 
-export async function modifyDeviceNetwork(mac: string, password: string, net: NetworkChange, request: SadpRequest = sadpRequest): Promise<PasswordCheck> {
+/** Reads <Salt>/<Encrypt> for one MAC from a fresh inquiry (Sadp.dll keeps them from discovery). */
+export async function sadpSecurityFor(mac: string): Promise<SadpSecurity | undefined> {
+  const row = (await sadpDiscover()).find((d) => d.mac === mac.toLowerCase());
+  return row ? { salt: row.salt, encrypt: row.encrypt } : undefined;
+}
+export async function modifyDeviceNetwork(mac: string, password: string, net: NetworkChange, request: SadpRequest = sadpRequest, security: (mac: string) => Promise<SadpSecurity | undefined> = sadpSecurityFor): Promise<PasswordCheck> {
   if (!mac) return { ok: false, error: "عنوان MAC للجهاز غير معروف، ما ينفعش نغيّر الشبكة." };
   if (!password) return { ok: false, error: "اكتب كلمة مرور الجهاز." };
   const check = checkNetwork(net);
   if (!check.ok) return check;
-  const reply = await request(sadpModifyXml(mac, password, net), mac, "update");
+  const sec = await security(mac).catch(() => undefined);
+  // Sadp.dll ModifyNetParamV40 (@0x1002cf80) runs an exchangecode round first on these devices.
+  if (sec?.encrypt) await request(sadpExchangeXml(mac, makeSadpKeys().code), mac, "exchangecode");
+  const reply = await request(sadpModifyXml(mac, password, net, undefined, sec), mac, "update");
   return (reply && sadpReplyResult(reply, mac)) || { ok: false, error: "الجهاز ما ردش على تغيير الشبكة. تأكد إنك على نفس الراوتر." };
 }
 

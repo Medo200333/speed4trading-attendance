@@ -74,13 +74,14 @@ function fakeSadpDevice(expectPassword: string) {
     sent.push(types);
     if (types === "exchangecode") {
       const keyB64 = xml.match(/<Code>([^<]+)<\/Code>/)![1];
-      const n = Buffer.from(Buffer.from(keyB64, "base64").toString(), "hex").toString("base64url");
-      const key = createPublicKey({ key: { kty: "RSA", n, e: "AQAB" }, format: "jwk" });
+      // Sadp.dll format: base64(PKCS#1 DER RSAPublicKey); a firmware-like parser rejects anything else.
+      const key = createPublicKey({ key: Buffer.from(keyB64, "base64"), type: "pkcs1", format: "der" });
       return `<ProbeMatch><MAC>${mac}</MAC><Types>exchangecode</Types><Code>${publicEncrypt({ key, padding: constants.RSA_PKCS1_PADDING }, Buffer.from(RANDOM)).toString("base64")}</Code></ProbeMatch>`;
     }
     const pw = xml.match(/<Password>([^<]+)<\/Password>/)![1];
-    const d = createDecipheriv("aes-128-ecb", Buffer.from(RANDOM, "hex"), null); d.setAutoPadding(false);
-    const plain = Buffer.concat([d.update(Buffer.from(Buffer.from(pw, "base64").toString(), "hex")), d.final()]).toString("latin1").replace(/\0+$/, "");
+    const d = createDecipheriv("aes-128-ecb", Buffer.from(RANDOM.slice(0, 16), "latin1"), null); d.setAutoPadding(false);
+    const raw = Buffer.from(pw, "base64"); if (raw.length !== 32) return `<ProbeMatch><MAC>${mac}</MAC><Types>${types}</Types><Result>failed</Result></ProbeMatch>`;
+    const plain = Buffer.concat([d.update(raw), d.final()]).toString("latin1").replace(/\0+$/, "");
     return `<ProbeMatch><MAC>${mac}</MAC><Types>${types}</Types><Result>${plain === RANDOM.slice(0, 16) + expectPassword ? "success" : "failed"}</Result></ProbeMatch>`;
   } };
 }
@@ -98,7 +99,7 @@ test("activateDevice falls back to SADP exchangecode+activate when ISAPI is unsu
 test("modify network needs password and valid IP", async () => {
   assert.equal((await modifyDeviceNetwork("aa", "", { dhcp: true, ip: "", mask: "", gateway: "" })).ok, false);
   assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: false, ip: "x", mask: "", gateway: "" }, async () => assert.fail("no send"))).ok, false);
-  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, async (_x, mac) => `<ProbeMatch><MAC>${mac}</MAC><Types>update</Types><Result>success</Result></ProbeMatch>`)).ok, true);
+  assert.equal((await modifyDeviceNetwork("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, async (_x, mac) => `<ProbeMatch><MAC>${mac}</MAC><Types>update</Types><Result>success</Result></ProbeMatch>`, async () => undefined)).ok, true);
 });
 
 test("outside-subnet device is activated via SADP without HTTP", async () => {
@@ -129,4 +130,56 @@ test("raw ethernet SADP frame round trip", () => {
   assert.equal(frame.subarray(0, 6).toString("hex"), "01005e7ffffa");
   assert.equal(sadpPayloadFromFrame(frame)?.toString(), payload.toString());
   assert.equal(sadpPayloadFromFrame(Buffer.alloc(60)), null);
+});
+
+import { makeSadpKeys, decryptExchangeReply, encryptPasswordByRandom, sadpUpdatePassword, sadpExchangeXml } from "./activation-core.ts";
+import { createHash } from "node:crypto";
+test("Sadp.dll exchangecode key: base64 PKCS#1 DER of a 1024-bit RSA key, e=65537", () => {
+  const k = makeSadpKeys();
+  const der = Buffer.from(k.code, "base64");
+  assert.equal(der[0], 0x30); // ASN.1 SEQUENCE (RSAPublicKey)
+  const pub = createPublicKey({ key: der, type: "pkcs1", format: "der" });
+  assert.equal(pub.asymmetricKeyDetails?.modulusLength, 1024);
+  assert.equal(pub.asymmetricKeyDetails?.publicExponent, 65537n);
+  assert.match(sadpExchangeXml("A4-D5-C2-7A-CE-2E", k.code, "U"), /^<\?xml version="1.0" encoding="utf-8"\?><Probe><Uuid>U<\/Uuid><MAC>a4-d5-c2-7a-ce-2e<\/MAC><Types>exchangecode<\/Types><Code>MIGJAoGBA/);
+  // device reply: base64(RSA-PKCS1(random))
+  const random = "0123456789abcdef0123456789abcdef";
+  const reply = `<ProbeMatch><MAC>a4</MAC><Types>exchangecode</Types><Code>${publicEncrypt({ key: pub, padding: constants.RSA_PKCS1_PADDING }, Buffer.from(random)).toString("base64")}</Code></ProbeMatch>`;
+  assert.equal(decryptExchangeReply(reply, k.privateKey), random);
+  assert.throws(() => decryptExchangeReply("<ProbeMatch><Result>failed</Result><Code></Code></ProbeMatch>", k.privateKey), /no-code/);
+});
+test("Sadp.dll EncryptPWByRandomStr: AES-128-ECB(random[0..16], pad32(random16 + pw)) → base64 raw", () => {
+  const random = "0123456789abcdef0123456789abcdef";
+  const enc = Buffer.from(encryptPasswordByRandom(random, "Speed2026"), "base64");
+  assert.equal(enc.length, 32);
+  const d = createDecipheriv("aes-128-ecb", Buffer.from("0123456789abcdef"), null); d.setAutoPadding(false);
+  const plain = Buffer.concat([d.update(enc), d.final()]);
+  assert.equal(plain.toString("latin1"), "0123456789abcdefSpeed2026" + "\0".repeat(7));
+  assert.throws(() => encryptPasswordByRandom(random, "x".repeat(17)));
+});
+test("Sadp.dll PackageUpdateData password: salted MD5(sha256hex(user+salt+pw)), AES with digest when Encrypt=true", () => {
+  const salt = "f6da5270444975d24e027d07289ff98b8601f296a0803bef51a40db6c07847b0";
+  const digest = createHash("md5").update(createHash("sha256").update("admin" + salt + "Speed2026").digest("hex")).digest();
+  assert.equal(sadpUpdatePassword("Speed2026", { salt }), digest.toString("base64"));
+  assert.equal(sadpUpdatePassword("Speed2026", {}), createHash("md5").update("Speed2026").digest("base64"));
+  const enc = Buffer.from(sadpUpdatePassword("Speed2026", { salt, encrypt: true }), "base64");
+  assert.equal(enc.length, 64);
+  const d = createDecipheriv("aes-128-ecb", digest, null); d.setAutoPadding(false);
+  const plain = Buffer.concat([d.update(enc), d.final()]);
+  assert.deepEqual(plain.subarray(0, 16), digest);
+  assert.equal(plain.subarray(16).toString("latin1").replace(/\0+$/, ""), ";Speed2026");
+  const xml = sadpModifyXml("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, "U", { salt, encrypt: true });
+  assert.match(xml, /<Password bSalt="true">[A-Za-z0-9+\/=]{88}<\/Password>/);
+  assert.doesNotMatch(xml, /Speed2026/);
+});
+test("modifyDeviceNetwork: Encrypt device → exchangecode first, then update with the salted password", async () => {
+  const { modifyDeviceNetwork } = await import("./activation.server.ts");
+  const sent: string[] = []; let updateXml = "";
+  const r = await modifyDeviceNetwork("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, async (xml, mac, types) => {
+    sent.push(types); if (types === "update") updateXml = xml;
+    return `<ProbeMatch><MAC>${mac}</MAC><Types>${types}</Types><Result>success</Result></ProbeMatch>`;
+  }, async () => ({ salt: "s", encrypt: true }));
+  assert.deepEqual(r, { ok: true, error: "" });
+  assert.deepEqual(sent, ["exchangecode", "update"]);
+  assert.match(updateXml, /bSalt="true"/);
 });

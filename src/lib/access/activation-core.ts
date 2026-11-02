@@ -1,4 +1,4 @@
-import { generateKeyPairSync, privateDecrypt, createCipheriv, constants, randomUUID, type KeyObject } from "node:crypto";
+import { generateKeyPairSync, privateDecrypt, createCipheriv, createHash, constants, randomUUID, type KeyObject } from "node:crypto";
 
 /** Hikvision device activation helpers (pure, unit-tested; no network here).
  * ISAPI flow used by SADP/iVMS over HTTP (unauthenticated, only works on an inactive device):
@@ -59,28 +59,55 @@ export function activateResult(status: number, body: string): PasswordCheck {
 }
 
 const esc = (v: string) => v.replace(/[<>&'"]/g, (c) => `&#${c.charCodeAt(0)};`);
-/* SADP packet formats below match the format strings inside SADPTool's Sadp.dll (CMulticastProtocol):
- *  exchangecode: <Probe><Uuid/><MAC/><Types>exchangecode</Types><Code>{our RSA public key}</Code></Probe>
- *  device reply carries <Code> = RSA-encrypted random string; activate password = EncryptPWByRandomStr(random + password) (AES, base64)
- *  activate:     <Probe><Uuid/><MAC/><Types>activate</Types><Password>{encrypted}</Password></Probe> */
+/* SADP packet formats below were read from SADPTool's Sadp.dll (x86, CMulticastProtocol), see docs in sadp-protocol.md:
+ *  exchangecode (PackageExchangeCode @0x10040d60): RSA-1024 key pair (CSSLTrans::SSLTrans_GeneralRSAKey: RSA_generate_key_ex(1024, 65537)
+ *    then i2d_RSAPublicKey) → <Code> = base64(PKCS#1 DER RSAPublicKey).  (The ISAPI "hex modulus" form is rejected: device answers <Result>failed</Result>.)
+ *  reply (DecryptExchangeCode @0x1003f900): <Code> = base64(RSA-PKCS#1-v1.5(random)) → random string.
+ *  activate (EncryptPWByRandomStr @0x100404f0): AES-128-ECB(key = random[0..16] raw bytes, data = random[0..16] + password, zero padded
+ *    to 32 bytes, password ≤ 16) → base64(raw ciphertext) (NOT hex like ISAPI). */
 export function sadpExchangeXml(mac: string, publicKeyB64: string, uuid = randomUUID().toUpperCase()) {
   return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><MAC>${esc(mac.toLowerCase())}</MAC><Types>exchangecode</Types><Code>${publicKeyB64}</Code></Probe>`;
 }
-/** Public key value for <Code>, same encoding Hikvision firmware accepts on ISAPI (base64 of the hex modulus). */
-export function publicKeyCode(keys: ChallengeKeys) { return tag(keys.publicKeyXml, "key"); }
-/** Reads the device's <Code> (hex or base64) from an exchangecode reply and decrypts the random string. */
+export type SadpKeys = { code: string; privateKey: KeyObject };
+/** RSA key for SADP exchangecode, exactly like Sadp.dll: 1024-bit, e=65537, <Code> = base64(PKCS#1 DER public key). */
+export function makeSadpKeys(bits = 1024): SadpKeys {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: bits, publicExponent: 65537 });
+  return { privateKey, code: publicKey.export({ type: "pkcs1", format: "der" }).toString("base64") };
+}
+/** Legacy name kept for callers: the SADP <Code> for a key pair. */
+export function publicKeyCode(keys: SadpKeys) { return keys.code; }
+/** Reads the device's <Code> (base64 per Sadp.dll; hex accepted as fallback) and RSA-PKCS1 decrypts the random string. */
 export function decryptExchangeReply(xml: string, privateKey: KeyObject): string {
   const code = tag(xml, "Code");
   if (!code) throw new Error("no-code");
-  const bytes = /^[0-9a-fA-F]+$/.test(code) && code.length % 2 === 0 ? Buffer.from(code, "hex") : Buffer.from(code, "base64");
+  const size = (privateKey.asymmetricKeyDetails?.modulusLength || 1024) / 8;
+  const b64 = Buffer.from(code, "base64");
+  const bytes = b64.length === size || !/^[0-9a-fA-F]+$/.test(code) ? b64 : Buffer.from(code, "hex");
   return privateDecrypt({ key: privateKey, padding: constants.RSA_PKCS1_PADDING }, bytes).toString("latin1");
 }
-/** AES-128-ECB(key from random, random[0..16] + password) zero padded → base64(hex), as in ISAPI activate. */
+const zeroPad = (data: Buffer, size: number) => { const out = Buffer.alloc(size); data.copy(out, 0, 0, size); return out; };
+const aesEcb = (key: Buffer, data: Buffer) => { const c = createCipheriv("aes-128-ecb", key, null); c.setAutoPadding(false); return Buffer.concat([c.update(data), c.final()]); };
+/** Sadp.dll EncryptPWByRandomStr: base64(AES-128-ECB(random[0..16], pad32(random[0..16] + password))). */
 export function encryptPasswordByRandom(randomKey: string, password: string) {
-  return activateXml(randomKey, password).match(/<password>([^<]+)</)![1];
+  if (password.length > 16) throw new Error("password-too-long");
+  const r = zeroPad(Buffer.from(randomKey, "latin1"), 16);
+  return aesEcb(r, zeroPad(Buffer.concat([r, Buffer.from(password, "latin1")]), 32)).toString("base64");
 }
 export function sadpActivateXml(mac: string, encryptedPassword: string, uuid = randomUUID().toUpperCase()) {
   return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><MAC>${esc(mac.toLowerCase())}</MAC><Types>activate</Types><Password>${esc(encryptedPassword)}</Password></Probe>`;
+}
+/** Device security info from the inquiry reply (<Salt>, <Encrypt>), needed for the "update" password. */
+export type SadpSecurity = { salt?: string; encrypt?: boolean; username?: string };
+/** Sadp.dll PackageUpdateData @0x10043400 (+ helper @0x1003f2f0):
+ *  digest = salt ? MD5(lowercase-hex SHA256(username + salt + password)) : MD5(password)
+ *  Encrypt=true → base64(AES-128-ECB(key = digest, pad64(digest + ";" + password)))   else → base64(digest). */
+export function sadpUpdatePassword(password: string, sec: SadpSecurity) {
+  const user = sec.username || "admin";
+  const digest = sec.salt
+    ? createHash("md5").update(createHash("sha256").update(user + sec.salt + password).digest("hex")).digest()
+    : createHash("md5").update(password).digest();
+  if (!sec.encrypt) return digest.toString("base64");
+  return aesEcb(digest, zeroPad(Buffer.concat([digest, Buffer.from(";" + password, "latin1")]), 64)).toString("base64");
 }
 export type NetworkChange = { dhcp: boolean; ip: string; mask: string; gateway: string; httpPort?: number };
 export function checkNetwork(net: NetworkChange): PasswordCheck {
@@ -93,9 +120,12 @@ export function checkNetwork(net: NetworkChange): PasswordCheck {
 }
 /** SADP "update" (modify network parameters), field order exactly as Sadp.dll's format string. Needs the admin password.
  * With DHCP the current/any IP fields are still sent (the device ignores them). */
-export function sadpModifyXml(mac: string, password: string, net: NetworkChange & { commandPort?: number }, uuid = randomUUID().toUpperCase()) {
+export function sadpModifyXml(mac: string, password: string, net: NetworkChange & { commandPort?: number }, uuid = randomUUID().toUpperCase(), sec?: SadpSecurity) {
   const port = net.httpPort && net.httpPort > 0 && net.httpPort < 65536 ? `<HttpPort>${net.httpPort}</HttpPort>` : "";
-  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>${esc(mac.toLowerCase())}</MAC><Password>${esc(password)}</Password><IPv4Address>${net.ip || "0.0.0.0"}</IPv4Address><CommandPort>${net.commandPort || 8000}</CommandPort><IPv4SubnetMask>${net.mask || "255.255.255.0"}</IPv4SubnetMask><IPv4Gateway>${net.gateway || "0.0.0.0"}</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><DHCP>${net.dhcp ? "true" : "false"}</DHCP>${port}</Probe>`;
+  // Devices that report <Salt>/<Encrypt> get the Sadp.dll PackageUpdateData password (bSalt="true" when a salt exists); others the legacy plain form.
+  const secure = Boolean(sec && (sec.salt || sec.encrypt));
+  const pw = secure ? sadpUpdatePassword(password, sec!) : password;
+  return `<?xml version="1.0" encoding="utf-8"?><Probe><Uuid>${uuid}</Uuid><Types>update</Types><PWErrorParse>true</PWErrorParse><MAC>${esc(mac.toLowerCase())}</MAC><Password${secure && sec!.salt ? ' bSalt="true"' : ""}>${esc(pw)}</Password><IPv4Address>${net.ip || "0.0.0.0"}</IPv4Address><CommandPort>${net.commandPort || 8000}</CommandPort><IPv4SubnetMask>${net.mask || "255.255.255.0"}</IPv4SubnetMask><IPv4Gateway>${net.gateway || "0.0.0.0"}</IPv4Gateway><IPv6Address>::</IPv6Address><IPv6Gateway>::</IPv6Gateway><IPv6MaskLen>64</IPv6MaskLen><DHCP>${net.dhcp ? "true" : "false"}</DHCP>${port}</Probe>`;
 }
 /** Parses a SADP reply to activate/update: <ProbeMatch>…<Result>success|failed</Result>. */
 export function sadpReplyResult(xml: string, mac: string, types?: string): PasswordCheck | null {

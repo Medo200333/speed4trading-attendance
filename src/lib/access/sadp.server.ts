@@ -13,6 +13,9 @@ export type FoundDevice = {
   serial: string;
   firmware: string;
   activated: boolean | null;
+  /** From the inquiry reply; needed for the SADP "update" password (see sadpUpdatePassword). */
+  salt?: string;
+  encrypt?: boolean;
 };
 export const SADP_GROUP = "239.255.255.250";
 export const SADP_PORT = 37020;
@@ -42,6 +45,8 @@ export function parseProbeMatch(xml: string, from = ""): FoundDevice | null {
     serial: tag(xml, "DeviceSN"),
     firmware: tag(xml, "SoftwareVersion"),
     activated: activated === "true" ? true : activated === "false" ? false : null,
+    ...(tag(xml, "Salt") ? { salt: tag(xml, "Salt") } : {}),
+    ...(tag(xml, "Encrypt") ? { encrypt: tag(xml, "Encrypt").toLowerCase() === "true" } : {}),
   };
 }
 export function localIPv4() {
@@ -54,12 +59,17 @@ export function localIPv4() {
  * so also listen there joined on every NIC. Best effort: if 37020 is busy (e.g. SADP tool open) unicast replies still work. */
 export function sadpGroupListener(onMessage: (buffer: Buffer, from: string) => void) {
   const socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
-  socket.on("error", () => { try { socket.close(); } catch { /* closed */ } });
+  let markReady: () => void = () => {};
+  const ready = new Promise<void>((r) => { markReady = r; setTimeout(r, 1000); });
+  socket.on("error", () => { try { socket.close(); } catch { /* closed */ } markReady(); });
   socket.on("message", (buffer, remote) => onMessage(buffer, remote.address));
   socket.bind(SADP_PORT, () => {
     for (const { address } of localIPv4()) try { socket.addMembership(SADP_GROUP, address); } catch { /* NIC without multicast */ }
+    markReady();
   });
-  return () => { try { socket.close(); } catch { /* closed */ } };
+  const stop = () => { try { socket.close(); } catch { /* closed */ } };
+  /** Resolves once the group socket is bound and joined (or failed / 1 s), so replies sent to the group aren't missed. */
+  return Object.assign(stop, { ready });
 }
 export async function sadpDiscover(timeoutMs = 3000): Promise<FoundDevice[]> {
   const found = new Map<string, FoundDevice>();
