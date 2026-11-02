@@ -1,6 +1,7 @@
 import type { Device } from "@/lib/access/domain";
 import { Badge, Button, When, useCenter } from "./access-ui";
-import { zoneMismatch } from "@/lib/access/timezone";
+import { hostMismatch } from "@/lib/access/timezone";
+import { TimeSyncPanel } from "./time-sync";
 export function DeviceInfo({ device }: { device: Device }) {
   const rows = [
     ["الشركة المصنعة", device.info?.manufacturer],
@@ -22,28 +23,17 @@ export function DeviceInfo({ device }: { device: Device }) {
     ["المنطقة الزمنية المقروءة", device.clock?.zone],
     ["إزاحة الوقت", device.clock?.offset],
   ];
-  const { data, busy, act } = useCenter();
-  const zoneWarning = zoneMismatch(device.clock?.zone);
+  const { data } = useCenter();
+  const zoneWarning = hostMismatch(device.clock?.zone, device.clock?.driftSeconds, -new Date().getTimezoneOffset());
   return (
     <div className="ac-device-info">
       {zoneWarning ? (
         <div role="alert" className="ac-message error">
-          <p>{zoneWarning}</p>
-          {data.actor.role === "admin" ? (
-            <Button
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm(`ضبط المنطقة الزمنية لجهاز «${device.name}» على توقيت مصر؟ سيتغير timeZone فقط (يُسجل في سجل العمليات).`))
-                  void act({ action: "time.zone.set", deviceId: device.id });
-              }}
-            >
-              ضبط المنطقة الزمنية
-            </Button>
-          ) : (
-            <small>اطلب من المسؤول ضبط المنطقة الزمنية.</small>
-          )}
+          <p>⏰ {zoneWarning}</p>
+          {data.actor.role !== "admin" ? <small>اطلب من المسؤول ضبط التوقيت.</small> : null}
         </div>
       ) : null}
+      <TimeSyncPanel devices={[device]} single />
       <div className="ac-item-header">
         <Badge value={device.status} />
         <small>

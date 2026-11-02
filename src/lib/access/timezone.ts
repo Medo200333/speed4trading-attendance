@@ -45,3 +45,35 @@ export function withZone(xml: string, zone: string): string {
     .replace(/\s*<IANA>[^<]*<\/IANA>/, "")
     .replace(/\s*<localTime>[^<]*<\/localTime>/, "");
 }
+
+/** ISO local time with explicit offset, e.g. (ms, 120) → "2026-11-02T14:52:07+02:00". */
+export function localIso(ms: number, offsetMinutes: number): string {
+  const d = new Date(Math.floor(ms / 1000) * 1000 + offsetMinutes * 60000).toISOString().slice(0, 19);
+  const a = Math.abs(offsetMinutes);
+  return `${d}${offsetMinutes >= 0 ? "+" : "-"}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+}
+/** Device localTime → epoch ms. Without an explicit offset the Hikvision zone is used. */
+export function deviceLocalMs(localTime: string, zone?: string | null): number | null {
+  const t = String(localTime || "").trim(); if (!t) return null;
+  if (/([+-]\d{2}:?\d{2}|Z)$/.test(t)) { const v = Date.parse(t); return Number.isFinite(v) ? v : null; }
+  const off = hikZoneOffsetMinutes(zone); const v = Date.parse(t.replace(" ", "T") + "Z");
+  return off == null || !Number.isFinite(v) ? null : v - off * 60000;
+}
+/** Set <timeZone> and <localTime> in a /ISAPI/System/time document (keeps timeMode and everything else). */
+export function withClock(xml: string, zone: string, localTime: string): string {
+  if (!/<timeZone>[^<]*<\/timeZone>/.test(xml)) throw new Error("timeZone element missing");
+  let out = xml.replace(/\s*<IANA>[^<]*<\/IANA>/, "").replace(/<timeZone>[^<]*<\/timeZone>/, `<timeZone>${zone}</timeZone>`);
+  out = /<localTime>[^<]*<\/localTime>/.test(out)
+    ? out.replace(/<localTime>[^<]*<\/localTime>/, `<localTime>${localTime}</localTime>`)
+    : out.replace(/<timeZone>/, `<localTime>${localTime}</localTime><timeZone>`);
+  return out;
+}
+/** Warning when a device clock/zone differs from the host PC/phone (offset in minutes, drift in seconds). */
+export function hostMismatch(zone: string | undefined | null, driftSeconds: number | null | undefined, hostOffsetMinutes: number): string {
+  const dev = hikZoneOffsetMinutes(zone);
+  const fmt = (n: number) => `UTC${n >= 0 ? "+" : "-"}${Math.floor(Math.abs(n) / 60)}${Math.abs(n) % 60 ? `:${String(Math.abs(n) % 60).padStart(2, "0")}` : ""}`;
+  const parts: string[] = [];
+  if (dev != null && dev !== hostOffsetMinutes) parts.push(`منطقة الجهاز ${fmt(dev)} والجهاز ده (الكمبيوتر/الموبايل) ${fmt(hostOffsetMinutes)}`);
+  if (driftSeconds != null && Math.abs(driftSeconds) > 60) parts.push(`ساعة الجهاز ${driftSeconds > 0 ? "متقدمة" : "متأخرة"} ${Math.round(Math.abs(driftSeconds) / 60)} دقيقة`);
+  return parts.join(" · ");
+}

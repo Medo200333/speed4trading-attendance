@@ -140,6 +140,12 @@ const legacyActionSchema = z.discriminatedUnion("action", [
     deviceId: id,
   }),
   z.object({
+    action: z.literal("time.sync"),
+    deviceId: id,
+    offsetMinutes: z.number().int().min(-720).max(840),
+    hostTime: z.number().int().positive(),
+  }),
+  z.object({
     action: z.literal("fingerprint.delete"),
     deviceId: id,
     employeeNo: id,

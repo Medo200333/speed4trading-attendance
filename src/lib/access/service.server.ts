@@ -1444,6 +1444,10 @@ export async function commitOperation(
     jobs().busy.delete(device.id);
   }
 }
+export type TimeSyncRow = {
+  deviceId: string; name: string; zone: string; target: string; driftSeconds: number | null; ok: boolean; error: string;
+  before: { zone: string; localTime: string; mode: string }; after: { zone: string; localTime: string; mode: string };
+};
 export async function actionCenter(
   actor: Actor,
   input: ActionInput,
@@ -1451,6 +1455,7 @@ export async function actionCenter(
   notice?: string;
   confirmation?: Confirmation;
   deviceId?: string;
+  timeSync?: TimeSyncRow;
 }> {
   ensureScheduler();
   if (actor.role === "accountant")
@@ -1489,6 +1494,39 @@ export async function actionCenter(
       audit(state, actor, "fingerprint.enroll", `${device.id}:${input.employeeNo}`, "success", `بصمات مقروءة: ${result.count}`);
     });
     return { notice: `سُجلت البصمة وأعيدت قراءتها: ${result.count} بصمة للموظف.` };
+  }
+  if (input.action === "time.sync") {
+    requireRole(actor, "admin");
+    requireDeviceWrites();
+    const device = getDevice(await readState(), input.deviceId);
+    const { hikZoneFor, withClock, hikZoneOffsetMinutes, localIso, deviceLocalMs } = await import("./timezone");
+    const skew = input.hostTime - Date.now(); // host clock vs this server, measured at receipt
+    const zone = hikZoneFor(input.offsetMinutes);
+    const row = await withDeviceLock(device.id, async () => {
+      const client = await isapi(device);
+      const tag = (x: string, n: string) => new RegExp(`<${n}>([^<]*)</${n}>`).exec(x)?.[1] || "";
+      const current = await client.request("/ISAPI/System/time");
+      if (current.status !== 200 || !/<timeZone>/.test(current.text))
+        throw new AccessError("CAPABILITY", "تعذر قراءة إعدادات الوقت من الجهاز (/ISAPI/System/time).");
+      const before = { zone: tag(current.text, "timeZone"), localTime: tag(current.text, "localTime"), mode: tag(current.text, "timeMode") };
+      const target = localIso(Date.now() + skew, input.offsetMinutes);
+      const put = await client.request("/ISAPI/System/time", "PUT", withClock(current.text, zone, target), "application/xml");
+      if (put.status !== 200 || /<statusCode>(?!1<)/.test(put.text))
+        throw new AccessError("DEVICE_REJECTED", `رفض الجهاز ضبط الوقت (HTTP ${put.status}).`);
+      const check = await client.request("/ISAPI/System/time");
+      const after = { zone: tag(check.text, "timeZone"), localTime: tag(check.text, "localTime"), mode: tag(check.text, "timeMode") };
+      const ms = deviceLocalMs(after.localTime, after.zone);
+      const drift = ms == null ? null : Math.round((ms - (Date.now() + skew)) / 1000);
+      const zoneOk = hikZoneOffsetMinutes(after.zone) === input.offsetMinutes, timeOk = drift != null && Math.abs(drift) <= 90;
+      return { deviceId: device.id, name: device.name, before, after, target, zone, driftSeconds: drift, ok: zoneOk && timeOk,
+        error: zoneOk ? (timeOk ? "" : `الوقت بعد الضبط مختلف ${drift ?? "?"} ثانية${/ntp/i.test(after.mode) ? " (الجهاز على NTP)" : ""}`) : `المنطقة بعد الضبط ${after.zone || "غير معروفة"}` };
+    });
+    const scanned = await scanDevice(device).catch(() => null);
+    await updateState((state) => {
+      if (scanned) state.devices = state.devices.map((r) => (r.id === device.id ? scanned : r));
+      audit(state, actor, "time.sync", device.id, row.ok ? "success" : "failed", `${row.before.zone} ${row.before.localTime} → ${row.after.zone} ${row.after.localTime} (المطلوب ${row.target})`);
+    });
+    return { notice: row.ok ? `اتضبط وقت «${device.name}»: ${row.after.localTime} (${row.after.zone}).` : `«${device.name}»: ${row.error}`, timeSync: row };
   }
   if (input.action === "time.zone.set") {
     requireRole(actor, "admin");

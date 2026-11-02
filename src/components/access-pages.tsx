@@ -26,6 +26,7 @@ import {
   SettingsPanel,
 } from "./access-workflows";
 import { DeviceInfo } from "./access-device-info";
+import { ClockBadge, TimeSyncPanel } from "./time-sync";
 import { DeviceDashboard } from "./device-dashboard";
 import {
   Button,
@@ -207,9 +208,11 @@ export function DevicesPage() {
               </small>
             </span>
             <Badge value={row.status} />
+            <ClockBadge device={row} />
           </button>
         ))}
       </div>
+      {data.devices.length ? <TimeSyncPanel devices={data.devices} /> : null}
       {device ? (
         <>
           <Card title={device.name}>
