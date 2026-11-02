@@ -1,0 +1,21 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { diffRows, diffSummary, diffSheet, diffHtml, reportXlsxBytes, fmtDiff } from "./report-diff.ts";
+const r = (no: string, date: string, first: string, last: string, extra = {}) => ({ personId: no, employeeNo: no, name: `P${no}`, date, first, last, worked: "", status: "", absent: !first, ...extra });
+test("diff states", () => {
+  const dev = [r("1", "2026-11-01", "08:00:10", "17:00"), r("2", "2026-11-01", "09:00", "16:00"), r("3", "2026-11-01", "10:00", ""), r("5", "2026-11-01", "", "")];
+  const team = [r("1", "2026-11-01", "08:01", "17:00"), r("2", "2026-11-01", "09:10", "16:00"), r("4", "2026-11-01", "11:00", "12:00", { personId: "team:4" })];
+  const rows = diffRows(dev, team);
+  const by = Object.fromEntries(rows.map((x) => [x.employeeNo, x]));
+  assert.equal(by["1"].state, "match");
+  assert.equal(by["2"].state, "time"); assert.equal(by["2"].firstDiff, 10);
+  assert.equal(by["3"].state, "device-only");
+  assert.equal(by["4"].state, "teams-only");
+  assert.equal(by["5"].state, "absent");
+  assert.deepEqual(diffSummary(rows), { match: 1, time: 1, "device-only": 1, "teams-only": 1, absent: 1 });
+  assert.equal(fmtDiff(-5), "−5 د");
+  assert.equal(diffSheet(rows).rows.length, 7);
+  assert.match(diffHtml(rows, "Sky", "2026-11-01", "2026-11-01"), /في Teams بس/);
+  const bytes = reportXlsxBytes("2026-11-01", "2026-11-01", dev, rows, "Sky");
+  assert.ok(bytes.length > 1000);
+});

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceRow } from "@/lib/access/domain";
 import { dailyRows, mergeDailySources, type DailySource } from "@/lib/daily-report";
+import { buildLayout, layoutHtml } from "@/lib/report-layout";
+import { diffRows, diffSummary, DIFF_LABEL, fmtDiff, withDiffPages } from "@/lib/report-diff";
 import { useTeamsPull } from "@/lib/teams-pull-store";
 import { profileFrom } from "@/lib/company-profile";
 import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } from "./access-ui";
@@ -32,6 +34,16 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
     };
   }, [rows, data.people, version]);
   const shown = base.map((row) => ({ ...row, photo: photos[row.personId] ?? row.photo ?? null }));
+  const [view, setView] = useState<"table" | "report" | "diff">("table");
+  const diff = useMemo(() => {
+    if (!team) return null;
+    const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, "devices", start, end);
+    const tm = mergeDailySources([], team, "teams", start, end);
+    const pic = (r: (typeof dev)[number]) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null });
+    return diffRows(dev.map(pic), tm.map(pic));
+  }, [deviceRows, team, start, end, photos]);
+  const reportDoc = useMemo(() => (view === "report" ? layoutHtml(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name]);
+  const diffCount = diff ? diffSummary(diff) : null;
   const missing = data.people.filter((p) => rows.some((r) => r.personId === p.id) && !/^[A-Za-z0-9 .'-]+$/.test(p.name)).length;
   return (
     <Card>
@@ -73,27 +85,58 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
           {w}
         </p>
       ))}
+      <div className="ac-actions ac-no-print" role="tablist" aria-label="طريقة العرض">
+        <Button aria-pressed={view === "table"} onClick={() => setView("table")}>📋 الجدول</Button>
+        <Button aria-pressed={view === "report"} disabled={!shown.length} onClick={() => setView("report")}>👁️ عرض التقرير</Button>
+        <Button aria-pressed={view === "diff"} disabled={!diff} title={diff ? "" : "اسحب من Hik-Connect Team الأول"} onClick={() => setView("diff")}>⚖️ الفرق (أجهزة / Teams)</Button>
+      </div>
       <div className="ac-actions ac-no-print">
         <Button
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyPdf } = await import("@/lib/daily-report");
-            await saveDailyPdf(start, end, shown, profile.name, profile.logo);
+            if (view === "diff" && diff) await saveDailyPdf(start, end, shown, profile.name, profile.logo, withDiffPages(layoutHtml(buildLayout(start, end, shown), profile.name), diff, profile.name, start, end));
+            else await saveDailyPdf(start, end, shown, profile.name, profile.logo);
           }}
         >
-          PDF التقرير اليومي
+          {view === "diff" ? "PDF التقرير + الفرق" : "PDF التقرير اليومي"}
         </Button>
         <Button
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyXlsx } = await import("@/lib/daily-report");
-            await saveDailyXlsx(start, end, shown, profile.name, profile.logo);
+            await saveDailyXlsx(start, end, shown, profile.name, profile.logo, view === "diff" ? diff : null);
           }}
         >
-          Excel التقرير اليومي
+          {view === "diff" ? "Excel التقرير + الفرق" : "Excel التقرير اليومي"}
         </Button>
       </div>
-      <TableScroll label="التقرير اليومي — جدول قابل للتمرير">
+      {view === "report" ? (
+        <iframe title="عرض التقرير" srcDoc={reportDoc} style={{ width: "100%", height: "75vh", border: "1px solid #b8c3d6", borderRadius: 10, background: "#fff" }} />
+      ) : null}
+      {view === "diff" && diff ? (
+        <>
+          <p className="ac-message" role="status">
+            مطابق {diffCount!.match} · فرق في الوقت {diffCount!.time} · في الأجهزة بس {diffCount!["device-only"]} · في Teams بس {diffCount!["teams-only"]} · غياب في الاتنين {diffCount!.absent} (الفرق لحد دقيقتين يعتبر مطابق)
+          </p>
+          <TableScroll label="الفرق بين الأجهزة و Teams">
+            <table className="ac-table">
+              <thead><tr><th>الصورة</th><th>الاسم</th><th>التاريخ</th><th>أول (أجهزة)</th><th>آخر (أجهزة)</th><th>أول (Teams)</th><th>آخر (Teams)</th><th>فرق الأول</th><th>فرق الآخر</th><th>الحالة</th></tr></thead>
+              <tbody>
+                {diff.map((r) => (
+                  <tr key={`${r.key}-${r.date}`} style={{ background: r.state === "match" ? "#E2F0D9" : r.state === "time" ? "#FFF4CE" : r.state === "absent" ? undefined : "#FDE2E1" }}>
+                    <td>{r.photo ? <img src={r.photo} alt="" width={32} height={32} style={{ borderRadius: "50%", objectFit: "cover" }} /> : <span className="ac-avatar" style={{ width: 32, height: 32 }}>{r.name.slice(0, 1)}</span>}</td>
+                    <td dir="ltr">{r.name}</td><td>{r.date}</td>
+                    <td>{r.devFirst || "—"}</td><td>{r.devLast || "—"}</td><td>{r.teamFirst || "—"}</td><td>{r.teamLast || "—"}</td>
+                    <td>{fmtDiff(r.firstDiff)}</td><td>{fmtDiff(r.lastDiff)}</td><td><b>{DIFF_LABEL[r.state]}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        </>
+      ) : null}
+      {view === "table" ? <TableScroll label="التقرير اليومي — جدول قابل للتمرير">
         <table className="ac-table" dir="ltr">
           <thead>
             <tr>
@@ -128,7 +171,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
             ))}
           </tbody>
         </table>
-      </TableScroll>
+      </TableScroll> : null}
     </Card>
   );
 }

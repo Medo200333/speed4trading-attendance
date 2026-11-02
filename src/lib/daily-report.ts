@@ -422,9 +422,9 @@ export const SPEED_LOGO_URL = "/speed-logo.png";
 /** 1.2.10 report layout: landscape summary matrix + one page per employee (src/lib/report-layout.ts).
  * EXE: Electron printToPDF (A4 landscape, save dialog). APK: Android print service ("Save as PDF").
  * Browser fallback: print dialog of a hidden frame. The old drawn PDF stays as a last resort. */
-export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "") {
-  const html = layoutHtml(buildLayout(from, to, rows), companyName);
-  const name = `${fileBase(companyName, from, to)}.pdf`;
+export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", htmlOverride?: string) {
+  const html = htmlOverride || layoutHtml(buildLayout(from, to, rows), companyName);
+  const name = `${fileBase(companyName, from, to)}${htmlOverride ? "-diff" : ""}.pdf`;
   const w = window as unknown as { zubaydDesktop?: { savePdf?: (i: { html: string; name: string }) => Promise<unknown> }; ZubaydPrint?: { print: (html: string, name: string) => void } };
   if (w.zubaydDesktop?.savePdf) { await w.zubaydDesktop.savePdf({ html, name }); return; }
   if (w.ZubaydPrint?.print) { w.ZubaydPrint.print(html, name); return; }
@@ -442,10 +442,11 @@ export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], c
     download(name, bytes, "application/pdf");
   }
 }
-export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "") {
+export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", diff: import("./report-diff").DiffRow[] | null = null) {
+  const { reportXlsxBytes } = await import("./report-diff");
   download(
     `${fileBase(companyName, from, to)}.xlsx`,
-    layoutXlsxBytes(from, to, rows, companyName, companyLogo),
+    diff ? reportXlsxBytes(from, to, rows, diff, companyName, companyLogo) : layoutXlsxBytes(from, to, rows, companyName, companyLogo),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
 }
