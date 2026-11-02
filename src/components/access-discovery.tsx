@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { discoverDevicesFn, activateDeviceFn, modifyDeviceNetworkFn, configureWifiFn } from "@/lib/discovery.functions";
 import type { FoundDevice } from "@/lib/access/sadp.server";
@@ -18,7 +18,9 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
     [picked, setPicked] = useState(""),
     [suggestion, setSuggestion] = useState<Suggestion>(null),
     [flow, setFlow] = useState<Row | null>(null),
-    [pcap, setPcap] = useState("");
+    [pcap, setPcap] = useState(""),
+    [auto, setAuto] = useState(false),
+    [updatedAt, setUpdatedAt] = useState("");
   async function scan(deepScan: boolean): Promise<Row[]> {
     setLoading(deepScan ? "جارٍ الفحص العميق للشبكة (قد يستغرق حتى دقيقة)…" : "جارٍ البحث عن أجهزة Hikvision على الشبكة…");
     setNote({ text: "", error: false });
@@ -43,11 +45,20 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
       } catch { /* native scan unavailable */ }
     }
     setRows(found);
-    return found;
     setLoading("");
+    setUpdatedAt(new Date().toLocaleTimeString("ar-EG"));
     if (found.length) setNote({ text: `تم العثور على ${found.length} جهاز. اختر جهازاً ثم أدخل اسم المستخدم وكلمة المرور الخاصين به.`, error: false });
     else setNote({ text: serverError || "لم يُعثر على أجهزة. تأكد أن البصمة تعمل ومتصلة بنفس الشبكة، ثم جرّب الفحص العميق أو أدخل العنوان يدوياً.", error: true });
+    return found;
   }
+  // Optional auto-refresh while the page is open (paused during a scan or an activation flow).
+  const busyRef = useRef(false);
+  busyRef.current = Boolean(loading) || Boolean(flow);
+  useEffect(() => {
+    if (!auto) return;
+    const id = setInterval(() => { if (!busyRef.current) void scan(false); }, 15000);
+    return () => clearInterval(id);
+  }, [auto]);
   return (
     <section className="ac-stack ac-discovery" aria-busy={Boolean(loading)}>
       <ol className="ac-wizard-steps" aria-label="الخطوات" style={{ display: "flex", gap: 12, listStyle: "none", padding: 0, flexWrap: "wrap", fontSize: 15 }}>
@@ -55,8 +66,10 @@ export function DeviceDiscovery({ onPick, known }: { onPick: (row: Row) => void;
       </ol>
       <p>دوس «فحص الشبكة». البرنامج بيدوّر على أجهزة البصمة زي برنامج SADP، حتى لو عنوان الجهاز من شبكة تانية (زي 192.168.1.64 أو 192.0.0.64). الجهاز اللي عليه علامة حمرا «غير مفعّل» دوس «تفعيل» جنبه.</p>
       <div className="ac-actions">
-        <Button type="button" disabled={Boolean(loading)} onClick={() => scan(false)}>{loading ? "جارٍ الفحص…" : rows ? "إعادة الفحص" : "فحص الشبكة"}</Button>
+        <Button type="button" disabled={Boolean(loading)} onClick={() => scan(false)}>{loading ? "جارٍ الفحص…" : rows ? "🔄 تحديث" : "فحص الشبكة"}</Button>
         {rows ? <Button type="button" disabled={Boolean(loading)} onClick={() => scan(true)}>فحص عميق</Button> : null}
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> تحديث تلقائي كل 15 ثانية</label>
+        {updatedAt ? <span className="ac-muted">آخر تحديث: {updatedAt}</span> : null}
       </div>
       {loading ? <p role="status" className="ac-message"><span className="ac-loading-line" aria-hidden="true" /> {loading}</p> : null}
       {note.text && !loading ? <p role={note.error ? "alert" : "status"} className={`ac-message${note.error ? " error" : ""}`}>{note.text}</p> : null}
