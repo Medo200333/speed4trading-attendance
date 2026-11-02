@@ -44,3 +44,9 @@ test("simple report: one table, name/first/last/hours; date column always", () =
   assert.deepEqual(r.filter((x) => x[0] === "Mohamed").map((x) => x[4]), ["08:30", "بصمة واحدة", ""]);
   assert.equal(r.filter((x) => x[0] === "Mohamed")[2][2], "غياب");
 });
+
+test("layout never pools two different names that share an employee code", () => {
+  const L = buildLayout("2026-11-02", "2026-11-02", [row({ personId: "a", employeeNo: "2", name: "", first: "", last: "", worked: "", absent: true }), row({ personId: "b", employeeNo: "2", name: "jihan hussien", date: "2026-11-02", first: "10:00", last: "17:37", worked: "07:37" })]);
+  assert.equal(L.employees.length, 2);
+  assert.ok(L.employees.some((e) => e.name === "jihan hussien" && e.present === 1));
+});
