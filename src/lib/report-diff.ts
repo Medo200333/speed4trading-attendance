@@ -19,13 +19,21 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 /** requireName (OpenAPI guard): a cloud row joins a device row only when the code AND the name match; otherwise it is
  *  listed apart as "unmatched" instead of being shown under the local employee's name. */
 export function diffRows(device: DailyRow[], teams: DailyRow[], tolerance = 2, requireName = false): DiffRow[] {
-  const id = (r: DailyRow) => (r.unmatched ? `x:${r.employeeNo || norm(r.name)}` : r.employeeNo ? `no:${r.employeeNo}` : `nm:${norm(r.name)}`);
+  const devNames = new Map<string, string[]>();
+  for (const r of device) if (r.employeeNo) devNames.set(r.employeeNo, [...new Set([...(devNames.get(r.employeeNo) || []), r.name])]);
+  // Device rows: one person per code+name (all-devices view can carry the same code for different people).
+  const id = (r: DailyRow, side: "dev" | "team") => {
+    if (r.unmatched) return `x:${r.employeeNo || norm(r.name)}`;
+    if (!r.employeeNo) return `nm:${norm(r.name)}`;
+    const names = devNames.get(r.employeeNo) || [];
+    if (side === "dev") return `no:${r.employeeNo}|${names.indexOf(r.name)}`;
+    const i = names.findIndex((n) => sameName(n, r.name));
+    return `no:${r.employeeNo}|${i >= 0 ? i : 0}`;
+  };
   const map = new Map<string, { dev?: DailyRow; team?: DailyRow }>();
-  const devName = new Map<string, string>();
-  for (const r of device) if (r.employeeNo && !devName.has(r.employeeNo)) devName.set(r.employeeNo, r.name);
   const add = (r: DailyRow, side: "dev" | "team") => {
-    if (side === "team" && requireName && r.employeeNo && devName.has(r.employeeNo) && !sameName(devName.get(r.employeeNo)!, r.name)) r = { ...r, unmatched: true };
-    const k = `${id(r)}|${r.date}`; const cur = map.get(k) || {};
+    if (side === "team" && requireName && r.employeeNo && devNames.has(r.employeeNo) && !devNames.get(r.employeeNo)!.some((n) => sameName(n, r.name))) r = { ...r, unmatched: true };
+    const k = `${id(r, side)}|${r.date}`; const cur = map.get(k) || {};
     const has = !r.absent && r.first;
     if (!cur[side] || (has && !(cur[side]!.first))) cur[side] = r;
     map.set(k, cur);

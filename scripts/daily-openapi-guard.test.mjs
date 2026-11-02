@@ -42,3 +42,32 @@ test("OpenAPI merge guard + both-source export rows (summary and per-employee sh
     assert.deepEqual(names, ["(English name missing) #2", "Hamdy", "Islam Alex", "Rawan Reda", "mk"].sort());
   } finally { await vite.close(); }
 });
+
+test("all devices: one employee's punches at two branches pool per day; same code on another site stays apart", async () => {
+  const vite = await createServer({ configFile: false, logLevel: "silent", server: { middlewareMode: true, watch: null }, appType: "custom" });
+  try {
+    const { mergeDailySources } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
+    const { diffRows } = await vite.ssrLoadModule("/src/lib/report-diff.ts");
+    const r = (personId, no, name, first, last, branch) => ({ personId, employeeNo: no, name, date: "2026-11-02", first, last, worked: "", status: first ? "Present" : "Absent", absent: !first, branch });
+    const device = [
+      r("cai|s|7", "7", "Mahmoud Habib", "13:23", "", "cairo"),
+      r("msr|s|7", "7", "Mahmoud Habib", "15:00", "15:01", "masr"),
+      r("bm|s|2", "2", "عمر", "", "", "bm"),
+      r("msr|s|2", "2", "jihan hussien", "10:00", "", "masr"),
+    ];
+    const team = { people: [{ employeeNo: "7", name: "Mahmoud Habib", photo: "" }, { employeeNo: "2", name: "jihan hussien", photo: "" }], punches: [
+      { employeeNo: "7", name: "Mahmoud Habib", date: "2026-11-02", time: "13:23:00" }, { employeeNo: "7", name: "Mahmoud Habib", date: "2026-11-02", time: "15:01:00" },
+      { employeeNo: "2", name: "jihan hussien", date: "2026-11-02", time: "10:00:00" }] };
+    const opts = { requireName: true, label: "OpenAPI" };
+    const dev = mergeDailySources(device, team, "devices", "2026-11-02", "2026-11-02", undefined, opts);
+    const mh = dev.filter((x) => x.employeeNo === "7");
+    assert.equal(mh.length, 1); assert.equal(mh[0].first, "13:23"); assert.equal(mh[0].last, "15:01"); assert.match(mh[0].branch, /cairo/); assert.match(mh[0].branch, /masr/);
+    assert.equal(dev.filter((x) => x.employeeNo === "2").length, 2, "عمر (bm) and jihan stay two people");
+    const tm = mergeDailySources(device, team, "teams", "2026-11-02", "2026-11-02", undefined, opts);
+    const d = diffRows(dev, tm, 2, true);
+    assert.equal(d.find((x) => x.name === "Mahmoud Habib").state, "match");
+    assert.equal(d.find((x) => x.name === "jihan hussien").state, "match");
+    assert.equal(d.find((x) => x.name === "عمر").state, "absent");
+    assert.ok(!d.some((x) => x.unmatched));
+  } finally { await vite.close(); }
+});

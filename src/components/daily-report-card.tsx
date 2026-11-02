@@ -9,7 +9,7 @@ import { profileFrom } from "@/lib/company-profile";
 import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } from "./access-ui";
 
 /** Daily report: Speed frame on top, company logo + name, then per employee per day: photo, English name, number, first/last punch and worked time. */
-export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; start: string; end: string }) {
+export function DailyReportCard({ rows, start, end, allDevices = false }: { rows: AttendanceRow[]; start: string; end: string; allDevices?: boolean }) {
   const { data, read } = useCenter();
   const profile = profileFrom(data.company);
   const teamWeb = useTeamsPull("team"), teamApi = useTeamsPull("openapi");
@@ -22,10 +22,17 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const cmpIsApi = !!cmp && cmp === teamApi;
   const cmpName = cmpIsApi ? "Hik-Connect Team (OpenAPI)" : "Hik-Connect Team";
   const labels = diffLabels(cmpName);
-  const deviceRows = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
+  // All-devices view: tag each row with its device name so the merge pools branches and shows where punches came from.
+  const deviceRows = useMemo(() => {
+    const out = dailyRows(rows, data.people);
+    if (!allDevices) return out;
+    const names = new Map(data.devices.map((d) => [d.id, d.name]));
+    return out.map((r) => ({ ...r, branch: names.get(r.personId.split("|")[0]) || undefined }));
+  }, [rows, data.people, data.devices, allDevices]);
+  const strip = (r: (typeof deviceRows)[number]) => (allDevices ? r : { ...r, branch: undefined });
   const { base, warnings } = useMemo(() => {
     const warnings: string[] = [];
-    const base = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, source, start, end, warnings, { requireName: !!team && team === teamApi, label: team && team === teamApi ? "OpenAPI" : "Hik-Connect Team" });
+    const base = mergeDailySources(deviceRows.map(strip), team, source, start, end, warnings, { requireName: !!team && team === teamApi, label: team && team === teamApi ? "OpenAPI" : "Hik-Connect Team" });
     if (pick === "openapi" && teamApi) {
       for (const c of teamApi.clock ?? []) warnings.push(`⏰ ساعة جهاز «${c.device}» ${c.offsetMin > 0 ? "متقدمة" : "متأخرة"} ${Math.abs(c.offsetMin)} دقيقة عن وقت السحابة (OpenAPI).`);
       if (teamApi.attempts?.length) warnings.push(`${teamApi.attempts.length} ${HC_FAILED_LABEL} في OpenAPI — مش محسوبة حضور.`);
@@ -50,15 +57,15 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const [view, setView] = useState<"table" | "report" | "diff">("table");
   const diff = useMemo(() => {
     if (!cmp) return null;
-    const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "devices", start, end);
-    const tm = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "teams", start, end);
+    const dev = mergeDailySources(deviceRows.map(strip), cmp, "devices", start, end);
+    const tm = mergeDailySources(deviceRows.map(strip), cmp, "teams", start, end);
     const pic = (r: (typeof dev)[number]) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null });
     return diffRows(dev.map(pic), tm.map(pic), 2, cmpIsApi);
   }, [deviceRows, cmp, cmpIsApi, start, end, photos]);
   // Diff exports: summary + per-employee sheets/pages from BOTH sources (devices + the compared cloud source).
   const bothRows = useMemo(() => {
     if (!cmp) return shown;
-    return mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "both", start, end, undefined, { requireName: cmpIsApi, label: cmpIsApi ? "OpenAPI" : "Hik-Connect Team" }).map((r) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null }));
+    return mergeDailySources(deviceRows.map(strip), cmp, "both", start, end, undefined, { requireName: cmpIsApi, label: cmpIsApi ? "OpenAPI" : "Hik-Connect Team" }).map((r) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null }));
   }, [deviceRows, cmp, cmpIsApi, start, end, photos, shown]);
   const reportDoc = useMemo(() => (view === "report" ? layoutHtml(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name]);
   const diffCount = diff ? diffSummary(diff) : null;

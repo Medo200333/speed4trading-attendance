@@ -4,7 +4,7 @@ import { englishNameOf } from "./access/domain";
 import { BRAND } from "./brand";
 import { buildXlsx } from "./xlsx-io";
 import type { Punch } from "./attendance";
-import { sameName } from "./name-match";
+import { nameKey, sameName } from "./name-match";
 export { sameName };
 import { concat, jpegBytes, jpegSize, logoJpeg, pdfText, pdfUnicode } from "./sheet-pdf";
 
@@ -152,11 +152,18 @@ export function mergeDailySources(
   type Acc = DailyRow & { times: number[]; from: string[] };
   const out = new Map<string, Acc>();
   const key = (no: string, date: string) => `${no}|${date}`;
+  // Same code can belong to different people on different devices (branch codes 2..5 vs another site's 2..5):
+  // pool only rows whose names also match; every pooled row for a code+date is listed in `byCode`.
+  const byCode = new Map<string, string[]>();
+  const named = (r: DailyRow) => !/English name missing/i.test(r.name);
   const tag = (row: Acc, from?: string) => { if (from && !row.from.includes(from)) row.from.push(from); };
   if (source !== "teams")
     for (const row of device) {
       const times = row.absent ? [] : [row.first, row.last].filter(Boolean).map(sec);
-      const k = key(row.employeeNo, row.date);
+      const ck = key(row.employeeNo, row.date);
+      const keys = byCode.get(ck) || [];
+      let k = keys.find((x) => { const r = out.get(x)!; return r.name === row.name || (named(r) && named(row) && sameName(r.name, row.name)); });
+      if (!k) { k = keys.length ? `${ck}|${nameKey(row.name)}` : ck; byCode.set(ck, [...keys, k]); }
       const seen = out.get(k);
       // The same employee is usually enrolled on several devices/branches: pool their punches instead of
       // letting the last device (often an "Absent" row) overwrite the others.
@@ -179,7 +186,8 @@ export function mergeDailySources(
       const no = p.employeeNo || p.name;
       const person = people.get(no);
       const cloudName = person?.name || p.name || no;
-      let k = key(no, p.date);
+      const cand = byCode.get(key(no, p.date)) || [];
+      let k = cand.find((x) => sameName(out.get(x)!.name, cloudName)) ?? cand[0] ?? key(no, p.date);
       let row = out.get(k);
       // Guard (OpenAPI): the code must match AND the name must match; otherwise keep the cloud person apart.
       let unmatched = false;

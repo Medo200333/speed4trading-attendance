@@ -42,12 +42,24 @@ export function AttendancePanel() {
     [reportLoading,setReportLoading]=useState(false),
     [reportError,setReportError]=useState(""),
     [reportRetry,setReportRetry]=useState(0),
-    [onlyExceptions, setOnlyExceptions] = useState(false);
+    [onlyExceptions, setOnlyExceptions] = useState(false),
+    [allDevices, setAllDevices] = useState(false);
   useEffect(() => {
     let current = true;
     setRows([]);setReportError("");
     if (!selected) { setReportLoading(false); return; }
     setReportLoading(true);
+    // "All devices": read every device's report and hand them together to the daily card, which pools
+    // each employee's punches per day across branches (same code + same name).
+    if (allDevices && data.devices.length > 1) {
+      void Promise.all(data.devices.map((d) => read({ action: "attendance", deviceId: d.id, start, end }))).then((all) => {
+        if (!current) return;
+        if (all.some((r) => !r?.report)) setReportError("تعذر قراءة تقرير جهاز أو أكثر من الخادم. راجع اتصال الأجهزة ثم أعد المحاولة.");
+        setRows(all.flatMap((r) => (r?.report as AttendanceRow[] | undefined) ?? []));
+        setReportLoading(false);
+      });
+      return ()=>{current=false;};
+    }
     void read({
       action: "attendance",
       deviceId: selected,
@@ -55,7 +67,7 @@ export function AttendancePanel() {
       end,
     }).then(result=>{if(!current)return;if(result?.report)setRows(result.report);else setReportError("تعذر قراءة التقرير من الخادم. راجع الفترة واتصال البرنامج ثم أعد المحاولة؛ لم نعرض بيانات فترة سابقة.");setReportLoading(false);});
     return ()=>{current=false;};
-  }, [start, end, selected, data.revision, reportRetry]);
+  }, [start, end, selected, data.revision, reportRetry, allDevices, data.devices.length]);
   const shown = rows.filter((row) => !onlyExceptions || row.exception);
   useEffect(() => {
     setStart(device?.sync.period?.start || dateToday());
@@ -119,7 +131,13 @@ export function AttendancePanel() {
         </div>
       </div>
       <AttendancePull start={start} end={end} setStart={setStart} setEnd={setEnd} />
-      {selected ? <DailyReportCard rows={rows} start={start} end={end} /> : null}
+      {data.devices.length > 1 ? (
+        <label className="ac-check">
+          <input type="checkbox" checked={allDevices} onChange={(event) => setAllDevices(event.target.checked)} />
+          كل الأجهزة (دمج بصمات الفروع لكل موظف في اليوم)
+        </label>
+      ) : null}
+      {selected ? <DailyReportCard rows={rows} start={start} end={end} allDevices={allDevices && data.devices.length > 1} /> : null}
       <Card title="قواعد التقرير وفترته">
         <div className="ac-fields">
           <Field
