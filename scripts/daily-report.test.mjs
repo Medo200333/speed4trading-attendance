@@ -15,7 +15,7 @@ writeFileSync(entry, 'export * from "./daily-report"; export { isEnglishName } f
 let code;
 try {
   const bundle = await rolldown({ input: entry, platform: "node", resolve: { alias: { "@": path.join(root, "src") } } });
-  code = (await bundle.generate({ format: "esm" })).output[0].code;
+  code = (await bundle.generate({ format: "esm", inlineDynamicImports: true })).output[0].code;
 } finally { rmSync(entry, { force: true }); }
 const file = path.join(tmp, "b.mjs"); writeFileSync(file, code);
 const { dailyRows, dailyPdfBytes, dailyXlsxBytes, workedTime, isEnglishName } = await import(pathToFileURL(file).href);

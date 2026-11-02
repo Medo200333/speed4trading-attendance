@@ -46,7 +46,7 @@ test("daily report merges device rows with Hik-Connect Team punches by source, w
     const ab = md.find((r) => r.employeeNo === "8");
     assert.deepEqual([ab.absent, ab.branch], [true, ""]);
     const mb = mergeDailySources(multi, team, "both", "2026-11-01", "2026-11-01").find((r) => r.employeeNo === "3");
-    assert.deepEqual([mb.first, mb.last, mb.branch], ["08:10", "13:05", "Masr el gdeda + alex + Teams"]);
+    assert.deepEqual([mb.first, mb.last, mb.branch], ["08:10", "13:05", "Masr el gdeda + alex + Hik-Connect Team"]);
     const { dailyPdfBytes, dailyXlsxBytes } = await vite.ssrLoadModule("/src/lib/daily-report.ts");
     assert.ok(new TextDecoder("latin1").decode(dailyPdfBytes("2026-11-01", "2026-11-01", md, "X")).includes("Branch / source"));
     assert.ok(dailyXlsxBytes("2026-11-01", "2026-11-01", md, "X").length > 1000);

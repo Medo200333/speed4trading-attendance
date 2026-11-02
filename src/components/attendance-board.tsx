@@ -396,6 +396,8 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
         for (const p of r.people ?? []) { const k = p.employeeNo || p.name; const cur = seen.get(k); seen.set(k, { ...p, photo: p.photo || cur?.photo || "" }); }
         if (seen.size) { lastPeople = [...seen.values()]; setRoster(lastPeople); }
         collected.push(...r.punches); attempts.push(...(r.attempts ?? []));
+        // Latest punches win: a device seen on a later page is re-judged from that page only.
+        for (const p of [...r.punches, ...(r.attempts ?? [])] as { device?: string; offsetMin?: number }[]) if (p.device && p.offsetMin != null) clock.delete(p.device);
         for (const c of r.clock ?? []) clock.set(c.device, c);
         pageIndex = r.pageIndex; done = r.done;
         setProgress(collected.length); setPunches([...collected]); setSource("device");

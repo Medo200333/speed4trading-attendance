@@ -4,6 +4,8 @@ import { englishNameOf } from "./access/domain";
 import { BRAND } from "./brand";
 import { buildXlsx } from "./xlsx-io";
 import type { Punch } from "./attendance";
+import { sameName } from "./name-match";
+export { sameName };
 import { concat, jpegBytes, jpegSize, logoJpeg, pdfText, pdfUnicode } from "./sheet-pdf";
 
 /** One line per employee per day: English name, photo, first/last punch and worked time (Cairo local). */
@@ -20,6 +22,8 @@ export type DailyRow = {
   photo?: string | null;
   /** Where the punches came from (device/branch names, "Teams"); shown as a column only when some row has it. */
   branch?: string;
+  /** Cloud (Team/OpenAPI) person whose code exists locally but whose name does not match: kept apart, never merged. */
+  unmatched?: boolean;
 };
 
 const hm = (value: string) => (value ? value.slice(0, 5) : "");
@@ -142,6 +146,7 @@ export function mergeDailySources(
   start: string,
   end: string,
   warnings?: string[],
+  opts: { requireName?: boolean; label?: string } = {},
 ): DailyRow[] {
   if (team && source !== "devices") team = { ...team, punches: correctTeamShift(device, team.punches, start, end, warnings) };
   type Acc = DailyRow & { times: number[]; from: string[] };
@@ -172,17 +177,21 @@ export function mergeDailySources(
     for (const p of team.punches) {
       if (!p.date || !p.time || p.date < start || p.date > end || /^(00:00|23:59)/.test(p.time)) continue;
       const no = p.employeeNo || p.name;
-      const k = key(no, p.date);
+      const person = people.get(no);
+      const cloudName = person?.name || p.name || no;
+      let k = key(no, p.date);
       let row = out.get(k);
+      // Guard (OpenAPI): the code must match AND the name must match; otherwise keep the cloud person apart.
+      let unmatched = false;
+      if (opts.requireName && row && !row.personId.startsWith("team:") && !sameName(row.name, cloudName)) { unmatched = true; k = key(`team:${no}`, p.date); row = out.get(k); }
       if (!row) {
-        const person = people.get(no);
-        row = { personId: `team:${no}`, employeeNo: no, name: person?.name || p.name || no, date: p.date, first: "", last: "", worked: "", status: "", absent: false, photo: person?.photo || null, times: [], from: [] };
+        row = { personId: `team:${no}`, employeeNo: no, name: cloudName, date: p.date, first: "", last: "", worked: "", status: "", absent: false, photo: person?.photo || null, times: [], from: [], ...(unmatched ? { unmatched: true } : {}) };
         out.set(k, row);
       }
       row.times.push(sec(p.time));
-      tag(row, "Teams");
+      tag(row, opts.label || "Hik-Connect Team");
     }
-    for (const row of out.values()) if (!row.photo) row.photo = people.get(row.employeeNo)?.photo || row.photo;
+    for (const row of out.values()) if (!row.photo && (row.personId.startsWith("team:") || !opts.requireName || sameName(row.name, people.get(row.employeeNo)?.name || ""))) row.photo = people.get(row.employeeNo)?.photo || row.photo;
   }
   const anyBranch = device.some((r) => r.branch);
   const rows: DailyRow[] = [];
@@ -443,11 +452,11 @@ export async function saveDailyPdf(from: string, to: string, rows: DailyRow[], c
     download(name, bytes, "application/pdf");
   }
 }
-export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", diff: import("./report-diff").DiffRow[] | null = null) {
+export async function saveDailyXlsx(from: string, to: string, rows: DailyRow[], companyName = "", companyLogo = "", diff: import("./report-diff").DiffRow[] | null = null, src?: string) {
   const { reportXlsxBytes } = await import("./report-diff");
   download(
     `${fileBase(companyName, from, to)}.xlsx`,
-    diff ? reportXlsxBytes(from, to, rows, diff, companyName, companyLogo) : layoutXlsxBytes(from, to, rows, companyName, companyLogo),
+    diff ? reportXlsxBytes(from, to, rows, diff, companyName, companyLogo, src) : layoutXlsxBytes(from, to, rows, companyName, companyLogo),
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
 }

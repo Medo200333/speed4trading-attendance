@@ -30,7 +30,7 @@ export const longDate = (date: string) => `${date.slice(8, 10)}/${date.slice(5, 
 export function buildLayout(from: string, to: string, rows: DailyRow[]): ReportLayout {
   const dates = dateRange(from, to);
   const groups = new Map<string, DailyRow[]>();
-  for (const r of rows) { const k = r.employeeNo ? `no:${r.employeeNo}` : r.personId || r.name; (groups.get(k) ?? groups.set(k, []).get(k)!).push(r); }
+  for (const r of rows) { const k = r.unmatched ? `x:${r.personId}` : r.employeeNo ? `no:${r.employeeNo}` : r.personId || r.name; (groups.get(k) ?? groups.set(k, []).get(k)!).push(r); }
   const employees: LayoutEmployee[] = [];
   for (const [key, list] of groups) {
     const byDate = new Map(list.filter((r) => !r.absent && r.first).map((r) => [r.date, r]));

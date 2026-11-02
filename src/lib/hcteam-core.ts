@@ -155,12 +155,17 @@ export function recordsToPunches(list: any[]): HcPunch[] {
   }
   return out;
 }
-/** Devices whose clock is off by ≥ `min` minutes (median per device). */
-export function clockOffsets(punches: HcPunch[], min = 2) {
-  const by = new Map<string, number[]>();
-  for (const p of punches) if (p.device && p.offsetMin != null) by.set(p.device, [...(by.get(p.device) || []), p.offsetMin]);
-  const out: { device: string; offsetMin: number; samples: number }[] = [];
-  for (const [device, v] of by) { const s = [...v].sort((a, b) => a - b), med = s[Math.floor(s.length / 2)]; if (Math.abs(med) >= min) out.push({ device, offsetMin: med, samples: v.length }); }
+/** Devices whose clock is off by ≥ `min` minutes, judged on each device's `latest` most recent punches only (median of
+ *  those), so a clock fixed during the day stops being flagged as soon as its new punches are right. */
+export function clockOffsets(punches: HcPunch[], min = 2, latest = 3) {
+  const by = new Map<string, { at: string; off: number }[]>();
+  for (const p of punches) if (p.device && p.offsetMin != null) by.set(p.device, [...(by.get(p.device) || []), { at: `${p.date}T${p.time}`, off: p.offsetMin }]);
+  const out: { device: string; offsetMin: number; samples: number; since: string }[] = [];
+  for (const [device, v] of by) {
+    const last = [...v].sort((a, b) => a.at.localeCompare(b.at)).slice(-latest);
+    const s = last.map((x) => x.off).sort((a, b) => a - b), med = s[Math.floor(s.length / 2)];
+    if (Math.abs(med) >= min) out.push({ device, offsetMin: med, samples: last.length, since: last[0].at.replace("T", " ") });
+  }
   return out;
 }
 /** Cairo-offset ISO for an instant (beginTime/endTime of a search window). */

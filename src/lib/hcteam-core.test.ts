@@ -91,13 +91,23 @@ test("anonymised live sample: occurTime (UTC) -> Cairo time, 110013 ok, others Â
   const r = anon.find((x: any) => x.occurTime === "2026-11-02T12:28:46Z");
   assert.equal(recordsToPunches([r])[0].time, "14:28");
   // one device in the live sample writes deviceTime 60 min ahead of the cloud time
-  assert.deepEqual(clockOffsets(all), [{ device: "Door-3", offsetMin: 60, samples: 6 }]);
+  assert.deepEqual(clockOffsets(all).map(({ since: _since, ...c }) => c), [{ device: "Door-3", offsetMin: 60, samples: 3 }]);
 });
 test("device clock offset is flagged per device (deviceTime vs occurTime)", () => {
   const rec = (dev: string, occur: string, devTime: string) => ({ occurTime: occur, deviceTime: devTime, eventType: 110013, deviceName: dev, personInfo: { baseInfo: { personCode: "1", firstName: "A" } } });
   const p = recordsToPunches([rec("Gate", "2026-11-02T06:00:00Z", "2026-11-02T09:07:00+02:00"), rec("Gate", "2026-11-02T07:00:00Z", "2026-11-02T10:07:00+02:00"), rec("Lobby", "2026-11-02T07:00:00Z", "2026-11-02T09:00:30+02:00")]);
   assert.equal(p[0].time, "08:00"); assert.equal(p[0].offsetMin, 67);
-  assert.deepEqual(clockOffsets(p), [{ device: "Gate", offsetMin: 67, samples: 2 }]);
+  assert.deepEqual(clockOffsets(p), [{ device: "Gate", offsetMin: 67, samples: 2, since: "2026-11-02 08:00" }]);
+});
+test("clock warning uses the latest punches only: a clock fixed mid-day is no longer flagged", () => {
+  const rec = (occur: string, devTime: string) => ({ occurTime: occur, deviceTime: devTime, eventType: 110013, deviceName: "Masr", personInfo: { baseInfo: { personCode: "1", firstName: "A" } } });
+  const early = ["07:00", "08:00", "09:00", "10:00", "11:00"].map((t) => rec(`2026-11-02T${t}:00Z`, `2026-11-02T${String(Number(t.slice(0, 2)) + 3).padStart(2, "0")}:00:00+02:00`));
+  const after = ["12:55", "13:05", "13:15"].map((t) => rec(`2026-11-02T${t}:00Z`, `2026-11-02T${String(Number(t.slice(0, 2)) + 2)}:${t.slice(3)}:00+02:00`));
+  const p = recordsToPunches([...after, ...early]);
+  assert.equal(p.filter((x) => x.offsetMin === 60).length, 5);
+  assert.deepEqual(clockOffsets(p), []);
+  // still off at the end of the day -> flagged
+  assert.equal(clockOffsets(recordsToPunches(early))[0].offsetMin, 60);
 });
 test("mapping falls back to the name when personCode is missing", () => {
   const [p] = recordsToPunches([{ occurTime: "2026-11-02T06:00:00Z", eventType: 110013, personInfo: { baseInfo: { firstName: "Only", lastName: "Name" } } }]);

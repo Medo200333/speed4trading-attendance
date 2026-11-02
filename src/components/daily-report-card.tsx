@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AttendanceRow } from "@/lib/access/domain";
 import { dailyRows, mergeDailySources, type DailySource } from "@/lib/daily-report";
 import { buildLayout, layoutHtml } from "@/lib/report-layout";
-import { diffRows, diffSummary, DIFF_LABEL, fmtDiff, withDiffPages } from "@/lib/report-diff";
+import { diffLabels, diffRows, diffSummary, fmtDiff, withDiffPages } from "@/lib/report-diff";
 import { useTeamsPull } from "@/lib/teams-pull-store";
 import { HC_FAILED_LABEL } from "@/lib/hcteam-shared";
 import { profileFrom } from "@/lib/company-profile";
@@ -19,11 +19,13 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const team = pick === "openapi" ? teamApi : teamWeb ?? (pick === "devices" ? teamApi : null);
   const [diffWith, setDiffWith] = useState<"team" | "openapi">("openapi");
   const cmp = diffWith === "openapi" ? teamApi ?? teamWeb : teamWeb ?? teamApi;
-  const cmpName = cmp === teamApi ? "OpenAPI" : "Teams";
+  const cmpIsApi = !!cmp && cmp === teamApi;
+  const cmpName = cmpIsApi ? "Hik-Connect Team (OpenAPI)" : "Hik-Connect Team";
+  const labels = diffLabels(cmpName);
   const deviceRows = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
   const { base, warnings } = useMemo(() => {
     const warnings: string[] = [];
-    const base = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, source, start, end, warnings);
+    const base = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, source, start, end, warnings, { requireName: !!team && team === teamApi, label: team && team === teamApi ? "OpenAPI" : "Hik-Connect Team" });
     if (pick === "openapi" && teamApi) {
       for (const c of teamApi.clock ?? []) warnings.push(`⏰ ساعة جهاز «${c.device}» ${c.offsetMin > 0 ? "متقدمة" : "متأخرة"} ${Math.abs(c.offsetMin)} دقيقة عن وقت السحابة (OpenAPI).`);
       if (teamApi.attempts?.length) warnings.push(`${teamApi.attempts.length} ${HC_FAILED_LABEL} في OpenAPI — مش محسوبة حضور.`);
@@ -51,8 +53,13 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
     const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "devices", start, end);
     const tm = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "teams", start, end);
     const pic = (r: (typeof dev)[number]) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null });
-    return diffRows(dev.map(pic), tm.map(pic));
-  }, [deviceRows, cmp, start, end, photos]);
+    return diffRows(dev.map(pic), tm.map(pic), 2, cmpIsApi);
+  }, [deviceRows, cmp, cmpIsApi, start, end, photos]);
+  // Diff exports: summary + per-employee sheets/pages from BOTH sources (devices + the compared cloud source).
+  const bothRows = useMemo(() => {
+    if (!cmp) return shown;
+    return mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "both", start, end, undefined, { requireName: cmpIsApi, label: cmpIsApi ? "OpenAPI" : "Hik-Connect Team" }).map((r) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null }));
+  }, [deviceRows, cmp, cmpIsApi, start, end, photos, shown]);
   const reportDoc = useMemo(() => (view === "report" ? layoutHtml(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name]);
   const diffCount = diff ? diffSummary(diff) : null;
   const missing = data.people.filter((p) => rows.some((r) => r.personId === p.id) && !/^[A-Za-z0-9 .'-]+$/.test(p.name)).length;
@@ -100,7 +107,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       <div className="ac-actions ac-no-print" role="tablist" aria-label="طريقة العرض">
         <Button aria-pressed={view === "table"} onClick={() => setView("table")}>📋 الجدول</Button>
         <Button aria-pressed={view === "report"} disabled={!shown.length} onClick={() => setView("report")}>👁️ عرض التقرير</Button>
-        <Button aria-pressed={view === "diff"} disabled={!diff} title={diff ? "" : "اسحب من Hik-Connect Team الأول"} onClick={() => setView("diff")}>⚖️ الفرق (أجهزة / {cmpName})</Button>
+        <Button aria-pressed={view === "diff"} disabled={!diff} title={diff ? "" : "اسحب من Hik-Connect Team الأول"} onClick={() => setView("diff")}>⚖️ الفرق (أجهزة / {cmpIsApi ? "OpenAPI" : cmp ? "Hik-Connect Team" : "OpenAPI"})</Button>
         {teamWeb && teamApi ? (
           <label>
             قارن الأجهزة مع:{" "}
@@ -116,7 +123,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyPdf } = await import("@/lib/daily-report");
-            if (view === "diff" && diff) await saveDailyPdf(start, end, shown, profile.name, profile.logo, withDiffPages(layoutHtml(buildLayout(start, end, shown), profile.name), diff, profile.name, start, end));
+            if (view === "diff" && diff) await saveDailyPdf(start, end, bothRows, profile.name, profile.logo, withDiffPages(layoutHtml(buildLayout(start, end, bothRows), profile.name), diff, profile.name, start, end, cmpName));
             else await saveDailyPdf(start, end, shown, profile.name, profile.logo);
           }}
         >
@@ -126,7 +133,8 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
           disabled={!shown.length}
           onClick={async () => {
             const { saveDailyXlsx } = await import("@/lib/daily-report");
-            await saveDailyXlsx(start, end, shown, profile.name, profile.logo, view === "diff" ? diff : null);
+            if (view === "diff" && diff) await saveDailyXlsx(start, end, bothRows, profile.name, profile.logo, diff, cmpName);
+            else await saveDailyXlsx(start, end, shown, profile.name, profile.logo);
           }}
         >
           {view === "diff" ? "Excel التقرير + الفرق" : "Excel التقرير اليومي"}
@@ -138,18 +146,18 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       {view === "diff" && diff ? (
         <>
           <p className="ac-message" role="status">
-            مطابق {diffCount!.match} · فرق في الوقت {diffCount!.time} · في الأجهزة بس {diffCount!["device-only"]} · في {cmpName} بس {diffCount!["teams-only"]} · غياب في الاتنين {diffCount!.absent} (الفرق لحد دقيقتين يعتبر مطابق)
+            مطابق {diffCount!.match} · فرق في الوقت {diffCount!.time} · في الأجهزة بس {diffCount!["device-only"]} · في {cmpName} بس {diffCount!["teams-only"]}{diffCount!.unmatched ? ` · مش مربوط بموظف ${diffCount!.unmatched}` : ""} · غياب في الاتنين {diffCount!.absent} (الفرق لحد دقيقتين يعتبر مطابق)
           </p>
-          <TableScroll label="الفرق بين الأجهزة و Teams">
+          <TableScroll label={`الفرق بين الأجهزة و ${cmpName}`}>
             <table className="ac-table">
-              <thead><tr><th>الصورة</th><th>الاسم</th><th>التاريخ</th><th>أول (أجهزة)</th><th>آخر (أجهزة)</th><th>أول (Teams)</th><th>آخر (Teams)</th><th>فرق الأول</th><th>فرق الآخر</th><th>الحالة</th></tr></thead>
+              <thead><tr><th>الصورة</th><th>الاسم</th><th>التاريخ</th><th>أول (أجهزة)</th><th>آخر (أجهزة)</th><th>أول ({cmpName})</th><th>آخر ({cmpName})</th><th>فرق الأول</th><th>فرق الآخر</th><th>الحالة</th></tr></thead>
               <tbody>
                 {diff.map((r) => (
-                  <tr key={`${r.key}-${r.date}`} style={{ background: r.state === "match" ? "#E2F0D9" : r.state === "time" ? "#FFF4CE" : r.state === "absent" ? undefined : "#FDE2E1" }}>
+                  <tr key={`${r.key}-${r.date}`} style={{ background: r.state === "match" ? "#E2F0D9" : r.state === "time" ? "#FFF4CE" : r.state === "unmatched" ? "#EDE7F6" : r.state === "absent" ? undefined : "#FDE2E1" }}>
                     <td>{r.photo ? <img src={r.photo} alt="" width={32} height={32} style={{ borderRadius: "50%", objectFit: "cover" }} /> : <span className="ac-avatar" style={{ width: 32, height: 32 }}>{r.name.slice(0, 1)}</span>}</td>
                     <td dir="ltr">{r.name}</td><td>{r.date}</td>
                     <td>{r.devFirst || "—"}</td><td>{r.devLast || "—"}</td><td>{r.teamFirst || "—"}</td><td>{r.teamLast || "—"}</td>
-                    <td>{fmtDiff(r.firstDiff)}</td><td>{fmtDiff(r.lastDiff)}</td><td><b>{DIFF_LABEL[r.state]}</b></td>
+                    <td>{fmtDiff(r.firstDiff)}</td><td>{fmtDiff(r.lastDiff)}</td><td><b>{labels[r.state]}</b></td>
                   </tr>
                 ))}
               </tbody>
