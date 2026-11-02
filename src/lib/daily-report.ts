@@ -87,7 +87,8 @@ export function correctTeamShift(device: DailyRow[], punches: Punch[], start: st
     const times = [row.first, row.last].filter(Boolean).map(sec);
     if (!times.length) continue;
     const k = `${row.employeeNo}|${row.date}`;
-    byKey.set(k, [...(byKey.get(k) || []), { branch: row.branch || "", times }]);
+    // Device rows from the app carry no branch; the device id is the first part of personId ("deviceId|serial|no").
+    byKey.set(k, [...(byKey.get(k) || []), { branch: row.branch || row.personId.split("|")[0] || "", times }]);
   }
   const teamBy = new Map<string, number[]>();
   for (const p of punches) if (p.time) { const k = `${p.employeeNo || p.name}|${p.date}`; teamBy.set(k, [...(teamBy.get(k) || []), sec(p.time)]); }

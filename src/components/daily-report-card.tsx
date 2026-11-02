@@ -38,7 +38,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const diff = useMemo(() => {
     if (!team) return null;
     const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, "devices", start, end);
-    const tm = mergeDailySources([], team, "teams", start, end);
+    const tm = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, "teams", start, end);
     const pic = (r: (typeof dev)[number]) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null });
     return diffRows(dev.map(pic), tm.map(pic));
   }, [deviceRows, team, start, end, photos]);
