@@ -72,7 +72,7 @@ export function LicensedAccessCenter() {
         {state.mode === "trial" ? <p role="status" className="ac-message">النسخة التجريبية ما زالت تعمل حتى {new Date(state.trialEndsAt || "").toLocaleString("ar-EG")}. <button type="button" className="ac-button" onClick={() => setActivateNow(false)}>رجوع للبرنامج</button></p> : <p role="alert" className="ac-message error">{state.message || "البرنامج غير مفعّل."}</p>}
         <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 12px", margin: 0 }}>
           <dt>اسم الجهاز</dt><dd dir="ltr" style={{ margin: 0, fontWeight: 700 }}>{state.machineName}</dd>
-          <dt>عنوان MAC</dt><dd dir="ltr" style={{ margin: 0, wordBreak: "break-all" }}>{state.macs.map(mac).join(" ، ") || "غير متاح"}</dd>
+          <dt>معرّف الجهاز</dt><dd dir="ltr" style={{ margin: 0, wordBreak: "break-all", fontWeight: 700 }}>{state.machineId || state.macs.map(mac).join(" ، ") || "غير متاح"}</dd>
         </dl>
         {state.server ? <section className="ac-stack" aria-label="طلب ترخيص عبر الإنترنت">
           <h2 style={{ fontSize: 17, margin: 0 }}>طلب ترخيص عبر الإنترنت</h2>

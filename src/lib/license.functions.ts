@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 export const licenseStatusFn = createServerFn({ method: "POST" }).handler(async () => {
   const { licenseState, LICENSE_MESSAGES, licenseContact } = await import("./access/license.server");
   const s = licenseState();
-  return { enforced: s.enforced, mode: s.mode, reason: s.reason, message: LICENSE_MESSAGES[s.reason] || "", trialEndsAt: s.trialEndsAt, customer: s.customer, expires: s.expires, machineName: s.machine.name, macs: s.machine.macs, requestCode: s.requestCode, ...licenseContact() };
+  return { enforced: s.enforced, mode: s.mode, reason: s.reason, message: LICENSE_MESSAGES[s.reason] || "", trialEndsAt: s.trialEndsAt, customer: s.customer, expires: s.expires, machineName: s.machine.name, macs: s.machine.macs, requestCode: s.requestCode, machineId: s.machineId, ...licenseContact() };
 });
 export const activateLicenseFn = createServerFn({ method: "POST" })
   .validator((data: { code: string }) => ({ code: String(data?.code || "").slice(0, 4000) }))
