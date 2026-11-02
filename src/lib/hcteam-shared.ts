@@ -11,6 +11,11 @@ export const HC_REGIONS = [
 export type HcRegion = (typeof HC_REGIONS)[number]["id"];
 export const regionUrl = (id: string) => HC_REGIONS.find((r) => r.id === id)?.url ?? "";
 
-export type HcStored = { appKey: string; region: string; secretEnc: string; savedAt: string; token?: { enc: string; expiresAt: number; areaDomain: string } };
-export type HcPublic = { configured: boolean; appKey: string; region: string; hasSecret: boolean; savedAt: string; tokenValidUntil: string };
+/** How the Hik-Connect Team page connects: the website login (phone/email + password) or the official OpenAPI (AK/SK). */
+export type HcMethod = "phone" | "openapi";
+export type HcStored = { appKey: string; region: string; secretEnc: string; savedAt: string; method?: HcMethod; token?: { enc: string; expiresAt: number; areaDomain: string } };
+export type HcPublic = { configured: boolean; appKey: string; region: string; hasSecret: boolean; savedAt: string; tokenValidUntil: string; method: HcMethod };
+/** OpenAPI eventType for a successful authentication; every other type is shown as «محاولة غير ناجحة». */
+export const HC_OK_EVENT = 110013;
+export const HC_FAILED_LABEL = "محاولة غير ناجحة";
 

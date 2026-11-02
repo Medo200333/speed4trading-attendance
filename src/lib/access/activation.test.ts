@@ -169,7 +169,7 @@ test("Sadp.dll PackageUpdateData password: salted MD5(sha256hex(user+salt+pw)), 
   assert.deepEqual(plain.subarray(0, 16), digest);
   assert.equal(plain.subarray(16).toString("latin1").replace(/\0+$/, ""), ";7B4BA858-E07F-434F-AEF9-C046AE262241"); // Uuid, not the password (0x100434be..0x100434ef)
   const xml = sadpModifyXml("aa", "Speed2026", { dhcp: true, ip: "", mask: "", gateway: "" }, "U", { salt, encrypt: true });
-  assert.match(xml, /<Password bSalt="true">[A-Za-z0-9+\/=]{88}<\/Password>/);
+  assert.match(xml, /<Password bSalt="true">[A-Za-z0-9+/=]{88}<\/Password>/);
   const u = xml.match(/<Uuid>([^<]+)<\/Uuid>/)![1]; assert.equal(u, "U");
   const d2 = createDecipheriv("aes-128-ecb", digest, null); d2.setAutoPadding(false);
   const p2 = Buffer.concat([d2.update(Buffer.from(xml.match(/bSalt="true">([^<]+)</)![1], "base64")), d2.final()]);

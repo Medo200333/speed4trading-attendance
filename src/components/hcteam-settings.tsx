@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { hcTeamClearFn, hcTeamSaveFn, hcTeamStatusFn, hcTeamTestFn } from "@/lib/hcteam.functions";
-import { HC_REGIONS, type HcPublic } from "@/lib/hcteam-shared";
+import { hcTeamClearFn, hcTeamMethodFn, hcTeamSaveFn, hcTeamStatusFn, hcTeamTestFn } from "@/lib/hcteam.functions";
+import { HC_REGIONS, type HcMethod, type HcPublic } from "@/lib/hcteam-shared";
 import { Button, Card, Field } from "./access-ui";
 import { useCompanyProfile } from "./company-profile";
 
@@ -15,7 +15,7 @@ export const HIKVISION_KEY_RECIPIENTS: { to: string[]; cc: string[] } = { to: []
 /** Addresses stay readable (@ and , unescaped) so every mail client fills To/CC. */
 const mailList = (v: string) => v.split(/[,;\s]+/).filter(Boolean).map((a) => encodeURIComponent(a).replace(/%40/g, "@")).join(",");
 export function HcTeamCard() {
-  const status = useServerFn(hcTeamStatusFn), save = useServerFn(hcTeamSaveFn), test = useServerFn(hcTeamTestFn), clear = useServerFn(hcTeamClearFn);
+  const status = useServerFn(hcTeamStatusFn), save = useServerFn(hcTeamSaveFn), test = useServerFn(hcTeamTestFn), clear = useServerFn(hcTeamClearFn), setMethodFn = useServerFn(hcTeamMethodFn);
   const [s, setS] = useState<HcPublic | null>(null), [appKey, setAppKey] = useState(""), [secret, setSecret] = useState(""), [region, setRegion] = useState("isgp");
   const [busy, setBusy] = useState(""), [note, setNote] = useState({ text: "", error: false }), [guide, setGuide] = useState(false);
   useEffect(() => { status().then((r) => { if (r.ok) { setS(r.status); setRegion(r.status.region); } }).catch(() => {}); }, []);
@@ -24,7 +24,18 @@ export function HcTeamCard() {
     <Card>
       <div className="ac-stack" dir="rtl">
         <h2 style={{ margin: 0 }}>ربط Hik-Connect Team</h2>
-        <p className="ac-muted" style={{ margin: 0 }}>اربط حساب Hik-Connect for Teams الخاص بشركتك عبر OpenAPI الرسمي لسحب الحضور من السحابة إلى جانب الاتصال المباشر بالأجهزة. المفتاح يخص شركتك وحدها ويُحفظ مشفراً على هذا الخادم.</p>
+        <p className="ac-muted" style={{ margin: 0 }}>اربط حساب Hik-Connect for Teams الخاص بشركتك عبر OpenAPI الرسمي لسحب الحضور من السحابة إلى جانب الاتصال المباشر بالأجهزة. المفتاح يخص شركتك وحدها ويُحفظ مشفراً على هذا الخادم (بحماية تشفير نظام التشغيل safeStorage في نسخة الديسكتوب).</p>
+        <fieldset className="ac-stack" style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend style={{ fontWeight: 600 }}>طريقة الربط</legend>
+          {([["phone", "رقم الموبايل/الإيميل + كلمة السر (دخول موقع Hik-Connect من شاشة الحضور)"], ["openapi", "OpenAPI بمفتاح الشركة (AppKey / AppSecret) — الأدق والمفضل"]] as [HcMethod, string][]).map(([m, label]) => (
+            <label key={m} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="radio" name="hc-method" checked={(s?.method ?? "phone") === m} disabled={!!busy} onChange={() => run("method", async () => { const r = await setMethodFn({ data: { method: m } }); if (r.ok) setS(r.status); else setNote({ text: r.error, error: true }); })} />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+        {s?.method === "phone" ? <p className="ac-muted" style={{ margin: 0 }}>طريقة الدخول بالحساب بتتعمل من شاشة الحضور («Hik-Connect Team»). المفتاح المحفوظ (لو موجود) مش هيتمسح.</p> : null}
+        {s?.method !== "phone" ? <>
         {s?.configured ? <p role="status" className="ac-message">مرتبط — AppKey <bdi dir="ltr">{s.appKey}</bdi>{s.tokenValidUntil ? ` · رمز الدخول صالح حتى ${new Date(s.tokenValidUntil).toLocaleString("ar-EG")}` : ""}</p> : <p className="ac-message">غير مرتبط بعد.</p>}
         <label className="ac-stack">منطقة الخادم
           <select value={region} onChange={(e) => setRegion(e.target.value)} dir="ltr">
@@ -47,6 +58,7 @@ export function HcTeamCard() {
           {s?.configured ? <Button type="button" disabled={!!busy} onClick={() => run("clear", async () => { const r = await clear(); if (r.ok) { setS(r.status); setNote({ text: "تم حذف المفتاح من هذا الخادم.", error: false }); } })}>إلغاء الربط</Button> : null}
           <Button type="button" onClick={() => setGuide(!guide)}>{guide ? "إخفاء الدليل" : "كيف تحصل على مفتاح Hik-Connect Team"}</Button>
         </div>
+        </> : null}
         {note.text ? <p role={note.error ? "alert" : "status"} className={`ac-message${note.error ? " error" : ""}`}>{note.text}</p> : null}
         {guide ? <HcTeamGuide /> : null}
       </div>

@@ -2,8 +2,8 @@
 // Pure + injectable so it can be unit tested with a mock fetch. Never logs or returns the secret.
 import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from "node:crypto";
 
-import { HC_REGIONS, regionUrl, type HcRegion, type HcStored, type HcPublic } from "./hcteam-shared.ts";
-export { HC_REGIONS, regionUrl, type HcRegion, type HcStored, type HcPublic };
+import { HC_OK_EVENT, HC_REGIONS, regionUrl, type HcMethod, type HcRegion, type HcStored, type HcPublic } from "./hcteam-shared.ts";
+export { HC_OK_EVENT, HC_REGIONS, regionUrl, type HcMethod, type HcRegion, type HcStored, type HcPublic };
 
 /** What the browser may see: never the secret, never the token. */
 export function publicConfig(s: HcStored | null): HcPublic {
@@ -14,6 +14,7 @@ export function publicConfig(s: HcStored | null): HcPublic {
     hasSecret: Boolean(s?.secretEnc),
     savedAt: s?.savedAt || "",
     tokenValidUntil: s?.token?.expiresAt ? new Date(s.token.expiresAt).toISOString() : "",
+    method: s?.method === "phone" ? "phone" : s?.method === "openapi" || (s?.appKey && s?.secretEnc) ? "openapi" : "phone",
   };
 }
 
@@ -100,44 +101,95 @@ export function hcClient(o: HcClientOptions) {
   }
   return {
     getToken,
-    /** Card/face/fingerprint swipe records page (pageSize ≤ 200). */
+    /** Card/face/fingerprint swipe records page (pageSize ≤ 200). type 0 / swipeAuthResult 0 = all records, so failed
+     *  attempts come back too and are flagged (eventType ≠ 110013) instead of silently dropped. */
     records: (begin: string, end: string, pageIndex: number, pageSize = 200) =>
-      api("/api/hccgw/acs/v1/event/certificaterecords/search", { pageIndex, pageSize, searchCriteria: { beginTime: begin, endTime: end, type: 1, swipeAuthResult: 1, searchType: 0 } }),
+      api("/api/hccgw/acs/v1/event/certificaterecords/search", { pageIndex, pageSize, searchCriteria: { beginTime: begin, endTime: end, type: 0, swipeAuthResult: 0 } }),
     persons: (pageIndex: number, pageSize = 200) => api("/api/hccgw/person/v1/persons/list", { pageIndex, pageSize, filter: {} }),
   };
 }
 
-export type HcPunch = { employeeNo: string; name: string; date: string; time: string; method: string };
+export type HcPunch = { employeeNo: string; name: string; date: string; time: string; method: string; failed?: boolean; eventType?: number; device?: string; offsetMin?: number };
 const two = (n: number) => String(n).padStart(2, "0");
-/** ISO with offset -> local wall-clock date/time as recorded by the device. */
-function wall(iso: string) {
-  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec(iso || "");
-  if (m) return { date: m[1], time: m[2] };
-  const d = new Date(iso); if (isNaN(+d)) return null;
-  return { date: `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`, time: `${two(d.getHours())}:${two(d.getMinutes())}` };
+const cairoFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+/** Instant -> Cairo wall clock (occurTime is UTC "…Z"; Egypt DST handled by ICU). */
+export function cairoWall(iso: string) {
+  const d = new Date(iso || ""); if (!iso || isNaN(+d)) return null;
+  const p = Object.fromEntries(cairoFmt.formatToParts(d).map((x) => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, sec: `${p.hour}:${p.minute}:${p.second}` };
 }
+/** The wall time exactly as the device wrote it (deviceTime keeps the device's own offset). */
+function literalWall(iso: string) {
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/.exec(iso || "");
+  return m ? { date: m[1], min: Number(m[2]) * 60 + Number(m[3]) } : null;
+}
+const dayMin = (date: string, min: number) => Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) / 60000 + min;
 export function personName(p: any) {
   const b = p?.baseInfo ?? p?.personBaseInfo ?? p ?? {};
   return [b.firstName, b.lastName].filter(Boolean).join(" ").trim() || String(b.fullName || b.personName || "");
 }
 export function personCode(p: any) {
   const b = p?.baseInfo ?? p?.personBaseInfo ?? p ?? {};
-  return String(b.personCode || b.employeeNo || p?.personCode || p?.personId || p?.id || "");
+  return String(b.personCode || b.employeeNo || p?.personCode || "");
 }
+export function personPhotoUrl(p: any) {
+  const b = p?.baseInfo ?? p?.personBaseInfo ?? p ?? {};
+  return String(b.photoUrl || p?.photoUrl || "");
+}
+/** OpenAPI records -> punches. Time = occurTime (UTC) shown in Cairo time; mapped by personCode, then by name.
+ *  failed = eventType present and ≠ 110013. offsetMin = device clock − real Cairo time (deviceTime vs occurTime). */
 export function recordsToPunches(list: any[]): HcPunch[] {
   const out: HcPunch[] = [];
   for (const r of list || []) {
-    const w = wall(r.deviceTime || r.occurTime || r.recordTime); if (!w) continue;
+    const w = cairoWall(r.occurTime || r.recordTime || r.deviceTime); if (!w) continue;
     const p = r.personInfo ?? {};
-    const code = personCode(p) || String(r.cardNumber || "");
-    if (!code) continue;
-    out.push({ employeeNo: code, name: personName(p), date: w.date, time: w.time, method: "hik-connect-team" });
+    const name = personName(p), code = personCode(p) || String(r.cardNumber || "");
+    if (!code && !name) continue;
+    const punch: HcPunch = { employeeNo: code, name, date: w.date, time: w.time, method: "hik-connect-openapi" };
+    const ev = r.eventType == null || r.eventType === "" ? NaN : Number(r.eventType);
+    if (Number.isFinite(ev)) { punch.eventType = ev; if (ev !== HC_OK_EVENT) punch.failed = true; }
+    const dev = String(r.deviceName || r.elementName || ""); if (dev) punch.device = dev;
+    const lw = literalWall(r.deviceTime);
+    if (lw && r.occurTime) { const c = literalWall(w.date + "T" + w.time)!; punch.offsetMin = dayMin(lw.date, lw.min) - dayMin(c.date, c.min); }
+    out.push(punch);
   }
   return out;
 }
+/** Devices whose clock is off by ≥ `min` minutes (median per device). */
+export function clockOffsets(punches: HcPunch[], min = 2) {
+  const by = new Map<string, number[]>();
+  for (const p of punches) if (p.device && p.offsetMin != null) by.set(p.device, [...(by.get(p.device) || []), p.offsetMin]);
+  const out: { device: string; offsetMin: number; samples: number }[] = [];
+  for (const [device, v] of by) { const s = [...v].sort((a, b) => a - b), med = s[Math.floor(s.length / 2)]; if (Math.abs(med) >= min) out.push({ device, offsetMin: med, samples: v.length }); }
+  return out;
+}
+/** Cairo-offset ISO for an instant (beginTime/endTime of a search window). */
+export function cairoIso(ms: number) {
+  const w = cairoWall(new Date(ms).toISOString())!;
+  const off = Math.round((dayMin(w.date, Number(w.sec.slice(0, 2)) * 60 + Number(w.sec.slice(3, 5))) * 60000 + Number(w.sec.slice(6, 8)) * 1000 - Math.floor(ms / 1000) * 1000) / 60000);
+  const sign = off < 0 ? "-" : "+", a = Math.abs(off);
+  return `${w.date}T${w.sec}${sign}${two(Math.floor(a / 60))}:${two(a % 60)}`;
+}
+/** Reads every record of [begin, end] (ms). Pages of `size`; if the window holds more than `cap` records it is split in two. */
+export async function pullWindow(records: (b: string, e: string, page: number, size: number) => Promise<any>, beginMs: number, endMs: number, cap = 10000, size = 200): Promise<any[]> {
+  const first = await records(cairoIso(beginMs), cairoIso(endMs), 1, size);
+  const total = Number(first?.totalNum ?? 0);
+  if (total > cap && endMs - beginMs >= 120_000) {
+    const mid = Math.floor((beginMs + endMs) / 2000) * 1000;
+    return [...(await pullWindow(records, beginMs, mid, cap, size)), ...(await pullWindow(records, mid + 1000, endMs, cap, size))];
+  }
+  const list: any[] = [...(first?.recordList ?? [])];
+  let page = 1, got = list.length;
+  while (!pageDone(page, got, total, size) && page < Math.ceil(cap / size)) {
+    page += 1;
+    const d = await records(cairoIso(beginMs), cairoIso(endMs), page, size);
+    const rl = d?.recordList ?? []; got = rl.length; list.push(...rl);
+  }
+  return list;
+}
 export function personsToPeople(data: any) {
   const list: any[] = data?.personList ?? data?.list ?? data?.persons ?? [];
-  return list.map((x) => { const p = x?.personInfo ?? x; return { employeeNo: personCode(p), name: personName(p), photo: "", gender: "" }; }).filter((p) => p.employeeNo);
+  return list.map((x) => { const p = x?.personInfo ?? x; return { employeeNo: personCode(p), name: personName(p), photo: "", photoUrl: personPhotoUrl(p), gender: "" }; }).filter((p) => p.employeeNo || p.name);
 }
 
 /** Egypt observes DST again (UTC+2 winter / UTC+3 summer): build the day bounds with the real Cairo offset. */

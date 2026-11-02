@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { cairoBound, pageDone, deriveKey, hcClient, open, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal } from "./hcteam-core.ts";
+import { readFileSync } from "node:fs";
+import { cairoBound, cairoIso, cairoWall, clockOffsets, pullWindow, publicConfig as pc, pageDone, deriveKey, hcClient, open, publicConfig, rateLimiter, recordsToPunches, regionUrl, seal } from "./hcteam-core.ts";
 
 const SECRET = "unit-test-fake-sk", AK = "unit-test-fake-ak";
 function mock() {
@@ -28,9 +29,10 @@ test("token/get is called with AK/SK, cached, and reused for API calls on areaDo
   assert.equal(t.accessToken, "hcc.tok"); assert.ok(saved && saved.expiresAt - Date.now() <= 7 * 86400e3);
   const page = await c.records("2026-10-20T00:00:00+03:00", "2026-10-20T23:59:59+03:00", 1);
   const last = m.calls.at(-1)!;
+  assert.deepEqual(last.body.searchCriteria, { beginTime: "2026-10-20T00:00:00+03:00", endTime: "2026-10-20T23:59:59+03:00", type: 0, swipeAuthResult: 0 });
   assert.equal(last.url, "https://isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search");
   assert.equal(last.headers.Token, "hcc.tok");
-  assert.deepEqual(recordsToPunches(page.recordList), [{ employeeNo: "7", name: "Ali Hassan", date: "2026-10-20", time: "08:01", method: "hik-connect-team" }]);
+  assert.deepEqual(recordsToPunches(page.recordList), [{ employeeNo: "7", name: "Ali Hassan", date: "2026-10-20", time: "08:01", method: "hik-connect-openapi" }]);
 });
 test("a cached token inside its 7 days is used without calling token/get", async () => {
   const m = mock();
@@ -75,4 +77,50 @@ test("expired token (OPEN000006) refreshes once and retries the pull", async () 
 });
 test("pull pagination stops on empty page or when all records were read", () => {
   assert.equal(pageDone(1, 200, 450), false); assert.equal(pageDone(3, 50, 450), true); assert.equal(pageDone(2, 0, 999), true);
+});
+
+const anon = JSON.parse(readFileSync(new URL("./fixtures/hc-openapi-records.anon.json", import.meta.url), "utf8"));
+test("anonymised live sample: occurTime (UTC) -> Cairo time, 110013 ok, others «محاولة غير ناجحة»", () => {
+  const all = recordsToPunches(anon);
+  assert.equal(all.length, 58);
+  assert.equal(all.filter((p) => p.failed).length, 3);
+  assert.ok(all.filter((p) => p.failed).every((p) => p.eventType !== 110013));
+  const first = all.find((p) => p.date === "2026-11-02" && p.employeeNo)!;
+  assert.match(first.time, /^\d\d:\d\d$/);
+  // 12:28:46Z is 14:28 in Cairo (+02:00 in November)
+  const r = anon.find((x: any) => x.occurTime === "2026-11-02T12:28:46Z");
+  assert.equal(recordsToPunches([r])[0].time, "14:28");
+  // one device in the live sample writes deviceTime 60 min ahead of the cloud time
+  assert.deepEqual(clockOffsets(all), [{ device: "Door-3", offsetMin: 60, samples: 6 }]);
+});
+test("device clock offset is flagged per device (deviceTime vs occurTime)", () => {
+  const rec = (dev: string, occur: string, devTime: string) => ({ occurTime: occur, deviceTime: devTime, eventType: 110013, deviceName: dev, personInfo: { baseInfo: { personCode: "1", firstName: "A" } } });
+  const p = recordsToPunches([rec("Gate", "2026-11-02T06:00:00Z", "2026-11-02T09:07:00+02:00"), rec("Gate", "2026-11-02T07:00:00Z", "2026-11-02T10:07:00+02:00"), rec("Lobby", "2026-11-02T07:00:00Z", "2026-11-02T09:00:30+02:00")]);
+  assert.equal(p[0].time, "08:00"); assert.equal(p[0].offsetMin, 67);
+  assert.deepEqual(clockOffsets(p), [{ device: "Gate", offsetMin: 67, samples: 2 }]);
+});
+test("mapping falls back to the name when personCode is missing", () => {
+  const [p] = recordsToPunches([{ occurTime: "2026-11-02T06:00:00Z", eventType: 110013, personInfo: { baseInfo: { firstName: "Only", lastName: "Name" } } }]);
+  assert.equal(p.employeeNo, ""); assert.equal(p.name, "Only Name");
+});
+test("Cairo helpers", () => {
+  assert.deepEqual(cairoWall("2026-07-01T21:30:00Z"), { date: "2026-07-02", time: "00:30", sec: "00:30:00" });
+  assert.equal(cairoIso(Date.parse("2026-11-02T06:00:00Z")), "2026-11-02T08:00:00+02:00");
+  assert.equal(cairoIso(Date.parse("2026-07-01T06:00:00Z")), "2026-07-01T09:00:00+03:00");
+});
+test("pullWindow pages by 200 and splits a window that exceeds the cap", async () => {
+  const calls: [string, string, number][] = [];
+  const total = (b: string, e: string) => (Date.parse(e) - Date.parse(b)) / 1000 > 50000 ? 500 : 250;
+  const records = async (b: string, e: string, page: number, size: number) => {
+    calls.push([b, e, page]); const t = total(b, e);
+    return { totalNum: t, recordList: Array.from({ length: Math.max(0, Math.min(size, t - (page - 1) * size)) }, (_, i) => ({ i })) };
+  };
+  const out = await pullWindow(records, Date.parse("2026-11-01T22:00:00Z"), Date.parse("2026-11-02T21:59:59Z"), 400, 200);
+  assert.equal(out.length, 500, "two halves of 250");
+  assert.ok(calls.some((c) => c[2] === 2));
+});
+test("method defaults: OpenAPI when AK/SK saved, phone otherwise; explicit choice wins", () => {
+  assert.equal(pc(null).method, "phone");
+  assert.equal(pc({ appKey: "a", region: "isgp", secretEnc: "x", savedAt: "" }).method, "openapi");
+  assert.equal(pc({ appKey: "a", region: "isgp", secretEnc: "x", savedAt: "", method: "phone" }).method, "phone");
 });

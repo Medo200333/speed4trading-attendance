@@ -4,6 +4,7 @@ import { dailyRows, mergeDailySources, type DailySource } from "@/lib/daily-repo
 import { buildLayout, layoutHtml } from "@/lib/report-layout";
 import { diffRows, diffSummary, DIFF_LABEL, fmtDiff, withDiffPages } from "@/lib/report-diff";
 import { useTeamsPull } from "@/lib/teams-pull-store";
+import { HC_FAILED_LABEL } from "@/lib/hcteam-shared";
 import { profileFrom } from "@/lib/company-profile";
 import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } from "./access-ui";
 
@@ -11,14 +12,24 @@ import { useCenter, Button, Card, TableScroll, personPhoto, usePhotoVersion } fr
 export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; start: string; end: string }) {
   const { data, read } = useCenter();
   const profile = profileFrom(data.company);
-  const team = useTeamsPull();
-  const [source, setSource] = useState<DailySource>("devices");
+  const teamWeb = useTeamsPull("team"), teamApi = useTeamsPull("openapi");
+  const [pick, setPick] = useState<DailySource | "openapi">("devices");
+  // OpenAPI is the third source: it is merged like Team but from its own pull.
+  const source: DailySource = pick === "openapi" ? "teams" : pick;
+  const team = pick === "openapi" ? teamApi : teamWeb ?? (pick === "devices" ? teamApi : null);
+  const [diffWith, setDiffWith] = useState<"team" | "openapi">("openapi");
+  const cmp = diffWith === "openapi" ? teamApi ?? teamWeb : teamWeb ?? teamApi;
+  const cmpName = cmp === teamApi ? "OpenAPI" : "Teams";
   const deviceRows = useMemo(() => dailyRows(rows, data.people), [rows, data.people]);
   const { base, warnings } = useMemo(() => {
     const warnings: string[] = [];
     const base = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, source, start, end, warnings);
+    if (pick === "openapi" && teamApi) {
+      for (const c of teamApi.clock ?? []) warnings.push(`⏰ ساعة جهاز «${c.device}» ${c.offsetMin > 0 ? "متقدمة" : "متأخرة"} ${Math.abs(c.offsetMin)} دقيقة عن وقت السحابة (OpenAPI).`);
+      if (teamApi.attempts?.length) warnings.push(`${teamApi.attempts.length} ${HC_FAILED_LABEL} في OpenAPI — مش محسوبة حضور.`);
+    }
     return { base, warnings };
-  }, [deviceRows, team, source, start, end]);
+  }, [deviceRows, team, source, start, end, pick, teamApi]);
   const [photos, setPhotos] = useState<Record<string, string | null>>({});
   const version = usePhotoVersion();
   useEffect(() => {
@@ -36,12 +47,12 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
   const shown = base.map((row) => ({ ...row, photo: photos[row.personId] ?? row.photo ?? null }));
   const [view, setView] = useState<"table" | "report" | "diff">("table");
   const diff = useMemo(() => {
-    if (!team) return null;
-    const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, "devices", start, end);
-    const tm = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), team, "teams", start, end);
+    if (!cmp) return null;
+    const dev = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "devices", start, end);
+    const tm = mergeDailySources(deviceRows.map((r) => ({ ...r, branch: undefined })), cmp, "teams", start, end);
     const pic = (r: (typeof dev)[number]) => ({ ...r, photo: photos[r.personId] ?? r.photo ?? null });
     return diffRows(dev.map(pic), tm.map(pic));
-  }, [deviceRows, team, start, end, photos]);
+  }, [deviceRows, cmp, start, end, photos]);
   const reportDoc = useMemo(() => (view === "report" ? layoutHtml(buildLayout(start, end, shown), profile.name) : ""), [view, shown, start, end, profile.name]);
   const diffCount = diff ? diffSummary(diff) : null;
   const missing = data.people.filter((p) => rows.some((r) => r.personId === p.id) && !/^[A-Za-z0-9 .'-]+$/.test(p.name)).length;
@@ -66,17 +77,18 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       <div className="ac-actions ac-no-print" role="group" aria-label="مصدر البصمات">
         <label>
           مصدر البصمات:{" "}
-          <select value={source} onChange={(e) => setSource(e.target.value as DailySource)}>
+          <select value={pick} onChange={(e) => setPick(e.target.value as DailySource | "openapi")}>
             <option value="devices">الأجهزة</option>
             <option value="teams">Hik-Connect Team</option>
+            <option value="openapi">Hik-Connect Team (OpenAPI)</option>
             <option value="both">الاثنين (دمج بدون تكرار)</option>
           </select>
         </label>
-        {source !== "devices" ? (
+        {pick !== "devices" ? (
           <span className="ac-muted">
             {team
               ? `Team: ${team.punches.length} بصمة · ${team.people.length} شخص (${team.from} → ${team.to})`
-              : "اسحب الحضور من Hik-Connect Team من شاشة الحضور أولاً، وبعدين ارجع هنا."}
+              : pick === "openapi" ? "اسحب من «Hik-Connect Team (OpenAPI)» في شاشة الحضور أولاً." : "اسحب الحضور من Hik-Connect Team من شاشة الحضور أولاً، وبعدين ارجع هنا."}
           </span>
         ) : null}
       </div>
@@ -88,7 +100,16 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       <div className="ac-actions ac-no-print" role="tablist" aria-label="طريقة العرض">
         <Button aria-pressed={view === "table"} onClick={() => setView("table")}>📋 الجدول</Button>
         <Button aria-pressed={view === "report"} disabled={!shown.length} onClick={() => setView("report")}>👁️ عرض التقرير</Button>
-        <Button aria-pressed={view === "diff"} disabled={!diff} title={diff ? "" : "اسحب من Hik-Connect Team الأول"} onClick={() => setView("diff")}>⚖️ الفرق (أجهزة / Teams)</Button>
+        <Button aria-pressed={view === "diff"} disabled={!diff} title={diff ? "" : "اسحب من Hik-Connect Team الأول"} onClick={() => setView("diff")}>⚖️ الفرق (أجهزة / {cmpName})</Button>
+        {teamWeb && teamApi ? (
+          <label>
+            قارن الأجهزة مع:{" "}
+            <select value={diffWith} onChange={(e) => setDiffWith(e.target.value as "team" | "openapi")}>
+              <option value="openapi">OpenAPI</option>
+              <option value="team">Hik-Connect Team (دخول بالحساب)</option>
+            </select>
+          </label>
+        ) : null}
       </div>
       <div className="ac-actions ac-no-print">
         <Button
@@ -117,7 +138,7 @@ export function DailyReportCard({ rows, start, end }: { rows: AttendanceRow[]; s
       {view === "diff" && diff ? (
         <>
           <p className="ac-message" role="status">
-            مطابق {diffCount!.match} · فرق في الوقت {diffCount!.time} · في الأجهزة بس {diffCount!["device-only"]} · في Teams بس {diffCount!["teams-only"]} · غياب في الاتنين {diffCount!.absent} (الفرق لحد دقيقتين يعتبر مطابق)
+            مطابق {diffCount!.match} · فرق في الوقت {diffCount!.time} · في الأجهزة بس {diffCount!["device-only"]} · في {cmpName} بس {diffCount!["teams-only"]} · غياب في الاتنين {diffCount!.absent} (الفرق لحد دقيقتين يعتبر مطابق)
           </p>
           <TableScroll label="الفرق بين الأجهزة و Teams">
             <table className="ac-table">

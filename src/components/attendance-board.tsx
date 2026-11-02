@@ -14,7 +14,8 @@ import {
   type DayRow,
   type Punch,
 } from "@/lib/attendance";
-import { publishTeamsPull } from "@/lib/teams-pull-store";
+import { publishTeamsPull, type TeamsAttempt } from "@/lib/teams-pull-store";
+import { HC_FAILED_LABEL } from "@/lib/hcteam-shared";
 import { hcTeamPullFn, hcTeamStatusFn } from "@/lib/hcteam.functions";
 import { pullChunkFn, devicePhotosFn, testDeviceFn, hikLoginFn, hikPullFn, openGateFn, gateSessionFn } from "@/lib/hikvision.functions";
 import { DeviceDesk, seedDevices, type DeskDevice } from "@/components/device-desk";
@@ -95,7 +96,10 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
   const hcPull = useServerFn(hcTeamPullFn);
   const hcStatus = useServerFn(hcTeamStatusFn);
   const [apiReady, setApiReady] = useState(false);
-  useEffect(() => { hcStatus().then((r) => setApiReady(Boolean(r.ok && r.status.configured))).catch(() => {}); }, []);
+  const [apiAttempts, setApiAttempts] = useState<TeamsAttempt[]>([]);
+  const [apiClock, setApiClock] = useState<{ device: string; offsetMin: number; samples: number }[]>([]);
+  // OpenAPI pull is offered when AK/SK are saved and the Hik-Connect Team page chose «OpenAPI» as the connection method.
+  useEffect(() => { hcStatus().then((r) => setApiReady(Boolean(r.ok && r.status.configured && r.status.method === "openapi"))).catch(() => {}); }, []);
   const openGate = useServerFn(openGateFn);
   const gateSession = useServerFn(gateSessionFn);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -379,20 +383,28 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
     const id = runRef.current + 1; runRef.current = id;
     setBusy("pull"); setProgress(0); setBoard("list");
     const collected: Punch[] = [];
+    const attempts: TeamsAttempt[] = [];
+    const clock = new Map<string, { device: string; offsetMin: number; samples: number }>();
     let lastPeople: { employeeNo: string; name: string; photo: string }[] = [];
+    const seen = new Map<string, { employeeNo: string; name: string; photo: string }>();
     try {
       let pageIndex = 1, done = false, guard = 0;
-      while (!done && guard++ < 50) {
+      while (!done && guard++ < 400) {
         const r = await hcPull({ data: { from, to, pageIndex } });
         if (runRef.current !== id) return;
         if (!r.ok) { report(r.error); break; }
-        if (r.people?.length) { setRoster(r.people); lastPeople = r.people; }
-        collected.push(...r.punches); pageIndex = r.pageIndex; done = r.done;
+        for (const p of r.people ?? []) { const k = p.employeeNo || p.name; const cur = seen.get(k); seen.set(k, { ...p, photo: p.photo || cur?.photo || "" }); }
+        if (seen.size) { lastPeople = [...seen.values()]; setRoster(lastPeople); }
+        collected.push(...r.punches); attempts.push(...(r.attempts ?? []));
+        for (const c of r.clock ?? []) clock.set(c.device, c);
+        pageIndex = r.pageIndex; done = r.done;
         setProgress(collected.length); setPunches([...collected]); setSource("device");
       }
       setDeviceLabel("Hik-Connect Team (OpenAPI)");
-      publishTeamsPull({ punches: collected, people: lastPeople, from, to, label: "Hik-Connect Team (OpenAPI)", at: Date.now() });
-      if (done) say(collected.length ? `اتسحب ${collected.length} بصمة من Hik-Connect Team.` : "مفيش بصمات في الفترة دي على Hik-Connect Team.");
+      setApiAttempts(attempts); setApiClock([...clock.values()]);
+      publishTeamsPull({ punches: collected, people: lastPeople, from, to, label: "Hik-Connect Team (OpenAPI)", at: Date.now(), attempts, clock: [...clock.values()] }, "openapi");
+      const extra = [attempts.length ? `${attempts.length} ${HC_FAILED_LABEL}` : "", clock.size ? `${clock.size} جهاز ساعته مش مظبوطة` : ""].filter(Boolean).join(" · ");
+      if (done) say((collected.length ? `اتسحب ${collected.length} بصمة من Hik-Connect Team (OpenAPI).` : "مفيش بصمات في الفترة دي على Hik-Connect Team.") + (extra ? ` (${extra})` : ""));
     } catch { report("تعذر سحب الحضور من Hik-Connect Team."); }
     finally { if (runRef.current === id) setBusy(null); }
   }
@@ -490,7 +502,7 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
         setProgress(collected.length);
         setPunches(collected);
         setSource("device");
-        publishTeamsPull({ punches: [...collected], people: teamPeople, from, to, label: "Hik-Connect Team", at: Date.now() });
+        publishTeamsPull({ punches: [...collected], people: teamPeople, from, to, label: "Hik-Connect Team", at: Date.now() }, "team");
       }
       if (!collected.length) {
         say(reportNote || (rosterCount ? `اتسحب ${rosterCount} شخص من Person، ومفيش وقت بصمة غير الشيفت.` : "مفيش وقت بصمة. 00:00 و 23:59 دول الشيفت واتسابوا."));
@@ -834,6 +846,17 @@ export function AttendanceBoard({ embedded = false, teamsOnly = false }: { embed
                   {busy === "pull" ? `جارٍ السحب… ${progress || ""}` : "اسحب الحضور من Hik-Connect Team"}
                 </button>
                 <p className="text-xs text-muted">الطرق بالأسفل (دخول موقع هيك-كونكت بالإيميل، أو الجهاز مباشرة) بديلة.</p>
+                {apiClock.map((c) => (
+                  <p key={c.device} role="alert" className="text-xs text-red-700">⏰ ساعة جهاز «{c.device}» {c.offsetMin > 0 ? "متقدمة" : "متأخرة"} {Math.abs(c.offsetMin)} دقيقة عن وقت السحابة — الأوقات هنا محسوبة من وقت السحابة (occurTime) بتوقيت القاهرة.</p>
+                ))}
+                {apiAttempts.length ? (
+                  <details className="text-xs">
+                    <summary>{apiAttempts.length} {HC_FAILED_LABEL}</summary>
+                    <ul className="mt-1 max-h-40 overflow-auto">
+                      {apiAttempts.map((a, i) => <li key={i}>{a.date} {a.time} — {a.name || a.employeeNo || "غير معروف"}{a.device ? ` · ${a.device}` : ""} · {HC_FAILED_LABEL}</li>)}
+                    </ul>
+                  </details>
+                ) : null}
               </div>
             ) : null}
             <div className={teamsOnly ? "hidden" : "grid grid-cols-1 gap-2 sm:grid-cols-3"}>

@@ -1,0 +1,1104 @@
+[
+ {
+  "recordGuid": "rec-1",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:28:46Z",
+  "deviceTime": "2026-11-02T14:28:46+02:00",
+  "recordTime": "2026-11-02T12:28:50Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-2",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:18:00Z",
+  "deviceTime": "2026-11-02T14:18:00+02:00",
+  "recordTime": "2026-11-02T12:18:04Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-3",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:17:47Z",
+  "deviceTime": "2026-11-02T14:17:47+02:00",
+  "recordTime": "2026-11-02T12:17:52Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-4",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T12:14:19Z",
+  "deviceTime": "2026-11-02T14:14:19+02:00",
+  "recordTime": "2026-11-02T12:14:24Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E002",
+    "firstName": "Person2",
+    "lastName": "",
+    "photoUrl": "https://example.invalid/photo/2.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-5",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:14:08Z",
+  "deviceTime": "2026-11-02T14:14:08+02:00",
+  "recordTime": "2026-11-02T12:14:13Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-6",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:13:14Z",
+  "deviceTime": "2026-11-02T14:13:14+02:00",
+  "recordTime": "2026-11-02T12:13:21Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-7",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:13:10Z",
+  "deviceTime": "2026-11-02T14:13:10+02:00",
+  "recordTime": "2026-11-02T12:13:13Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-8",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:00:23Z",
+  "deviceTime": "2026-11-02T14:00:23+02:00",
+  "recordTime": "2026-11-02T12:00:27Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-9",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T12:00:12Z",
+  "deviceTime": "2026-11-02T14:00:12+02:00",
+  "recordTime": "2026-11-02T12:00:19Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-10",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:32:14Z",
+  "deviceTime": "2026-11-02T13:32:14+02:00",
+  "recordTime": "2026-11-02T11:32:21Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-11",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:31:40Z",
+  "deviceTime": "2026-11-02T13:31:40+02:00",
+  "recordTime": "2026-11-02T11:31:45Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-12",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:25:26Z",
+  "deviceTime": "2026-11-02T13:25:26+02:00",
+  "recordTime": "2026-11-02T11:25:33Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-13",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:23:03Z",
+  "deviceTime": "2026-11-02T13:23:03+02:00",
+  "recordTime": "2026-11-02T11:23:08Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E004",
+    "firstName": "Person4",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/4.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-14",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:19:51Z",
+  "deviceTime": "2026-11-02T13:19:51+02:00",
+  "recordTime": "2026-11-02T11:19:56Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-15",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:16:05Z",
+  "deviceTime": "2026-11-02T13:16:05+02:00",
+  "recordTime": "2026-11-02T11:16:10Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-16",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:13:13Z",
+  "deviceTime": "2026-11-02T13:13:13+02:00",
+  "recordTime": "2026-11-02T11:13:18Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-17",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:03:08Z",
+  "deviceTime": "2026-11-02T13:03:08+02:00",
+  "recordTime": "2026-11-02T11:03:14Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-18",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T11:00:26Z",
+  "deviceTime": "2026-11-02T13:00:26+02:00",
+  "recordTime": "2026-11-02T11:00:32Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-19",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:49:58Z",
+  "deviceTime": "2026-11-02T12:49:58+02:00",
+  "recordTime": "2026-11-02T10:50:04Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-20",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:42:06Z",
+  "deviceTime": "2026-11-02T12:42:06+02:00",
+  "recordTime": "2026-11-02T10:42:12Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-21",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:41:01Z",
+  "deviceTime": "2026-11-02T12:41:01+02:00",
+  "recordTime": "2026-11-02T10:41:06Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-22",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:40:50Z",
+  "deviceTime": "2026-11-02T12:40:50+02:00",
+  "recordTime": "2026-11-02T10:40:56Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-23",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:40:34Z",
+  "deviceTime": "2026-11-02T12:40:34+02:00",
+  "recordTime": "2026-11-02T10:40:40Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-24",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:40:31Z",
+  "deviceTime": "2026-11-02T12:40:31+02:00",
+  "recordTime": "2026-11-02T10:40:36Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-25",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:38:53Z",
+  "deviceTime": "2026-11-02T12:38:53+02:00",
+  "recordTime": "2026-11-02T10:38:58Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-26",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:38:46Z",
+  "deviceTime": "2026-11-02T12:38:46+02:00",
+  "recordTime": "2026-11-02T10:38:52Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-27",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:38:43Z",
+  "deviceTime": "2026-11-02T12:38:43+02:00",
+  "recordTime": "2026-11-02T10:38:48Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-28",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T10:34:44Z",
+  "deviceTime": "2026-11-02T12:34:44+02:00",
+  "recordTime": "2026-11-02T10:34:46Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E002",
+    "firstName": "Person2",
+    "lastName": "",
+    "photoUrl": "https://example.invalid/photo/2.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-29",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:34:13Z",
+  "deviceTime": "2026-11-02T12:34:13+02:00",
+  "recordTime": "2026-11-02T10:34:16Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-30",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:34:09Z",
+  "deviceTime": "2026-11-02T12:34:09+02:00",
+  "recordTime": "2026-11-02T10:34:14Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-31",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T10:26:42Z",
+  "deviceTime": "2026-11-02T12:26:42+02:00",
+  "recordTime": "2026-11-02T10:26:48Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-32",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T10:09:45Z",
+  "deviceTime": "2026-11-02T13:09:45+03:00",
+  "recordTime": "2026-11-02T10:09:49Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E005",
+    "firstName": "Person5",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/5.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-33",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T10:07:46Z",
+  "deviceTime": "2026-11-02T13:07:46+03:00",
+  "recordTime": "2026-11-02T10:07:49Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E005",
+    "firstName": "Person5",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/5.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-34",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T09:38:04Z",
+  "deviceTime": "2026-11-02T11:38:04+02:00",
+  "recordTime": "2026-11-02T09:38:07Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-35",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T09:02:31Z",
+  "deviceTime": "2026-11-02T11:02:31+02:00",
+  "recordTime": "2026-11-02T09:02:35Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-36",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T08:48:14Z",
+  "deviceTime": "2026-11-02T10:48:14+02:00",
+  "recordTime": "2026-11-02T08:48:19Z",
+  "eventType": 110533,
+  "swipeAuthResult": 0,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E006",
+    "firstName": "Person6",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/6.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-37",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T08:44:45Z",
+  "deviceTime": "2026-11-02T10:44:45+02:00",
+  "recordTime": "2026-11-02T08:44:49Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E007",
+    "firstName": "Person7",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/7.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-38",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T08:29:32Z",
+  "deviceTime": "2026-11-02T10:29:32+02:00",
+  "recordTime": "2026-11-02T08:29:35Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E007",
+    "firstName": "Person7",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/7.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-39",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T08:29:14Z",
+  "deviceTime": "2026-11-02T10:29:14+02:00",
+  "recordTime": "2026-11-02T08:29:19Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E007",
+    "firstName": "Person7",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/7.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-40",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T08:29:11Z",
+  "deviceTime": "2026-11-02T10:29:11+02:00",
+  "recordTime": "2026-11-02T08:29:17Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E007",
+    "firstName": "Person7",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/7.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-41",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T08:08:58Z",
+  "deviceTime": "2026-11-02T10:08:58+02:00",
+  "recordTime": "2026-11-02T08:09:02Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-42",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T08:08:42Z",
+  "deviceTime": "2026-11-02T10:08:42+02:00",
+  "recordTime": "2026-11-02T08:08:46Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-43",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T08:00:08Z",
+  "deviceTime": "2026-11-02T11:00:08+03:00",
+  "recordTime": "2026-11-02T08:00:14Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E008",
+    "firstName": "Person8",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/8.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-44",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T07:58:20Z",
+  "deviceTime": "2026-11-02T09:58:20+02:00",
+  "recordTime": "2026-11-02T07:58:26Z",
+  "eventType": 110533,
+  "swipeAuthResult": 0,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-45",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T07:58:16Z",
+  "deviceTime": "2026-11-02T09:58:16+02:00",
+  "recordTime": "2026-11-02T07:58:24Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-46",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:49:38Z",
+  "deviceTime": "2026-11-02T09:49:38+02:00",
+  "recordTime": "2026-11-02T07:49:40Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E006",
+    "firstName": "Person6",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/6.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-47",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:49:37Z",
+  "deviceTime": "2026-11-02T09:49:37+02:00",
+  "recordTime": "2026-11-02T07:49:38Z",
+  "eventType": 110533,
+  "swipeAuthResult": 0,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E006",
+    "firstName": "Person6",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/6.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-48",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:47:06Z",
+  "deviceTime": "2026-11-02T09:47:06+02:00",
+  "recordTime": "2026-11-02T07:47:08Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E006",
+    "firstName": "Person6",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/6.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-49",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T07:22:57Z",
+  "deviceTime": "2026-11-02T10:22:57+03:00",
+  "recordTime": "2026-11-02T07:23:03Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E009",
+    "firstName": "Person9",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/9.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-50",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T07:20:45Z",
+  "deviceTime": "2026-11-02T09:20:45+02:00",
+  "recordTime": "2026-11-02T07:20:49Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E003",
+    "firstName": "Person3",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/3.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-51",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T07:20:43Z",
+  "deviceTime": "2026-11-02T09:20:43+02:00",
+  "recordTime": "2026-11-02T07:20:45Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E001",
+    "firstName": "Person1",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/1.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-52",
+  "deviceName": "Door-1",
+  "cardReaderName": "Door-1-reader",
+  "occurTime": "2026-11-02T07:20:39Z",
+  "deviceTime": "2026-11-02T09:20:39+02:00",
+  "recordTime": "2026-11-02T07:20:41Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E010",
+    "firstName": "Person10",
+    "lastName": "",
+    "photoUrl": "https://example.invalid/photo/10.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-53",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:18:43Z",
+  "deviceTime": "2026-11-02T09:18:43+02:00",
+  "recordTime": "2026-11-02T07:18:48Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E002",
+    "firstName": "Person2",
+    "lastName": "",
+    "photoUrl": "https://example.invalid/photo/2.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-54",
+  "deviceName": "Door-4",
+  "cardReaderName": "Door-4-reader",
+  "occurTime": "2026-11-02T07:10:12Z",
+  "deviceTime": "2026-11-02T09:10:12+02:00",
+  "recordTime": "2026-11-02T07:10:18Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E011",
+    "firstName": "Person11",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/11.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-55",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:09:55Z",
+  "deviceTime": "2026-11-02T09:09:55+02:00",
+  "recordTime": "2026-11-02T07:10:00Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E002",
+    "firstName": "Person2",
+    "lastName": "",
+    "photoUrl": "https://example.invalid/photo/2.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-56",
+  "deviceName": "Door-2",
+  "cardReaderName": "Door-2-reader",
+  "occurTime": "2026-11-02T07:08:34Z",
+  "deviceTime": "2026-11-02T09:08:34+02:00",
+  "recordTime": "2026-11-02T07:08:36Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E006",
+    "firstName": "Person6",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/6.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-57",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T07:08:03Z",
+  "deviceTime": "2026-11-02T10:08:03+03:00",
+  "recordTime": "2026-11-02T07:08:09Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E012",
+    "firstName": "Person12",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/12.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ },
+ {
+  "recordGuid": "rec-58",
+  "deviceName": "Door-3",
+  "cardReaderName": "Door-3-reader",
+  "occurTime": "2026-11-02T06:58:31Z",
+  "deviceTime": "2026-11-02T09:58:31+03:00",
+  "recordTime": "2026-11-02T06:58:37Z",
+  "eventType": 110013,
+  "swipeAuthResult": 1,
+  "personInfo": {
+   "baseInfo": {
+    "personCode": "E013",
+    "firstName": "Person13",
+    "lastName": "Test",
+    "photoUrl": "https://example.invalid/photo/13.jpg?X-Amz-Expires=3600",
+    "fullPath": "Company"
+   }
+  }
+ }
+]

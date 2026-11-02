@@ -21,6 +21,12 @@ export const hcTeamSaveFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try { await admin(); const { hcSave } = await import("./hcteam.server"); return { ok: true as const, status: hcSave(data) }; } catch (e) { return fail(e); }
   });
+const methodSchema = z.object({ method: z.enum(["phone", "openapi"]) });
+export const hcTeamMethodFn = createServerFn({ method: "POST" })
+  .validator((d: z.infer<typeof methodSchema>) => methodSchema.parse(d))
+  .handler(async ({ data }) => {
+    try { await admin(); const { hcSetMethod } = await import("./hcteam.server"); return { ok: true as const, status: hcSetMethod(data.method) }; } catch (e) { return fail(e); }
+  });
 export const hcTeamClearFn = createServerFn({ method: "POST" }).handler(async () => {
   try { await admin(); const { hcClear } = await import("./hcteam.server"); return { ok: true as const, status: hcClear() }; } catch (e) { return fail(e); }
 });
